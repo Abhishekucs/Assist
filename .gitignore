@@ -4,3 +4,7 @@ DerivedData/
 *.xcuserdata/
 *.xcuserstate
 *.swp
+.vercel/
+.env
+.env.local
+.env.*.local
