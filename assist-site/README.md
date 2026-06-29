@@ -14,7 +14,7 @@ npm run dev
 The app download is protected by Dodo Payments. The CTA buttons send buyers to
 `/api/checkout`, which creates a server-side Dodo checkout session and redirects
 to the hosted checkout page. After payment, Dodo returns the buyer to
-`/purchase/success`. That page verifies the Dodo payment server-side, saves the
+`/purchase/result`. That page verifies the Dodo payment server-side, saves the
 purchase to Supabase, and shows the download button. The download button calls
 `/api/download`, which checks the saved Supabase purchase before streaming the
 app file.
@@ -42,7 +42,7 @@ DODO_PAYMENTS_API_KEY=
 DODO_PAYMENTS_WEBHOOK_KEY=
 DODO_PAYMENTS_PRODUCT_ID=
 DODO_PAYMENTS_ENVIRONMENT=test_mode
-DODO_PAYMENTS_RETURN_URL=http://localhost:3000/purchase/success
+DODO_PAYMENTS_RETURN_URL=http://localhost:3000/purchase/result
 DODO_PAYMENTS_CANCEL_URL=http://localhost:3000/#pricing
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
