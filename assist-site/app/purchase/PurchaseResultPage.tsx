@@ -39,9 +39,10 @@ function getReturnStatusFromParams(
 function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
   if (state === "ready" && purchase) {
     return {
-      kicker: `Payment ${purchase.status}`,
+      kicker: "Payment complete",
       title: "Your download is ready.",
-      body: "Your purchase has been saved in Supabase. The download link below checks that saved purchase before serving the app.",
+      body: "Thanks for purchasing Assist. Download the macOS app below and keep it somewhere easy to find.",
+      detail: null,
     };
   }
 
@@ -49,14 +50,16 @@ function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
     return {
       kicker: "Payment failed",
       title: "Payment did not complete.",
-      body: "No purchase was saved and no download was created. You can return to pricing and try the payment again.",
+      body: "Please try again, or use a different payment method if the checkout keeps failing.",
+      detail: null,
     };
   }
 
   return {
     kicker: "Payment needs attention",
-    title: "Purchase was not saved.",
-    body: "The app could not save this purchase. The exact server error is shown below.",
+    title: "We could not verify this purchase.",
+    body: "Open the checkout link from your payment confirmation again, or return to pricing and start a new checkout.",
+    detail: "Verification detail",
   };
 }
 
@@ -104,10 +107,14 @@ export default async function PurchaseResultPage({
   const downloadHref = purchase
     ? `/api/download?payment_id=${encodeURIComponent(purchase.dodo_payment_id)}`
     : null;
+  const isFailed = state === "failed";
 
   return (
     <main className="purchase-page">
-      <section className="purchase-card" aria-labelledby="purchase-title">
+      <section
+        className={`purchase-card purchase-card-${state}`}
+        aria-labelledby="purchase-title"
+      >
         <a className="purchase-brand" href="/" aria-label="Assist home">
           <span className="brand-mark">
             <img src="/ai-clipboard-icon.svg" alt="" width="30" height="30" />
@@ -115,17 +122,33 @@ export default async function PurchaseResultPage({
           <span>Assist</span>
         </a>
 
+        <div className="purchase-status-mark" aria-hidden="true">
+          <span></span>
+        </div>
+
         <p className="purchase-kicker">{copy.kicker}</p>
         <h1 id="purchase-title">{copy.title}</h1>
         <p>{copy.body}</p>
 
         {downloadHref ? (
-          <a className="purchase-download-button" href={downloadHref}>
-            <span aria-hidden="true"></span>
-            <span>Download Assist for macOS</span>
-          </a>
+          <div className="purchase-actions">
+            <a className="purchase-download-button" href={downloadHref}>
+              <span aria-hidden="true"></span>
+              <span>Download Assist for macOS</span>
+            </a>
+          </div>
+        ) : isFailed ? (
+          <div className="purchase-actions">
+            <a className="purchase-download-button" href="/api/checkout">
+              <span aria-hidden="true"></span>
+              <span>Try payment again</span>
+            </a>
+          </div>
         ) : (
-          <p className="purchase-warning">{error}</p>
+          <details className="purchase-warning">
+            <summary>{copy.detail}</summary>
+            <p>{error}</p>
+          </details>
         )}
 
         <a className="purchase-back-link" href={state === "failed" ? "/#pricing" : "/"}>
