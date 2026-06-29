@@ -9,6 +9,42 @@ struct CaptureItem: Codable, Identifiable, Equatable {
     var context: ScreenshotContext
 }
 
+struct TextClipItem: Codable, Identifiable, Equatable {
+    let id: UUID
+    let createdAt: Date
+    let text: String
+
+    var preview: String {
+        let collapsedWhitespace = text
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        return String(collapsedWhitespace.prefix(140))
+    }
+}
+
+enum ClipboardHistoryItem: Identifiable, Equatable {
+    case screenshot(CaptureItem)
+    case text(TextClipItem)
+
+    var id: UUID {
+        switch self {
+        case let .screenshot(item):
+            item.id
+        case let .text(item):
+            item.id
+        }
+    }
+
+    var createdAt: Date {
+        switch self {
+        case let .screenshot(item):
+            item.createdAt
+        case let .text(item):
+            item.createdAt
+        }
+    }
+}
+
 struct ScreenshotContext: Codable, Equatable {
     var summary: String
     var visibleText: [String]

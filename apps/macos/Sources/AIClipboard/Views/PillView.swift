@@ -1,7 +1,9 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
+    @ObservedObject var settings: PillSettings
     let onHoverChanged: (Bool) -> Void
 
     private var isIslandChromeVisible: Bool {
@@ -9,7 +11,15 @@ struct PillView: View {
     }
 
     private var chromeSize: CGSize {
-        viewModel.isExpanded ? PillChromeMetrics.expandedSize : PillChromeMetrics.collapsedSize
+        viewModel.isExpanded ? expandedSize : collapsedSize
+    }
+
+    private var collapsedSize: CGSize {
+        PillChromeMetrics.collapsedSize(settings: settings)
+    }
+
+    private var expandedSize: CGSize {
+        PillChromeMetrics.expandedSize(settings: settings)
     }
 
     private var chromeTopCornerRadius: CGFloat {
@@ -25,7 +35,7 @@ struct PillView: View {
     }
 
     private var shouldShowLoadingBorder: Bool {
-        viewModel.isBusy || (viewModel.isExpanded && !viewModel.isExpandedContentVisible)
+        settings.showLoadingBorder && viewModel.isBusy
     }
 
     var body: some View {
@@ -33,26 +43,26 @@ struct PillView: View {
             ZStack(alignment: .top) {
                 CollapsedIslandHeader(viewModel: viewModel)
                     .frame(
-                        width: PillChromeMetrics.collapsedSize.width,
-                        height: PillChromeMetrics.collapsedSize.height
+                        width: collapsedSize.width,
+                        height: collapsedSize.height
                     )
                     .opacity(viewModel.isCollapsedContentVisible ? 1 : 0)
                     .transaction { transaction in
                         transaction.animation = nil
                     }
 
-                if viewModel.isExpandedContentVisible {
-                    ExpandedIslandView(viewModel: viewModel)
-                        .frame(
-                            width: PillChromeMetrics.expandedSize.width,
-                            height: PillChromeMetrics.expandedSize.height,
-                            alignment: .top
-                        )
-                        .transaction { transaction in
-                            transaction.animation = nil
-                        }
-                        .transition(.opacity.animation(.easeOut(duration: 0.08)))
-                }
+                ExpandedIslandView(viewModel: viewModel)
+                    .frame(
+                        width: expandedSize.width,
+                        height: expandedSize.height,
+                        alignment: .top
+                    )
+                    .opacity(viewModel.isExpandedContentVisible ? 1 : 0)
+                    .allowsHitTesting(viewModel.isExpandedContentVisible)
+                    .transaction { transaction in
+                        transaction.animation = nil
+                        transaction.disablesAnimations = true
+                    }
             }
             .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
             .animation(islandAnimation, value: viewModel.isExpanded)
@@ -61,7 +71,7 @@ struct PillView: View {
                     topCornerRadius: chromeTopCornerRadius,
                     bottomCornerRadius: chromeBottomCornerRadius
                 )
-                    .fill(Color.black.opacity(isIslandChromeVisible ? 0.94 : 0.99))
+                    .fill(Color.black)
                     .animation(islandAnimation, value: chromeTopCornerRadius)
                     .animation(islandAnimation, value: chromeBottomCornerRadius)
             }
@@ -119,52 +129,6 @@ private struct CollapsedIslandHeader: View {
             }
         }
         .padding(.horizontal, 18)
-    }
-}
-
-private struct BoringNotchShape: Shape {
-    var topCornerRadius: CGFloat
-    var bottomCornerRadius: CGFloat
-
-    var animatableData: AnimatablePair<CGFloat, CGFloat> {
-        get {
-            AnimatablePair(topCornerRadius, bottomCornerRadius)
-        }
-        set {
-            topCornerRadius = newValue.first
-            bottomCornerRadius = newValue.second
-        }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        let topRadius = min(topCornerRadius, rect.width / 2, rect.height / 2)
-        let bottomRadius = min(bottomCornerRadius, rect.width / 2, rect.height / 2)
-
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX + topRadius, y: rect.minY + topRadius),
-            control: CGPoint(x: rect.minX + topRadius, y: rect.minY)
-        )
-        path.addLine(to: CGPoint(x: rect.minX + topRadius, y: rect.maxY - bottomRadius))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX + topRadius + bottomRadius, y: rect.maxY),
-            control: CGPoint(x: rect.minX + topRadius, y: rect.maxY)
-        )
-        path.addLine(to: CGPoint(x: rect.maxX - topRadius - bottomRadius, y: rect.maxY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX - topRadius, y: rect.maxY - bottomRadius),
-            control: CGPoint(x: rect.maxX - topRadius, y: rect.maxY)
-        )
-        path.addLine(to: CGPoint(x: rect.maxX - topRadius, y: rect.minY + topRadius))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY),
-            control: CGPoint(x: rect.maxX - topRadius, y: rect.minY)
-        )
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.closeSubpath()
-
-        return path
     }
 }
 
@@ -279,16 +243,34 @@ struct ExpandedIslandView: View {
             ExpandedIslandHeader(viewModel: viewModel)
                 .frame(height: 34)
 
-            if !viewModel.items.isEmpty {
+            if !viewModel.historyItems.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(viewModel.items) { item in
-                            CaptureGalleryCard(
-                                item: item,
-                                thumbnail: viewModel.thumbnail(for: item),
-                                isSelected: item.id == viewModel.latestItem?.id
-                            ) {
-                                viewModel.latestItem = item
+                        ForEach(viewModel.historyItems) { item in
+                            switch item {
+                            case let .screenshot(capture):
+                                CaptureGalleryCard(
+                                    item: capture,
+                                    thumbnail: viewModel.thumbnail(for: capture),
+                                    isSelected: item.id == viewModel.selectedItem?.id,
+                                    isFileSelected: viewModel.selectedFileIDs.contains(capture.id)
+                                ) {
+                                    viewModel.selectScreenshot(
+                                        capture,
+                                        extendingFileSelection: NSApp.currentEvent?.modifierFlags.contains(.command) == true
+                                    )
+                                } deleteAction: {
+                                    viewModel.delete(item)
+                                }
+                            case let .text(textClip):
+                                TextClipGalleryCard(
+                                    item: textClip,
+                                    isSelected: item.id == viewModel.selectedItem?.id
+                                ) {
+                                    viewModel.copyTextItem(textClip)
+                                } deleteAction: {
+                                    viewModel.delete(item)
+                                }
                             }
                         }
                     }
@@ -296,10 +278,10 @@ struct ExpandedIslandView: View {
                 }
             } else {
                 VStack(alignment: .center, spacing: 10) {
-                    Text("No captures yet")
+                    Text("No items yet")
                         .font(.system(size: 16, weight: .semibold))
 
-                    Text("Hold Control to annotate. Press Control + Option for a clean screenshot.")
+                    Text("Hold Control to annotate, press Control + Option for a clean screenshot, or copy text.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -309,8 +291,6 @@ struct ExpandedIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .multilineTextAlignment(.center)
             }
-
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 30)
         .padding(.top, 6)
@@ -323,14 +303,29 @@ private struct ExpandedIslandHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("Recent Captures")
+            Text("Recent Items")
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.9))
                 .textCase(.uppercase)
 
             Spacer()
 
-            if !viewModel.items.isEmpty {
+            Button {
+                viewModel.openControls()
+            } label: {
+                Capsule()
+                    .fill(.black)
+                    .frame(width: 30, height: 30)
+                    .overlay {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundStyle(.white)
+                            .imageScale(.medium)
+                    }
+            }
+            .buttonStyle(.plain)
+            .help("Open controls")
+
+            if viewModel.canCopySelectedImage {
                 Button {
                     viewModel.copyLatestImage()
                 } label: {
@@ -345,7 +340,43 @@ private struct ExpandedIslandHeader: View {
                 }
                 .buttonStyle(.plain)
                 .help("Copy image")
+            }
 
+            if viewModel.canCopySelectedFiles {
+                Button {
+                    viewModel.copySelectedScreenshotFiles()
+                } label: {
+                    Capsule()
+                        .fill(.black)
+                        .frame(width: 30, height: 30)
+                        .overlay {
+                            Image(systemName: "doc.on.doc")
+                                .foregroundStyle(.white)
+                                .imageScale(.medium)
+                        }
+                }
+                .buttonStyle(.plain)
+                .help("Copy \(viewModel.selectedFileCount) screenshot file\(viewModel.selectedFileCount == 1 ? "" : "s")")
+            }
+
+            if viewModel.canRevealSelectedScreenshot {
+                Button {
+                    viewModel.revealSelectedScreenshotInFinder()
+                } label: {
+                    Capsule()
+                        .fill(.black)
+                        .frame(width: 30, height: 30)
+                        .overlay {
+                            Image(systemName: "folder")
+                                .foregroundStyle(.white)
+                                .imageScale(.medium)
+                        }
+                }
+                .buttonStyle(.plain)
+                .help("Reveal screenshot in Finder")
+            }
+
+            if viewModel.selectedItem != nil {
                 Button {
                     viewModel.copyLatestContext()
                 } label: {
@@ -359,7 +390,7 @@ private struct ExpandedIslandHeader: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .help("Copy context")
+                .help(viewModel.canCopySelectedImage ? "Copy context" : "Copy text")
             }
         }
         .foregroundStyle(.white)
@@ -408,47 +439,177 @@ private struct CaptureGalleryCard: View {
     let item: CaptureItem
     let thumbnail: NSImage?
     let isSelected: Bool
+    let isFileSelected: Bool
+    let action: () -> Void
+    let deleteAction: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Button(action: action) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.secondary.opacity(0.12))
+
+                        if let image = thumbnail {
+                            Image(nsImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 126, height: 96)
+                                .clipped()
+                        } else {
+                            Image(systemName: "photo")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: 126, height: 96)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    Text(item.createdAt, style: .time)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .padding(8)
+                .frame(width: 142, height: 142, alignment: .topLeading)
+                .background(Color.white.opacity(isSelected ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(isSelected ? Color.white.opacity(0.72) : Color.white.opacity(0.12), lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .onDrag {
+                item.dragProvider
+            }
+
+            FileSelectionBadge(isSelected: isFileSelected)
+                .padding(5)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            DeleteCardButton(action: deleteAction)
+                .padding(5)
+        }
+    }
+}
+
+private struct TextClipGalleryCard: View {
+    let item: TextClipItem
+    let isSelected: Bool
+    let action: () -> Void
+    let deleteAction: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Button(action: action) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.white.opacity(0.08))
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack {
+                                Image(systemName: "text.alignleft")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.75))
+
+                                Spacer()
+
+                                Image(systemName: "doc.on.doc")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                            }
+
+                            Text(item.preview)
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.86))
+                                .lineLimit(5)
+                        }
+                        .padding(10)
+                    }
+                    .frame(width: 126, height: 96)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    Text(item.createdAt, style: .time)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .padding(8)
+                .frame(width: 142, height: 142, alignment: .topLeading)
+                .background(Color.white.opacity(isSelected ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(isSelected ? Color.white.opacity(0.72) : Color.white.opacity(0.12), lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .onDrag {
+                item.dragProvider
+            }
+
+            DeleteCardButton(action: deleteAction)
+                .padding(5)
+        }
+    }
+}
+
+private struct FileSelectionBadge: View {
+    let isSelected: Bool
+
+    var body: some View {
+        Circle()
+            .fill(Color.black.opacity(isSelected ? 0.78 : 0.46))
+            .frame(width: 22, height: 22)
+            .overlay {
+                Image(systemName: isSelected ? "checkmark" : "circle")
+                    .font(.system(size: isSelected ? 10 : 9, weight: .semibold))
+                    .foregroundStyle(.white.opacity(isSelected ? 0.96 : 0.52))
+            }
+            .overlay {
+                Circle()
+                    .stroke(Color.white.opacity(isSelected ? 0.55 : 0.16), lineWidth: 1)
+            }
+            .help(isSelected ? "Selected for file copy" : "Command-click to select multiple files")
+            .allowsHitTesting(false)
+    }
+}
+
+private extension CaptureItem {
+    var dragProvider: NSItemProvider {
+        let imageURL = URL(fileURLWithPath: imagePath)
+
+        if FileManager.default.fileExists(atPath: imageURL.path),
+           let provider = NSItemProvider(contentsOf: imageURL) {
+            return provider
+        }
+
+        return NSItemProvider(
+            item: imageURL as NSSecureCoding,
+            typeIdentifier: UTType.fileURL.identifier
+        )
+    }
+}
+
+private extension TextClipItem {
+    var dragProvider: NSItemProvider {
+        NSItemProvider(object: text as NSString)
+    }
+}
+
+private struct DeleteCardButton: View {
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.secondary.opacity(0.12))
-
-                    if let image = thumbnail {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 126, height: 78)
-                            .clipped()
-                    } else {
-                        Image(systemName: "photo")
-                            .foregroundStyle(.secondary)
-                    }
+            Circle()
+                .fill(Color.black.opacity(0.74))
+                .frame(width: 22, height: 22)
+                .overlay {
+                    Image(systemName: "trash")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.92))
                 }
-                .frame(width: 126, height: 78)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                Text(item.context.summary)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(2)
-                    .frame(width: 126, alignment: .leading)
-
-                Text(item.createdAt, style: .time)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.55))
-            }
-            .padding(8)
-            .frame(width: 142, height: 142, alignment: .topLeading)
-            .background(Color.white.opacity(isSelected ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(isSelected ? Color.white.opacity(0.72) : Color.white.opacity(0.12), lineWidth: 1)
-            }
         }
         .buttonStyle(.plain)
+        .help("Delete item")
     }
 }

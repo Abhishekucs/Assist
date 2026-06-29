@@ -43,7 +43,8 @@ make run
 ```
 
 The macOS app handles native screenshot capture, annotation, local OCR, and the
-notch-style capture shelf.
+notch-style capture shelf. See `apps/macos/README.md` for permissions, local
+development, and architecture notes.
 
 ## Deployment
 

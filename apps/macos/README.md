@@ -1,6 +1,6 @@
-# AI Clipboard
+# Assist
 
-AI Clipboard is a native macOS screenshot utility for quick annotation and structured context capture.
+Assist is a native macOS screenshot utility for quick annotation and structured context capture.
 
 The first version is intentionally small:
 
@@ -33,7 +33,7 @@ make build
 The app bundle is created at:
 
 ```text
-.build/AIClipboard.app
+.build/Assist.app
 ```
 
 Run it with:
@@ -45,10 +45,10 @@ make run
 `make run` installs and opens a stable development copy at:
 
 ```text
-/Applications/AIClipboard.app
+/Applications/Assist.app
 ```
 
-Use the `/Applications` app when granting Screen Recording permission. Avoid granting permission to `.build/AIClipboard.app`; that bundle is disposable and may be recreated during development.
+Use the `/Applications` app when granting Screen Recording permission. Avoid granting permission to `.build/Assist.app`; that bundle is disposable and may be recreated during development.
 
 For local development, use a stable signing identity so macOS Screen Recording permission survives rebuilds:
 
@@ -59,7 +59,7 @@ make run
 
 ## Permissions
 
-AI Clipboard asks for:
+Assist asks for:
 
 - Screen Recording, to capture the screen.
 - Accessibility/Input Monitoring, to detect the global `Control` hold gesture.
@@ -77,7 +77,7 @@ The expanded pill includes diagnostic buttons:
 The debug log is written to:
 
 ```text
-~/Library/Application Support/AIClipboard/debug.log
+~/Library/Application Support/Assist/debug.log
 ```
 
 ## Architecture
@@ -126,7 +126,7 @@ ScreenCaptureKit display capture
 Captures are stored in:
 
 ```text
-~/Library/Application Support/AIClipboard/
+~/Library/Application Support/Assist/
 ├── captures.sqlite
 └── Captures/
     ├── <capture-id>.png

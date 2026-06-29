@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -9,28 +10,29 @@ final class WindowManager {
             dampingFraction: 0.8,
             blendDuration: 0
         )
-        static let contentRevealDelay: TimeInterval = 0.3
-        static let contentFadeDuration: TimeInterval = 0.08
-        static let panelShrinkDelay: TimeInterval = 0.52
+        static let contentFadeDuration: TimeInterval = 0.06
+        static let panelShrinkDelay: TimeInterval = 0.44
         static let pointerScreenPollInterval: TimeInterval = 0.18
     }
 
     private let pillViewModel: PillViewModel
+    private let settings: PillSettings
     private let pillPanel: NSPanel
     private let overlayPanel: NSPanel
     private let overlayView = AnnotationOverlayView()
     private var collapseWorkItem: DispatchWorkItem?
-    private var contentRevealWorkItem: DispatchWorkItem?
     private var panelShrinkWorkItem: DispatchWorkItem?
     private var pointerScreenTimer: Timer?
     private var currentPillScreenID: CGDirectDisplayID?
     private var isPointerHoveringPillChrome = false
+    private var settingsCancellable: AnyCancellable?
 
-    init(pillViewModel: PillViewModel) {
+    init(pillViewModel: PillViewModel, settings: PillSettings) {
         self.pillViewModel = pillViewModel
+        self.settings = settings
 
         pillPanel = NSPanel(
-            contentRect: Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize, on: Self.screenContainingMouse()),
+            contentRect: Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize(settings: settings), on: Self.screenContainingMouse()),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -44,6 +46,7 @@ final class WindowManager {
 
         configurePillPanel()
         configureOverlayPanel()
+        observeSettings()
         startPointerScreenTracking()
     }
 
@@ -53,7 +56,7 @@ final class WindowManager {
         pillViewModel.isCollapsedContentVisible = true
         pillViewModel.isExpanded = false
         currentPillScreenID = Self.screenContainingMouse()?.displayID
-        setPillFrame(size: PillChromeMetrics.collapsedSize, display: true)
+        setPillFrame(size: PillChromeMetrics.collapsedSize(settings: settings), display: true)
         pillPanel.orderFrontRegardless()
         pinPillToTopCenter()
     }
@@ -87,6 +90,7 @@ final class WindowManager {
         pillPanel.contentView = NSHostingView(
             rootView: PillView(
                 viewModel: pillViewModel,
+                settings: settings,
                 onHoverChanged: { [weak self] hovering in
                     self?.setPillHovering(hovering)
                 }
@@ -113,7 +117,7 @@ final class WindowManager {
     }
 
     private func pinPillToTopCenter() {
-        let expectedFrame = Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize, on: screenForCurrentPill())
+        let expectedFrame = Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize(settings: settings), on: screenForCurrentPill())
 
         DispatchQueue.main.async { [weak self] in
             self?.pillPanel.setFrame(expectedFrame, display: true, animate: false)
@@ -121,19 +125,25 @@ final class WindowManager {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self, !self.pillViewModel.isExpanded else { return }
-            self.pillPanel.setFrame(Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize, on: self.screenForCurrentPill()), display: true, animate: false)
+            self.pillPanel.setFrame(
+                Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize(settings: self.settings), on: self.screenForCurrentPill()),
+                display: true,
+                animate: false
+            )
         }
     }
 
     private func setPillHovering(_ hovering: Bool) {
         isPointerHoveringPillChrome = hovering
         collapseWorkItem?.cancel()
-        contentRevealWorkItem?.cancel()
         panelShrinkWorkItem?.cancel()
 
         if hovering {
+            guard settings.openOnHover else { return }
+
             pillViewModel.isCollapsedContentVisible = false
-            setPillFrame(size: PillChromeMetrics.expandedSize, display: true)
+            pillViewModel.isExpandedContentVisible = true
+            setPillFrame(size: PillChromeMetrics.expandedSize(settings: settings), display: true)
             pillPanel.orderFrontRegardless()
 
             DispatchQueue.main.async { [weak self] in
@@ -143,19 +153,6 @@ final class WindowManager {
                     self.pillViewModel.isExpanded = true
                 }
             }
-
-            let revealWorkItem = DispatchWorkItem { [weak self] in
-                guard let self, self.isPointerHoveringPillChrome, self.pillViewModel.isExpanded else { return }
-
-                withAnimation(.easeOut(duration: Metrics.contentFadeDuration)) {
-                    self.pillViewModel.isExpandedContentVisible = true
-                }
-            }
-            contentRevealWorkItem = revealWorkItem
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + Metrics.contentRevealDelay,
-                execute: revealWorkItem
-            )
             return
         }
 
@@ -163,9 +160,7 @@ final class WindowManager {
             guard let self else { return }
 
             if !self.isPointerHoveringPillChrome {
-                withAnimation(.easeOut(duration: Metrics.contentFadeDuration)) {
-                    self.pillViewModel.isExpandedContentVisible = false
-                }
+                self.pillViewModel.isExpandedContentVisible = false
 
                 let collapseFrameWorkItem = DispatchWorkItem { [weak self] in
                     guard let self, self.pillViewModel.isExpanded else { return }
@@ -181,7 +176,7 @@ final class WindowManager {
 
                     let shrinkWorkItem = DispatchWorkItem { [weak self] in
                         guard let self, !self.isPointerHoveringPillChrome, !self.pillViewModel.isExpanded else { return }
-                        self.setPillFrame(size: PillChromeMetrics.collapsedSize, display: true)
+                        self.setPillFrame(size: PillChromeMetrics.collapsedSize(settings: self.settings), display: true)
                         self.pillViewModel.isCollapsedContentVisible = true
                     }
                     self.panelShrinkWorkItem = shrinkWorkItem
@@ -190,7 +185,6 @@ final class WindowManager {
                         execute: shrinkWorkItem
                     )
                 }
-                self.contentRevealWorkItem = collapseFrameWorkItem
                 DispatchQueue.main.asyncAfter(
                     deadline: .now() + Metrics.contentFadeDuration,
                     execute: collapseFrameWorkItem
@@ -200,6 +194,22 @@ final class WindowManager {
 
         collapseWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16, execute: workItem)
+    }
+
+    private func observeSettings() {
+        settingsCancellable = settings.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.applyPillSettings()
+            }
+        }
+    }
+
+    private func applyPillSettings() {
+        let size = pillViewModel.isExpanded
+            ? PillChromeMetrics.expandedSize(settings: settings)
+            : PillChromeMetrics.collapsedSize(settings: settings)
+
+        setPillFrame(size: size, display: true)
     }
 
     private func startPointerScreenTracking() {
@@ -214,6 +224,7 @@ final class WindowManager {
     }
 
     private func syncPillToPointerScreen() {
+        guard settings.followPointerDisplay else { return }
         guard let pointerScreen = Self.screenContainingMouse() else { return }
         let pointerScreenID = pointerScreen.displayID
 
@@ -221,13 +232,12 @@ final class WindowManager {
         currentPillScreenID = pointerScreenID
 
         collapseWorkItem?.cancel()
-        contentRevealWorkItem?.cancel()
         panelShrinkWorkItem?.cancel()
         pillViewModel.isExpandedContentVisible = false
         pillViewModel.isCollapsedContentVisible = true
         pillViewModel.isExpanded = false
 
-        let targetFrame = Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize, on: pointerScreen)
+        let targetFrame = Self.topCenterFrame(chromeSize: PillChromeMetrics.collapsedSize(settings: settings), on: pointerScreen)
         pillPanel.setFrame(targetFrame, display: true, animate: false)
         pillPanel.orderFrontRegardless()
     }

@@ -1,13 +1,19 @@
 import CoreGraphics
 
 enum PillChromeMetrics {
-    static let collapsedSize = CGSize(width: 232, height: 30)
-    static let expandedSize = CGSize(width: 560, height: 238)
-    static let collapsedTopCornerRadius: CGFloat = 6
-    static let collapsedBottomCornerRadius: CGFloat = 14
-    static let expandedTopCornerRadius: CGFloat = 19
-    static let expandedBottomCornerRadius: CGFloat = 24
-    static let topInset: CGFloat = 0
+    static let collapsedTopCornerRadius = PillSettings.Defaults.collapsedTopCornerRadius
+    static let collapsedBottomCornerRadius = PillSettings.Defaults.collapsedBottomCornerRadius
+    static let expandedTopCornerRadius = PillSettings.Defaults.expandedTopCornerRadius
+    static let expandedBottomCornerRadius = PillSettings.Defaults.expandedBottomCornerRadius
+    static let topInset = PillSettings.Defaults.topInset
+
+    static func collapsedSize(settings: PillSettings) -> CGSize {
+        settings.collapsedSize
+    }
+
+    static func expandedSize(settings: PillSettings) -> CGSize {
+        settings.expandedSize
+    }
 
     static func topCornerRadius(forExpandedState isExpanded: Bool) -> CGFloat {
         isExpanded ? expandedTopCornerRadius : collapsedTopCornerRadius

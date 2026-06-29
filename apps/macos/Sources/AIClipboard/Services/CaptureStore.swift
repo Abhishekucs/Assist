@@ -8,7 +8,12 @@ final class CaptureStore {
 
     private var supportDirectory: URL {
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("AIClipboard", isDirectory: true)
+        return base.appendingPathComponent(AppIdentity.supportDirectoryName, isDirectory: true)
+    }
+
+    private var legacySupportDirectory: URL {
+        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent(AppIdentity.legacySupportDirectoryName, isDirectory: true)
     }
 
     private var capturesDirectory: URL {
@@ -31,8 +36,10 @@ final class CaptureStore {
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
+        migrateLegacySupportDirectoryIfNeeded()
         try? fileManager.createDirectory(at: capturesDirectory, withIntermediateDirectories: true)
         try? initializeDatabase()
+        rewriteLegacyCapturePathsIfNeeded()
         migrateLegacyJSONIfNeeded()
     }
 
@@ -54,6 +61,31 @@ final class CaptureStore {
 
             while sqlite3_step(statement) == SQLITE_ROW {
                 guard let item = decodeItem(from: statement) else { continue }
+                items.append(item)
+            }
+
+            return items
+        }) ?? []
+    }
+
+    func loadTextItems() -> [TextClipItem] {
+        (try? withDatabase { database in
+            let sql = """
+            SELECT id, created_at, text
+            FROM text_clips
+            ORDER BY created_at DESC
+            """
+
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+            defer { sqlite3_finalize(statement) }
+
+            var items: [TextClipItem] = []
+
+            while sqlite3_step(statement) == SQLITE_ROW {
+                guard let item = decodeTextItem(from: statement) else { continue }
                 items.append(item)
             }
 
@@ -85,6 +117,56 @@ final class CaptureStore {
         try? upsert(item: item)
     }
 
+    func delete(item: CaptureItem) throws {
+        try withDatabase { database in
+            let sql = "DELETE FROM captures WHERE id = ?"
+
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+            defer { sqlite3_finalize(statement) }
+
+            bindText(item.id.uuidString, to: statement, at: 1)
+
+            guard sqlite3_step(statement) == SQLITE_DONE else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+        }
+
+        removeFileIfPresent(at: item.imagePath)
+        removeFileIfPresent(at: item.thumbnailPath)
+    }
+
+    func save(text: String) throws -> TextClipItem {
+        let item = TextClipItem(
+            id: UUID(),
+            createdAt: Date(),
+            text: text
+        )
+
+        try upsert(textItem: item)
+        return item
+    }
+
+    func delete(textItem: TextClipItem) throws {
+        try withDatabase { database in
+            let sql = "DELETE FROM text_clips WHERE id = ?"
+
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+            defer { sqlite3_finalize(statement) }
+
+            bindText(textItem.id.uuidString, to: statement, at: 1)
+
+            guard sqlite3_step(statement) == SQLITE_DONE else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+        }
+    }
+
     private func initializeDatabase() throws {
         try fileManager.createDirectory(at: supportDirectory, withIntermediateDirectories: true)
 
@@ -99,6 +181,14 @@ final class CaptureStore {
             );
             CREATE INDEX IF NOT EXISTS idx_captures_created_at
             ON captures(created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS text_clips (
+                id TEXT PRIMARY KEY NOT NULL,
+                created_at REAL NOT NULL,
+                text TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_text_clips_created_at
+            ON text_clips(created_at DESC);
             """
 
             guard sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK else {
@@ -142,6 +232,32 @@ final class CaptureStore {
         }
     }
 
+    private func upsert(textItem: TextClipItem) throws {
+        try withDatabase { database in
+            let sql = """
+            INSERT INTO text_clips (id, created_at, text)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                created_at = excluded.created_at,
+                text = excluded.text
+            """
+
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+            defer { sqlite3_finalize(statement) }
+
+            bindText(textItem.id.uuidString, to: statement, at: 1)
+            sqlite3_bind_double(statement, 2, textItem.createdAt.timeIntervalSince1970)
+            bindText(textItem.text, to: statement, at: 3)
+
+            guard sqlite3_step(statement) == SQLITE_DONE else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+        }
+    }
+
     private func migrateLegacyJSONIfNeeded() {
         guard fileManager.fileExists(atPath: legacyMetadataURL.path),
               loadItems().isEmpty,
@@ -152,6 +268,47 @@ final class CaptureStore {
 
         for item in items {
             try? upsert(item: item)
+        }
+    }
+
+    private func migrateLegacySupportDirectoryIfNeeded() {
+        guard fileManager.fileExists(atPath: legacySupportDirectory.path),
+              !fileManager.fileExists(atPath: supportDirectory.path) else {
+            return
+        }
+
+        try? fileManager.moveItem(at: legacySupportDirectory, to: supportDirectory)
+    }
+
+    private func rewriteLegacyCapturePathsIfNeeded() {
+        let oldPrefix = legacySupportDirectory.path + "/"
+        let newPrefix = supportDirectory.path + "/"
+
+        try? withDatabase { database in
+            let sql = """
+            UPDATE captures
+            SET
+                image_path = REPLACE(image_path, ?, ?),
+                thumbnail_path = REPLACE(thumbnail_path, ?, ?)
+            WHERE image_path LIKE ? OR thumbnail_path LIKE ?
+            """
+
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+            defer { sqlite3_finalize(statement) }
+
+            bindText(oldPrefix, to: statement, at: 1)
+            bindText(newPrefix, to: statement, at: 2)
+            bindText(oldPrefix, to: statement, at: 3)
+            bindText(newPrefix, to: statement, at: 4)
+            bindText(oldPrefix + "%", to: statement, at: 5)
+            bindText(oldPrefix + "%", to: statement, at: 6)
+
+            guard sqlite3_step(statement) == SQLITE_DONE else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
         }
     }
 
@@ -174,6 +331,20 @@ final class CaptureStore {
             imagePath: imagePath,
             thumbnailPath: thumbnailPath,
             context: context
+        )
+    }
+
+    private func decodeTextItem(from statement: OpaquePointer?) -> TextClipItem? {
+        guard let idText = sqliteText(statement, column: 0),
+              let id = UUID(uuidString: idText),
+              let text = sqliteText(statement, column: 2) else {
+            return nil
+        }
+
+        return TextClipItem(
+            id: id,
+            createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 1)),
+            text: text
         )
     }
 
@@ -216,6 +387,11 @@ final class CaptureStore {
         }
 
         try data.write(to: url, options: .atomic)
+    }
+
+    private func removeFileIfPresent(at path: String) {
+        guard fileManager.fileExists(atPath: path) else { return }
+        try? fileManager.removeItem(atPath: path)
     }
 }
 
