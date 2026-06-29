@@ -243,7 +243,9 @@ struct ExpandedIslandView: View {
             ExpandedIslandHeader(viewModel: viewModel)
                 .frame(height: 34)
 
-            if !viewModel.historyItems.isEmpty {
+            if let issue = viewModel.captureIssue {
+                CaptureIssuePanel(issue: issue, viewModel: viewModel)
+            } else if !viewModel.historyItems.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(viewModel.historyItems) { item in
@@ -303,7 +305,7 @@ private struct ExpandedIslandHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("Recent Items")
+            Text(viewModel.captureIssue == nil ? "Recent Items" : "Needs Attention")
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.9))
                 .textCase(.uppercase)
@@ -394,6 +396,91 @@ private struct ExpandedIslandHeader: View {
             }
         }
         .foregroundStyle(.white)
+    }
+}
+
+private struct CaptureIssuePanel: View {
+    let issue: CaptureIssue
+    @ObservedObject var viewModel: PillViewModel
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color(red: 1.0, green: 0.26, blue: 0.16).opacity(0.18))
+                    .frame(width: 38, height: 38)
+
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(red: 1.0, green: 0.38, blue: 0.16))
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(issue.title)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.94))
+                    .lineLimit(1)
+
+                Text(issue.message)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.68))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let detail = issue.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.44))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                HStack(spacing: 8) {
+                    CaptureIssueActionButton(title: issue.primaryActionTitle, isPrimary: true) {
+                        viewModel.perform(issue.primaryAction)
+                    }
+
+                    if let secondaryActionTitle = issue.secondaryActionTitle,
+                       let secondaryAction = issue.secondaryAction {
+                        CaptureIssueActionButton(title: secondaryActionTitle, isPrimary: false) {
+                            viewModel.perform(secondaryAction)
+                        }
+                    }
+                }
+                .padding(.top, 2)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(red: 1.0, green: 0.32, blue: 0.14).opacity(0.36), lineWidth: 1)
+        }
+    }
+}
+
+private struct CaptureIssueActionButton: View {
+    let title: String
+    let isPrimary: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isPrimary ? Color.black : Color.white.opacity(0.9))
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(
+                    isPrimary ? Color.white : Color.white.opacity(0.12),
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 

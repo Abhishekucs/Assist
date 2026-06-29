@@ -17,6 +17,7 @@ final class PillViewModel: ObservableObject {
     @Published var isCollapsedContentVisible = true
     @Published var isBusy = false
     @Published var diagnosticMessage: String?
+    @Published var captureIssue: CaptureIssue?
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -32,6 +33,15 @@ final class PillViewModel: ObservableObject {
         if statusText == "Capture failed" || statusText == "Capture fallback" {
             statusText = "Hold Ctrl / Ctrl+Opt"
         }
+
+        captureIssue = nil
+    }
+
+    func showCaptureIssue(_ issue: CaptureIssue) {
+        captureIssue = issue
+        diagnosticMessage = issue.detail
+        statusText = issue.title
+        isBusy = false
     }
 
     func testScreenshot() {
@@ -46,6 +56,19 @@ final class PillViewModel: ObservableObject {
 
     func openDebugLog() {
         DebugLogger.openLog()
+    }
+
+    func perform(_ action: CaptureIssueAction) {
+        switch action {
+        case .openScreenRecordingSettings:
+            openSystemSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        case .openAccessibilitySettings:
+            openSystemSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        case .openInputMonitoringSettings:
+            openSystemSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+        case .openDebugLog:
+            openDebugLog()
+        }
     }
 
     func openControls() {
@@ -223,6 +246,7 @@ final class PillViewModel: ObservableObject {
     }
 
     func replaceScreenshot(_ item: CaptureItem) {
+        captureIssue = nil
         var nextItems = items.filter { $0.id != item.id }
         nextItems.insert(item, at: 0)
         items = nextItems
@@ -277,6 +301,11 @@ final class PillViewModel: ObservableObject {
             let url = URL(fileURLWithPath: item.imagePath)
             return FileManager.default.fileExists(atPath: url.path) ? url : nil
         }
+    }
+
+    private func openSystemSettingsPane(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 

@@ -1,0 +1,164 @@
+name: Release macOS DMG
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to package. Defaults to Info.plist CFBundleShortVersionString."
+        required: false
+        type: string
+      prerelease:
+        description: "Mark the GitHub release as a prerelease."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 != '' && 'true' || 'false' }}
+  HAS_NOTARY_CREDENTIALS: ${{ secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' && 'true' || 'false' }}
+
+jobs:
+  build-release:
+    name: Build, notarize, and release
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select release version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ github.event.inputs.version || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PLIST_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" apps/macos/Sources/AIClipboard/Resources/Info.plist)
+
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ -n "$REQUESTED_VERSION" ]]; then
+            VERSION="$REQUESTED_VERSION"
+          else
+            VERSION="$PLIST_VERSION"
+          fi
+
+          if [[ "$VERSION" != "$PLIST_VERSION" ]]; then
+            echo "error: release version $VERSION does not match Info.plist version $PLIST_VERSION" >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Import Developer ID certificate
+        if: env.HAS_APPLE_CERTIFICATE == 'true'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id-application.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      - name: Build DMG
+        env:
+          ASSIST_SIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          ASSIST_REQUIRE_SIGNING: ${{ env.HAS_APPLE_CERTIFICATE == 'true' && '1' || '0' }}
+          ASSIST_HARDENED_RUNTIME: ${{ env.HAS_APPLE_CERTIFICATE == 'true' && '1' || '0' }}
+        run: apps/macos/scripts/package_dmg.sh release "${{ steps.version.outputs.version }}"
+
+      - name: Notarize DMG
+        if: env.HAS_NOTARY_CREDENTIALS == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DMG_PATH=$(cat apps/macos/.build/dmg_path)
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$DMG_PATH"
+          xcrun stapler validate "$DMG_PATH"
+
+      - name: Verify DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DMG_PATH=$(cat apps/macos/.build/dmg_path)
+          hdiutil verify "$DMG_PATH"
+          spctl -a -t open --context context:primary-signature -v "$DMG_PATH" || true
+
+      - name: Create stable DMG alias
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DMG_PATH=$(cat apps/macos/.build/dmg_path)
+          cp "$DMG_PATH" apps/macos/.build/dist/Assist.dmg
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Assist-${{ steps.version.outputs.version }}-dmg
+          path: |
+            apps/macos/.build/dist/Assist-${{ steps.version.outputs.version }}.dmg
+            apps/macos/.build/dist/Assist.dmg
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IS_PRERELEASE: ${{ github.event.inputs.prerelease || 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_PATH=$(cat apps/macos/.build/dmg_path)
+          ALIAS_PATH="apps/macos/.build/dist/Assist.dmg"
+
+          if [[ "${GITHUB_REF_TYPE:-}" != "tag" ]]; then
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$DMG_PATH" "$ALIAS_PATH" --clobber
+          else
+            PRERELEASE_FLAG=""
+            if [[ "$IS_PRERELEASE" == "true" ]]; then
+              PRERELEASE_FLAG="--prerelease"
+            fi
+
+            gh release create "$TAG" "$DMG_PATH" "$ALIAS_PATH" \
+              --title "Assist $VERSION" \
+              --generate-notes \
+              $PRERELEASE_FLAG
+          fi

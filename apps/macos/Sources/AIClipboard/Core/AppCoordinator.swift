@@ -67,7 +67,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         do {
             try monitor.start()
         } catch {
-            pillViewModel.statusText = error.localizedDescription
+            pillViewModel.showCaptureIssue(.inputMonitoring(detail: error.localizedDescription))
         }
     }
 
@@ -259,6 +259,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             DebugLogger.log("capture.save.error", errorFields(error))
             pillViewModel.statusText = error.localizedDescription
             pillViewModel.isBusy = false
+            pillViewModel.showCaptureIssue(.captureFailed(detail: error.localizedDescription))
         }
     }
 
@@ -270,22 +271,18 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         let nsError = error as NSError
         pillViewModel.clearCaptureIssue()
 
-        if isScreenCaptureKitTCCDenial(nsError) {
+        if !CGPreflightScreenCaptureAccess() || isScreenCaptureKitTCCDenial(nsError) {
             DebugLogger.log("capture.handle-error.tcc-denied", [
                 "description": nsError.localizedDescription
             ])
-            pillViewModel.statusText = "Capture fallback"
-            pillViewModel.isBusy = false
-            pillViewModel.diagnosticMessage = "ScreenCaptureKit was denied; fallback capture will be used."
+            pillViewModel.showCaptureIssue(.screenRecording(detail: nsError.localizedDescription))
             return
         }
 
         DebugLogger.log("capture.handle-error.status-only", [
             "description": nsError.localizedDescription
         ])
-        pillViewModel.statusText = "Capture failed"
-        pillViewModel.isBusy = false
-        pillViewModel.diagnosticMessage = nsError.localizedDescription
+        pillViewModel.showCaptureIssue(.captureFailed(detail: nsError.localizedDescription))
     }
 
     private func isScreenCaptureKitTCCDenial(_ error: NSError) -> Bool {
