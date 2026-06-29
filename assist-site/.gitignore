@@ -1,0 +1,7 @@
+.next/
+node_modules/
+data/
+private-downloads/*
+!private-downloads/.gitkeep
+*.local
+tsconfig.tsbuildinfo
