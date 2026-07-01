@@ -1,0 +1,14 @@
+{
+  "name": "assist-monorepo",
+  "private": true,
+  "scripts": {
+    "web:dev": "npm --prefix apps/web run dev",
+    "web:build": "npm --prefix apps/web run build",
+    "web:typecheck": "npm --prefix apps/web run typecheck",
+    "macos:build": "make -C apps/macos build",
+    "macos:run": "make -C apps/macos run"
+  },
+  "workspaces": [
+    "apps/web"
+  ]
+}

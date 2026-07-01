@@ -5,6 +5,7 @@ A Next.js landing page for selling and downloading Assist for macOS.
 ## Run Locally
 
 ```sh
+cd apps/web
 npm install
 npm run dev
 ```
@@ -51,7 +52,7 @@ ASSIST_DOWNLOAD_FILENAME=Assist.dmg
 ```
 
 Create the Supabase tables by running the SQL in
-`assist-site/supabase/schema.sql` inside the Supabase SQL editor.
+`apps/web/supabase/schema.sql` inside the Supabase SQL editor.
 
 Keep the `.dmg`, `.zip`, or `.pkg` in `private-downloads/`, not `public/`.
 `ASSIST_DOWNLOAD_FILE` is resolved inside that folder and the folder is

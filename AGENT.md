@@ -2,6 +2,17 @@
 
 This repository should be implemented with direct, explicit behavior.
 
+## Repository Map
+
+This is a monorepo with two apps:
+
+- `apps/web/`: Next.js marketing, pricing, Dodo Payments, Supabase purchase storage, and protected download site. Use this for website, payment, Vercel, and frontend work.
+- `apps/macos/`: Native macOS Assist app built with Swift Package Manager. Use this for screenshot capture, annotation, local OCR, and notch shelf work.
+
+Vercel deploys only `apps/web/`. Do not treat the root Swift package or `apps/macos/` as part of the website build.
+
+## Rules
+
 - Do not add fallback code paths unless the user explicitly asks for one.
 - Do not add timeout-based logic.
 - Do not use `setTimeout`, `setInterval`, sleep delays, retry delays, polling loops, or similar timer-based behavior.
