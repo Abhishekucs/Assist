@@ -1,13 +1,14 @@
 import AppKit
 
 @MainActor
-final class AppCoordinator: ControlGestureMonitorDelegate {
+final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorDelegate {
     private let windowManager: WindowManager
     private let captureService: CaptureService
     private let store: CaptureStore
     private let analysisService: VisionAnalysisService
     private let pillViewModel: PillViewModel
     private let monitor = ControlGestureMonitor()
+    private let clipboardMonitor = ClipboardTextMonitor()
 
     private var activeScreen: NSScreen?
     private var activeStroke: Stroke?
@@ -44,25 +45,71 @@ final class AppCoordinator: ControlGestureMonitorDelegate {
         pillViewModel.onTestOverlay = { [weak self] in
             self?.runDebugOverlayTest()
         }
+        pillViewModel.onWillWritePasteboard = { [weak self] in
+            self?.clipboardMonitor.ignoreNextPasteboardWrite()
+        }
+        pillViewModel.onDeleteHistoryItem = { [weak self] item in
+            self?.deleteHistoryItem(item)
+        }
 
         pillViewModel.items = store.loadItems()
+        pillViewModel.textItems = store.loadTextItems()
         pillViewModel.latestItem = pillViewModel.items.first
+        pillViewModel.selectedHistoryItem = pillViewModel.historyItems.first
         pillViewModel.cacheThumbnails(for: pillViewModel.items)
         pillViewModel.clearCaptureIssue()
 
         windowManager.showPill()
 
         monitor.delegate = self
+        clipboardMonitor.delegate = self
+        clipboardMonitor.start()
         do {
             try monitor.start()
         } catch {
-            pillViewModel.statusText = error.localizedDescription
+            pillViewModel.showCaptureIssue(.inputMonitoring(detail: error.localizedDescription))
         }
     }
 
     func stop() {
         DebugLogger.log("app.stop")
         monitor.stop()
+        clipboardMonitor.stop()
+    }
+
+    func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String) {
+        do {
+            let item = try store.save(text: text)
+            pillViewModel.insertTextItem(item)
+            pillViewModel.statusText = "Copied text"
+            pillViewModel.diagnosticMessage = "Captured copied text"
+            DebugLogger.log("clipboard.text.saved", [
+                "id": item.id.uuidString,
+                "characters": "\(item.text.count)"
+            ])
+        } catch {
+            DebugLogger.log("clipboard.text.save.error", errorFields(error))
+        }
+    }
+
+    private func deleteHistoryItem(_ item: ClipboardHistoryItem) {
+        do {
+            switch item {
+            case let .screenshot(capture):
+                try store.delete(item: capture)
+            case let .text(textClip):
+                try store.delete(textItem: textClip)
+            }
+
+            pillViewModel.remove(item)
+            pillViewModel.statusText = "Deleted"
+            pillViewModel.diagnosticMessage = "Deleted item from history"
+            DebugLogger.log("history.item.deleted", ["id": item.id.uuidString])
+        } catch {
+            DebugLogger.log("history.item.delete.error", errorFields(error))
+            pillViewModel.statusText = "Delete failed"
+            pillViewModel.diagnosticMessage = error.localizedDescription
+        }
     }
 
     func controlGestureDidBegin(at globalPoint: CGPoint) {
@@ -212,6 +259,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate {
             DebugLogger.log("capture.save.error", errorFields(error))
             pillViewModel.statusText = error.localizedDescription
             pillViewModel.isBusy = false
+            pillViewModel.showCaptureIssue(.captureFailed(detail: error.localizedDescription))
         }
     }
 
@@ -223,22 +271,18 @@ final class AppCoordinator: ControlGestureMonitorDelegate {
         let nsError = error as NSError
         pillViewModel.clearCaptureIssue()
 
-        if isScreenCaptureKitTCCDenial(nsError) {
+        if !CGPreflightScreenCaptureAccess() || isScreenCaptureKitTCCDenial(nsError) {
             DebugLogger.log("capture.handle-error.tcc-denied", [
                 "description": nsError.localizedDescription
             ])
-            pillViewModel.statusText = "Capture fallback"
-            pillViewModel.isBusy = false
-            pillViewModel.diagnosticMessage = "ScreenCaptureKit was denied; fallback capture will be used."
+            pillViewModel.showCaptureIssue(.screenRecording(detail: nsError.localizedDescription))
             return
         }
 
         DebugLogger.log("capture.handle-error.status-only", [
             "description": nsError.localizedDescription
         ])
-        pillViewModel.statusText = "Capture failed"
-        pillViewModel.isBusy = false
-        pillViewModel.diagnosticMessage = nsError.localizedDescription
+        pillViewModel.showCaptureIssue(.captureFailed(detail: nsError.localizedDescription))
     }
 
     private func isScreenCaptureKitTCCDenial(_ error: NSError) -> Bool {
@@ -336,11 +380,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate {
     }
 
     private func insertOrUpdate(_ item: CaptureItem) {
-        var items = pillViewModel.items.filter { $0.id != item.id }
-        items.insert(item, at: 0)
-        pillViewModel.items = items
-        pillViewModel.latestItem = item
-        pillViewModel.cacheThumbnails(for: items)
+        pillViewModel.replaceScreenshot(item)
     }
 
     private func resetCaptureState() {

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve AI Clipboard.
+Thanks for helping improve Assist.
 
 ## Development Principles
 

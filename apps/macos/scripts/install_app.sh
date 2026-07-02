@@ -2,16 +2,18 @@
 set -euo pipefail
 
 CONFIGURATION="${1:-debug}"
-APP_NAME="AIClipboard"
-DEV_SIGN_IDENTITY="${AI_CLIPBOARD_SIGN_IDENTITY:-AI Clipboard Local Development}"
+APP_NAME="Assist"
+DEV_SIGN_IDENTITY="${ASSIST_SIGN_IDENTITY:-${AI_CLIPBOARD_SIGN_IDENTITY:-Assist Local Development}}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_INSTALL_ROOT="/Applications"
-if [[ -n "${AI_CLIPBOARD_INSTALL_ROOT:-}" ]]; then
+if [[ -n "${ASSIST_INSTALL_ROOT:-}" ]]; then
+  INSTALL_ROOT="$ASSIST_INSTALL_ROOT"
+elif [[ -n "${AI_CLIPBOARD_INSTALL_ROOT:-}" ]]; then
   INSTALL_ROOT="$AI_CLIPBOARD_INSTALL_ROOT"
 elif [[ -w "$DEFAULT_INSTALL_ROOT" ]]; then
   INSTALL_ROOT="$DEFAULT_INSTALL_ROOT"
 else
-  echo "error: /Applications is not writable. Set AI_CLIPBOARD_INSTALL_ROOT explicitly if you want another install path." >&2
+  echo "error: /Applications is not writable. Set ASSIST_INSTALL_ROOT explicitly if you want another install path." >&2
   exit 1
 fi
 APP_DIR="$INSTALL_ROOT/$APP_NAME.app"

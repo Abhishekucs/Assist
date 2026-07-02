@@ -3,12 +3,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "AIClipboard",
+    name: "Assist",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "AIClipboard", targets: ["AIClipboard"])
+        .executable(name: "Assist", targets: ["AIClipboard"])
     ],
     targets: [
         .executableTarget(

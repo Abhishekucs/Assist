@@ -9,6 +9,95 @@ struct CaptureItem: Codable, Identifiable, Equatable {
     var context: ScreenshotContext
 }
 
+struct TextClipItem: Codable, Identifiable, Equatable {
+    let id: UUID
+    let createdAt: Date
+    let text: String
+
+    var preview: String {
+        let collapsedWhitespace = text
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        return String(collapsedWhitespace.prefix(140))
+    }
+}
+
+enum ClipboardHistoryItem: Identifiable, Equatable {
+    case screenshot(CaptureItem)
+    case text(TextClipItem)
+
+    var id: UUID {
+        switch self {
+        case let .screenshot(item):
+            item.id
+        case let .text(item):
+            item.id
+        }
+    }
+
+    var createdAt: Date {
+        switch self {
+        case let .screenshot(item):
+            item.createdAt
+        case let .text(item):
+            item.createdAt
+        }
+    }
+}
+
+enum CaptureIssueAction: Equatable {
+    case openScreenRecordingSettings
+    case openAccessibilitySettings
+    case openInputMonitoringSettings
+    case openDebugLog
+}
+
+struct CaptureIssue: Equatable {
+    let title: String
+    let message: String
+    let detail: String?
+    let primaryActionTitle: String
+    let primaryAction: CaptureIssueAction
+    let secondaryActionTitle: String?
+    let secondaryAction: CaptureIssueAction?
+
+    static func screenRecording(detail: String?) -> CaptureIssue {
+        CaptureIssue(
+            title: "Screen Recording needed",
+            message: "Assist needs Screen & System Audio Recording permission to capture the app or screen under your pointer.",
+            detail: detail,
+            primaryActionTitle: "Open Screen Recording",
+            primaryAction: .openScreenRecordingSettings,
+            secondaryActionTitle: "Open log",
+            secondaryAction: .openDebugLog
+        )
+    }
+
+    static func inputMonitoring(detail: String?) -> CaptureIssue {
+        CaptureIssue(
+            title: "Input permission needed",
+            message: "Assist needs Accessibility or Input Monitoring permission to detect the global Control shortcut.",
+            detail: detail,
+            primaryActionTitle: "Open Accessibility",
+            primaryAction: .openAccessibilitySettings,
+            secondaryActionTitle: "Input Monitoring",
+            secondaryAction: .openInputMonitoringSettings
+        )
+    }
+
+    static func captureFailed(detail: String?) -> CaptureIssue {
+        CaptureIssue(
+            title: "Capture failed",
+            message: "Assist could not save the screenshot. The details below came from macOS.",
+            detail: detail,
+            primaryActionTitle: "Open log",
+            primaryAction: .openDebugLog,
+            secondaryActionTitle: "Screen Recording",
+            secondaryAction: .openScreenRecordingSettings
+        )
+    }
+}
+
 struct ScreenshotContext: Codable, Equatable {
     var summary: String
     var visibleText: [String]

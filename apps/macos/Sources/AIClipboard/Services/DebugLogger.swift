@@ -5,7 +5,7 @@ enum DebugLogger {
     static var logURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base
-            .appendingPathComponent("AIClipboard", isDirectory: true)
+            .appendingPathComponent(AppIdentity.supportDirectoryName, isDirectory: true)
             .appendingPathComponent("debug.log")
     }
 
@@ -37,7 +37,7 @@ enum DebugLogger {
                 try data.write(to: logURL, options: .atomic)
             }
         } catch {
-            NSLog("AIClipboard debug log failed: \(error.localizedDescription)")
+            NSLog("\(AppIdentity.name) debug log failed: \(error.localizedDescription)")
         }
     }
 
