@@ -23,7 +23,4 @@ enum PillChromeMetrics {
         isExpanded ? expandedBottomCornerRadius : collapsedBottomCornerRadius
     }
 
-    static func windowSize(forChromeSize chromeSize: CGSize) -> CGSize {
-        chromeSize
-    }
 }

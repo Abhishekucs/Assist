@@ -35,6 +35,7 @@ swift build -c "$CONFIGURATION"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$ROOT_DIR/.build/$CONFIGURATION/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 cp "$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
+rsync -a --delete --exclude "Info.plist" "$ROOT_DIR/Sources/AIClipboard/Resources/" "$RESOURCES_DIR/"
 chmod +x "$MACOS_DIR/$APP_NAME"
 xattr -dr com.apple.quarantine "$APP_DIR" 2>/dev/null || true
 

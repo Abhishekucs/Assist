@@ -6,7 +6,6 @@ Thanks for helping improve Assist.
 
 - Keep the capture path fast and predictable.
 - Prefer native macOS APIs for global input, capture, panels, and permissions.
-- Keep AI integrations behind services so local and remote analysis can coexist.
 - Avoid storing secrets in app data.
 - Treat screenshots as sensitive user data by default.
 

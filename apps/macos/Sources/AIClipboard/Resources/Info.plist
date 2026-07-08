@@ -27,6 +27,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Assist contributors.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Assist captures your screen only when you hold Control so it can save annotated screenshots and generate local context.</string>
+	<string>Assist captures your screen only when you hold Control so it can save annotated screenshots.</string>
 </dict>
 </plist>

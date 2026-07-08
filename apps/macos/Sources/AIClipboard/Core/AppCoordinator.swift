@@ -5,7 +5,6 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private let windowManager: WindowManager
     private let captureService: CaptureService
     private let store: CaptureStore
-    private let analysisService: VisionAnalysisService
     private let pillViewModel: PillViewModel
     private let monitor = ControlGestureMonitor()
     private let clipboardMonitor = ClipboardTextMonitor()
@@ -20,13 +19,11 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         windowManager: WindowManager,
         captureService: CaptureService,
         store: CaptureStore,
-        analysisService: VisionAnalysisService,
         pillViewModel: PillViewModel
     ) {
         self.windowManager = windowManager
         self.captureService = captureService
         self.store = store
-        self.analysisService = analysisService
         self.pillViewModel = pillViewModel
     }
 
@@ -51,12 +48,11 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         pillViewModel.onDeleteHistoryItem = { [weak self] item in
             self?.deleteHistoryItem(item)
         }
+        pillViewModel.onWillShowHistory = { [weak self] in
+            self?.syncHistoryFromStore()
+        }
 
-        pillViewModel.items = store.loadItems()
-        pillViewModel.textItems = store.loadTextItems()
-        pillViewModel.latestItem = pillViewModel.items.first
-        pillViewModel.selectedHistoryItem = pillViewModel.historyItems.first
-        pillViewModel.cacheThumbnails(for: pillViewModel.items)
+        syncHistoryFromStore()
         pillViewModel.clearCaptureIssue()
 
         windowManager.showPill()
@@ -109,6 +105,22 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             DebugLogger.log("history.item.delete.error", errorFields(error))
             pillViewModel.statusText = "Delete failed"
             pillViewModel.diagnosticMessage = error.localizedDescription
+        }
+    }
+
+    private func syncHistoryFromStore() {
+        let screenshots = store.loadItems()
+        let textClips = store.loadTextItems()
+        let previousIDs = Set(pillViewModel.historyItems.map(\.id))
+        let nextIDs = Set((screenshots.map(ClipboardHistoryItem.screenshot) + textClips.map(ClipboardHistoryItem.text)).map(\.id))
+
+        pillViewModel.replaceHistory(screenshots: screenshots, textClips: textClips)
+
+        if previousIDs != nextIDs {
+            DebugLogger.log("history.synced", [
+                "screenshots": "\(screenshots.count)",
+                "textClips": "\(textClips.count)"
+            ])
         }
     }
 
@@ -189,7 +201,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 let captured = try await captureService.capture(screen: screen)
                 guard self.annotationSessionID == sessionID else { return }
                 let finalImage = try captureService.composite(captured: captured, stroke: stroke)
-                saveAndAnalyze(image: finalImage, statusText: "Saving capture...")
+                saveCapture(image: finalImage, statusText: "Saving capture...")
                 resetCaptureState()
             } catch {
                 guard self.annotationSessionID == sessionID else { return }
@@ -225,7 +237,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             do {
                 let captured = try await captureService.capture(screen: screen)
                 let image = captureService.image(from: captured)
-                saveAndAnalyze(image: image, statusText: "Saving screenshot...")
+                saveCapture(image: image, statusText: "Saving screenshot...")
             } catch {
                 DebugLogger.log("clean-screenshot.capture.error", errorFields(error))
                 handleCaptureError(error)
@@ -233,28 +245,21 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
     }
 
-    private func saveAndAnalyze(image: NSImage, statusText: String) {
+    private func saveCapture(image: NSImage, statusText: String) {
         pillViewModel.statusText = statusText
         pillViewModel.isBusy = true
 
         do {
             pillViewModel.clearCaptureIssue()
-            var item = try store.save(image: image, context: .pending)
+            let item = try store.save(image: image, context: .saved)
             insertOrUpdate(item)
             pillViewModel.diagnosticMessage = "Saved \(URL(fileURLWithPath: item.imagePath).lastPathComponent)"
             DebugLogger.log("capture.saved", [
                 "id": item.id.uuidString,
                 "imagePath": item.imagePath
             ])
-
-            Task {
-                let context = await analysisService.analyze(imageURL: URL(fileURLWithPath: item.imagePath))
-                item.context = context
-                self.store.update(item: item)
-                self.insertOrUpdate(item)
-                self.pillViewModel.statusText = "Ready"
-                self.pillViewModel.isBusy = false
-            }
+            pillViewModel.statusText = "Ready"
+            pillViewModel.isBusy = false
         } catch {
             DebugLogger.log("capture.save.error", errorFields(error))
             pillViewModel.statusText = error.localizedDescription

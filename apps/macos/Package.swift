@@ -15,6 +15,10 @@ let package = Package(
             name: "AIClipboard",
             path: "Sources/AIClipboard",
             exclude: ["Resources/Info.plist"],
+            resources: [
+                .copy("Resources/Fonts"),
+                .copy("Resources/Icons")
+            ],
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedLibrary("sqlite3")

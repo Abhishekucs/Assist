@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CoreText
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -10,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        registerBundledFonts()
+
         let store = CaptureStore()
         let settings = PillSettings()
         let pillViewModel = PillViewModel(settings: settings)
@@ -19,7 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             windowManager: windowManager,
             captureService: CaptureService(),
             store: store,
-            analysisService: VisionAnalysisService(),
             pillViewModel: pillViewModel
         )
 
@@ -32,10 +34,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.coordinator = coordinator
         configureStatusItem(settings: settings)
         coordinator.start()
+        controlPanelController.showWindow()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         coordinator?.stop()
+    }
+
+    private func registerBundledFonts() {
+        guard let fontsURL = Bundle.main.resourceURL?.appendingPathComponent("Fonts", isDirectory: true),
+              let fontURLs = try? FileManager.default.contentsOfDirectory(at: fontsURL, includingPropertiesForKeys: nil) else {
+            return
+        }
+
+        for fontURL in fontURLs where ["ttf", "otf"].contains(fontURL.pathExtension.lowercased()) {
+            CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, nil)
+        }
     }
 
     private func configureStatusItem(settings: PillSettings) {
@@ -47,7 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.toolTip = AppIdentity.name
 
         let menu = NSMenu()
-        menu.addItem(menuItem(title: "Open Controls", action: #selector(openControls), keyEquivalent: ","))
+        menu.addItem(menuItem(title: "Open Assist", action: #selector(openControls), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(title: "Test Screenshot", action: #selector(testScreenshot), keyEquivalent: ""))
         menu.addItem(menuItem(title: "Test Overlay", action: #selector(testOverlay), keyEquivalent: ""))
@@ -70,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openControls() {
+        pillViewModel?.willShowHistory()
         controlPanelController?.showWindow()
     }
 

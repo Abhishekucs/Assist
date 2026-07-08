@@ -104,18 +104,14 @@ struct ScreenshotContext: Codable, Equatable {
     var appsDetected: [String]
     var uiElements: [String]
     var entities: [String]
-    var possibleUserIntent: String
-    var agentInstructions: [String]
     var sensitiveDataWarnings: [String]
 
-    static let pending = ScreenshotContext(
-        summary: "Analyzing screenshot...",
+    static let saved = ScreenshotContext(
+        summary: "Screenshot saved.",
         visibleText: [],
         appsDetected: [],
         uiElements: [],
         entities: [],
-        possibleUserIntent: "Pending",
-        agentInstructions: [],
         sensitiveDataWarnings: []
     )
 }

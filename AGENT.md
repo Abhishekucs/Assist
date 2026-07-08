@@ -1,21 +1,50 @@
-# Agent Instructions
+# Agent Rules
 
-This repository should be implemented with direct, explicit behavior.
+These rules apply to this repository. Follow them when adding or changing code.
 
-## Repository Map
+## UI And Iconography
 
-This is a monorepo with two apps:
+- Always use Hugeicons for app UI icons when an icon exists in the Hugeicons free set.
+- Do not create custom-drawn icons with SwiftUI `Canvas`, manual `Path`, ad hoc SVG code, or hand-rolled vector geometry for product UI.
+- Use official Hugeicons sources only: the Hugeicons Swift package when available for the needed icon/style, or downloaded Hugeicons free SVG/PDF assets stored in the app resources or asset catalog.
+- Keep icons visually consistent: prefer the Hugeicons Stroke Rounded style, 24px grid proportions, and a single stroke weight per surface.
+- Do not mix SF Symbols into primary product UI unless there is no suitable Hugeicons alternative or the control is a native macOS system affordance.
+- Add tooltips or accessibility labels for icon-only buttons.
+- Do not put persistent background fills behind standalone icons or icon-only buttons. Keep icon backgrounds transparent by default and use a subtle hover-state color only when the icon is interactive.
+- For destructive icon-only actions such as delete, use a red line icon with a light red hover-state background so the action is clearly destructive.
 
-- `apps/web/`: Next.js marketing, pricing, Dodo Payments, Supabase purchase storage, and protected download site. Use this for website, payment, Vercel, and frontend work.
-- `apps/macos/`: Native macOS Assist app built with Swift Package Manager. Use this for screenshot capture, annotation, local OCR, and notch shelf work.
+## Icon Asset Pipeline
 
-Vercel deploys only `apps/web/`. Do not treat the root Swift package or `apps/macos/` as part of the website build.
+- Prefer a real asset pipeline over custom drawing:
+  - Put reusable icon assets in `apps/macos/Sources/AIClipboard/Resources/Icons/` or an asset catalog when the project moves to an Xcode project layout.
+  - Add a small SwiftUI wrapper that renders bundled icon assets by name, applies size/color consistently, and exposes accessibility labels.
+  - Keep icon names mapped in one place so views never guess raw file names.
+- Follow the pattern used by mature macOS apps: bundled assets for custom brand/product icons, native system affordances only where the platform expects them.
+- If adding or changing icons, document the source and license of the icon set in the repository.
 
-## Rules
+## Visual Design
 
-- Do not add fallback code paths unless the user explicitly asks for one.
-- Do not add timeout-based logic.
-- Do not use `setTimeout`, `setInterval`, sleep delays, retry delays, polling loops, or similar timer-based behavior.
-- Do not hide errors behind generic fallback behavior. Surface the real error and fix the root cause.
-- Do not silently continue when a required configuration, file, payment record, or service response is missing.
-- Prefer deterministic state, explicit validation, and clear failure responses.
+- Respect Apple platform conventions: restrained surfaces, clear hierarchy, compact controls, and native-feeling motion.
+- Do not add unnecessary borders. Use borders only when they clarify grouping, focus, selection, or separation.
+- Prefer spacing, background contrast, and typography before adding outlines.
+- Keep corner radii modest for app windows, dialogs, cards, and controls. Avoid overly rounded shapes unless matching the notch/island surface.
+- Avoid decorative gradients, heavy shadows, and visual noise unless they serve a clear interaction state.
+
+## File Structure
+
+- Keep files organized by responsibility:
+  - `Core/` for models, identity, settings, and coordination primitives.
+  - `Services/` for persistence, capture, permissions, windows, and system integrations.
+  - `Views/` for SwiftUI/AppKit UI surfaces and view models.
+  - `Resources/` for fonts, app metadata, and bundled static assets.
+  - `scripts/` for build, install, release, and automation scripts.
+- Do not place service logic inside SwiftUI views. Move side effects into services or view models.
+- Do not place reusable UI primitives inside large feature views when they are used by multiple surfaces. Extract them into a focused view file.
+- Keep feature changes scoped. Avoid broad refactors unless required for the requested behavior.
+
+## Implementation Quality
+
+- Prefer native Swift and AppKit/SwiftUI APIs over custom workarounds.
+- Preserve existing user data and permissions behavior.
+- Build after code changes with `swift build`.
+- When changing launch, build, packaging, or resources, also verify `make run` or the relevant script path.

@@ -29,6 +29,7 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp "$BUILD_DIR/$CONFIGURATION/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 cp "$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
+rsync -a --exclude "Info.plist" "$ROOT_DIR/Sources/AIClipboard/Resources/" "$RESOURCES_DIR/"
 
 chmod +x "$MACOS_DIR/$APP_NAME"
 

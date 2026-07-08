@@ -41,28 +41,33 @@ struct PillView: View {
     var body: some View {
         ZStack(alignment: .top) {
             ZStack(alignment: .top) {
-                CollapsedIslandHeader(viewModel: viewModel)
-                    .frame(
-                        width: collapsedSize.width,
-                        height: collapsedSize.height
-                    )
-                    .opacity(viewModel.isCollapsedContentVisible ? 1 : 0)
-                    .transaction { transaction in
-                        transaction.animation = nil
-                    }
+                if viewModel.isCollapsedContentVisible {
+                    CollapsedIslandHeader(viewModel: viewModel)
+                        .frame(
+                            width: collapsedSize.width,
+                            height: collapsedSize.height
+                        )
+                        .transition(.opacity.animation(.easeOut(duration: 0.08)))
+                }
 
-                ExpandedIslandView(viewModel: viewModel)
-                    .frame(
-                        width: expandedSize.width,
-                        height: expandedSize.height,
-                        alignment: .top
-                    )
-                    .opacity(viewModel.isExpandedContentVisible ? 1 : 0)
-                    .allowsHitTesting(viewModel.isExpandedContentVisible)
-                    .transaction { transaction in
-                        transaction.animation = nil
-                        transaction.disablesAnimations = true
-                    }
+                if viewModel.isExpandedContentVisible {
+                    ExpandedIslandView(viewModel: viewModel)
+                        .frame(
+                            width: expandedSize.width,
+                            height: expandedSize.height,
+                            alignment: .top
+                        )
+                        .allowsHitTesting(true)
+                        .transition(
+                            .opacity
+                                .combined(with: .scale(scale: 0.985, anchor: .top))
+                                .animation(.easeOut(duration: 0.1))
+                        )
+                        .transaction { transaction in
+                            transaction.animation = nil
+                            transaction.disablesAnimations = true
+                        }
+                }
             }
             .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
             .animation(islandAnimation, value: viewModel.isExpanded)
@@ -103,7 +108,6 @@ struct PillView: View {
                 )
             )
             .onHover(perform: onHoverChanged)
-            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: viewModel.latestItem)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .preferredColorScheme(.dark)
@@ -116,16 +120,15 @@ private struct CollapsedIslandHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(viewModel.statusText)
-                .font(.system(size: 11, weight: .medium))
+                .font(AssistFont.roundedFootnote(.medium))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
                 .minimumScaleFactor(0.86)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if viewModel.latestItem != nil {
-                Image(systemName: "photo")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.58))
+                HugeIcon(.image, size: 13, color: .white.opacity(0.7))
+                    .help("Recent item available")
             }
         }
         .padding(.horizontal, 18)
@@ -138,7 +141,7 @@ private struct MovingNotchBorder: View {
     private let segmentLength = 0.34
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 45.0)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             let progress = time.truncatingRemainder(dividingBy: 1.55) / 1.55
             let start = max(0, progress - segmentLength)
@@ -239,23 +242,25 @@ struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
 
     var body: some View {
+        let historyItems = Array(viewModel.historyItems.prefix(24))
+        let selectedID = viewModel.selectedItem?.id
+
         VStack(alignment: .leading, spacing: 10) {
             ExpandedIslandHeader(viewModel: viewModel)
                 .frame(height: 34)
 
             if let issue = viewModel.captureIssue {
                 CaptureIssuePanel(issue: issue, viewModel: viewModel)
-            } else if !viewModel.historyItems.isEmpty {
+            } else if !historyItems.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(viewModel.historyItems) { item in
+                    LazyHStack(spacing: 12) {
+                        ForEach(historyItems) { item in
                             switch item {
                             case let .screenshot(capture):
                                 CaptureGalleryCard(
                                     item: capture,
                                     thumbnail: viewModel.thumbnail(for: capture),
-                                    isSelected: item.id == viewModel.selectedItem?.id,
-                                    isFileSelected: viewModel.selectedFileIDs.contains(capture.id)
+                                    isSelected: item.id == selectedID
                                 ) {
                                     viewModel.selectScreenshot(
                                         capture,
@@ -267,7 +272,7 @@ struct ExpandedIslandView: View {
                             case let .text(textClip):
                                 TextClipGalleryCard(
                                     item: textClip,
-                                    isSelected: item.id == viewModel.selectedItem?.id
+                                    isSelected: item.id == selectedID
                                 ) {
                                     viewModel.copyTextItem(textClip)
                                 } deleteAction: {
@@ -281,10 +286,10 @@ struct ExpandedIslandView: View {
             } else {
                 VStack(alignment: .center, spacing: 10) {
                     Text("No items yet")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.headline)
 
                     Text("Hold Control to annotate, press Control + Option for a clean screenshot, or copy text.")
-                        .font(.system(size: 13))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -305,95 +310,37 @@ private struct ExpandedIslandHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(viewModel.captureIssue == nil ? "Recent Items" : "Needs Attention")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.9))
-                .textCase(.uppercase)
+            Text(viewModel.captureIssue == nil ? "Recent items" : "Needs attention")
+                .font(AssistFont.roundedHeadline())
+                .foregroundStyle(.white.opacity(0.86))
 
             Spacer()
 
-            Button {
+            IslandIconButton(icon: .grid, tooltip: "Open Assist") {
                 viewModel.openControls()
-            } label: {
-                Capsule()
-                    .fill(.black)
-                    .frame(width: 30, height: 30)
-                    .overlay {
-                        Image(systemName: "slider.horizontal.3")
-                            .foregroundStyle(.white)
-                            .imageScale(.medium)
-                    }
             }
-            .buttonStyle(.plain)
-            .help("Open controls")
 
             if viewModel.canCopySelectedImage {
-                Button {
+                IslandIconButton(icon: .image, tooltip: "Copy selected screenshot image") {
                     viewModel.copyLatestImage()
-                } label: {
-                    Capsule()
-                        .fill(.black)
-                        .frame(width: 30, height: 30)
-                        .overlay {
-                            Image(systemName: "photo.on.rectangle")
-                                .foregroundStyle(.white)
-                                .imageScale(.medium)
-                        }
                 }
-                .buttonStyle(.plain)
-                .help("Copy image")
             }
 
             if viewModel.canCopySelectedFiles {
-                Button {
+                IslandIconButton(
+                    icon: .copy,
+                    tooltip: "Copy \(viewModel.selectedFileCount) screenshot file\(viewModel.selectedFileCount == 1 ? "" : "s")"
+                ) {
                     viewModel.copySelectedScreenshotFiles()
-                } label: {
-                    Capsule()
-                        .fill(.black)
-                        .frame(width: 30, height: 30)
-                        .overlay {
-                            Image(systemName: "doc.on.doc")
-                                .foregroundStyle(.white)
-                                .imageScale(.medium)
-                        }
                 }
-                .buttonStyle(.plain)
-                .help("Copy \(viewModel.selectedFileCount) screenshot file\(viewModel.selectedFileCount == 1 ? "" : "s")")
             }
 
             if viewModel.canRevealSelectedScreenshot {
-                Button {
+                IslandIconButton(icon: .folder, tooltip: "Reveal selected screenshot in Finder") {
                     viewModel.revealSelectedScreenshotInFinder()
-                } label: {
-                    Capsule()
-                        .fill(.black)
-                        .frame(width: 30, height: 30)
-                        .overlay {
-                            Image(systemName: "folder")
-                                .foregroundStyle(.white)
-                                .imageScale(.medium)
-                        }
                 }
-                .buttonStyle(.plain)
-                .help("Reveal screenshot in Finder")
             }
 
-            if viewModel.selectedItem != nil {
-                Button {
-                    viewModel.copyLatestContext()
-                } label: {
-                    Capsule()
-                        .fill(.black)
-                        .frame(width: 30, height: 30)
-                        .overlay {
-                            Image(systemName: "doc.on.doc")
-                                .foregroundStyle(.white)
-                                .imageScale(.medium)
-                        }
-                }
-                .buttonStyle(.plain)
-                .help(viewModel.canCopySelectedImage ? "Copy context" : "Copy text")
-            }
         }
         .foregroundStyle(.white)
     }
@@ -410,26 +357,24 @@ private struct CaptureIssuePanel: View {
                     .fill(Color(red: 1.0, green: 0.26, blue: 0.16).opacity(0.18))
                     .frame(width: 38, height: 38)
 
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color(red: 1.0, green: 0.38, blue: 0.16))
+                HugeIcon(.info, size: 16, color: Color(red: 1.0, green: 0.38, blue: 0.16))
             }
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(issue.title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(AssistFont.roundedHeadline())
                     .foregroundStyle(.white.opacity(0.94))
                     .lineLimit(1)
 
                 Text(issue.message)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.white.opacity(0.68))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let detail = issue.detail, !detail.isEmpty {
                     Text(detail)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced).weight(.medium))
                         .foregroundStyle(.white.opacity(0.44))
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -465,12 +410,13 @@ private struct CaptureIssuePanel: View {
 private struct CaptureIssueActionButton: View {
     let title: String
     let isPrimary: Bool
+
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(isPrimary ? Color.black : Color.white.opacity(0.9))
                 .lineLimit(1)
                 .padding(.horizontal, 10)
@@ -481,7 +427,32 @@ private struct CaptureIssueActionButton: View {
                 )
         }
         .buttonStyle(.plain)
+        .pointingHandCursor()
     }
+}
+
+private struct IslandIconButton: View {
+    let icon: HugeIconKind
+    let tooltip: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HugeIcon(icon, size: 14, color: .white.opacity(isHovered ? 0.96 : 0.7))
+                .frame(width: 30, height: 30)
+                .background(
+                    Color.white.opacity(isHovered ? 0.14 : 0),
+                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
+        .accessibilityLabel(tooltip)
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+    }
+
+    @State private var isHovered = false
 }
 
 private struct DebugActionsView: View {
@@ -490,31 +461,22 @@ private struct DebugActionsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Button {
+                DebugActionButton(title: "Test Screenshot", icon: .camera, tooltip: "Run a screenshot capture test") {
                     viewModel.testScreenshot()
-                } label: {
-                    Label("Test Screenshot", systemImage: "camera")
                 }
 
-                Button {
+                DebugActionButton(title: "Test Overlay", icon: .pen, tooltip: "Run an annotation overlay test") {
                     viewModel.testOverlay()
-                } label: {
-                    Label("Test Overlay", systemImage: "scribble")
                 }
 
-                Button {
+                DebugActionButton(title: "Log", icon: .document, tooltip: "Open the debug log") {
                     viewModel.openDebugLog()
-                } label: {
-                    Label("Log", systemImage: "doc.text.magnifyingglass")
                 }
             }
-            .buttonStyle(.borderless)
-            .controlSize(.small)
-            .tint(.white)
 
             if let diagnosticMessage = viewModel.diagnosticMessage {
                 Text(diagnosticMessage)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.white.opacity(0.58))
                     .lineLimit(2)
             }
@@ -522,60 +484,76 @@ private struct DebugActionsView: View {
     }
 }
 
+private struct DebugActionButton: View {
+    let title: String
+    let icon: HugeIconKind
+    let tooltip: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                HugeIcon(icon, size: 12, color: .white.opacity(0.88))
+                Text(title)
+                    .font(AssistFont.roundedFootnote(.medium))
+            }
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background(Color.white.opacity(0.1), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
+        .accessibilityLabel(tooltip)
+    }
+}
+
 private struct CaptureGalleryCard: View {
     let item: CaptureItem
     let thumbnail: NSImage?
     let isSelected: Bool
-    let isFileSelected: Bool
     let action: () -> Void
     let deleteAction: () -> Void
+    @State private var isHovered = false
+    @State private var isDeleteHovered = false
+
+    private var isDeleteVisible: Bool {
+        isHovered || isDeleteHovered
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Button(action: action) {
-                VStack(alignment: .leading, spacing: 8) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.secondary.opacity(0.12))
-
-                        if let image = thumbnail {
-                            Image(nsImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 126, height: 96)
-                                .clipped()
-                        } else {
-                            Image(systemName: "photo")
-                                .foregroundStyle(.secondary)
-                        }
+                ZStack {
+                    if let image = thumbnail {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 142, height: 142)
+                            .clipped()
+                    } else {
+                        HugeIcon(.image, size: 26, color: .white.opacity(0.58))
+                            .help("Screenshot thumbnail")
                     }
-                    .frame(width: 126, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                    Text(item.createdAt, style: .time)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.55))
                 }
-                .padding(8)
-                .frame(width: 142, height: 142, alignment: .topLeading)
+                .frame(width: 142, height: 142, alignment: .center)
                 .background(Color.white.opacity(isSelected ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(isSelected ? Color.white.opacity(0.72) : Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(isSelected ? Color.white.opacity(0.72) : .clear, lineWidth: 1)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
             .onDrag {
                 item.dragProvider
             }
+            .help("Select screenshot")
 
-            FileSelectionBadge(isSelected: isFileSelected)
-                .padding(5)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            DeleteCardButton(action: deleteAction)
+            DeleteCardButton(isVisible: isDeleteVisible, isHovered: $isDeleteHovered, action: deleteAction)
                 .padding(5)
         }
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -584,79 +562,41 @@ private struct TextClipGalleryCard: View {
     let isSelected: Bool
     let action: () -> Void
     let deleteAction: () -> Void
+    @State private var isHovered = false
+    @State private var isDeleteHovered = false
+
+    private var isDeleteVisible: Bool {
+        isHovered || isDeleteHovered
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Button(action: action) {
-                VStack(alignment: .leading, spacing: 8) {
-                    ZStack(alignment: .topLeading) {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.white.opacity(0.08))
-
-                        VStack(alignment: .leading, spacing: 7) {
-                            HStack {
-                                Image(systemName: "text.alignleft")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(.white.opacity(0.75))
-
-                                Spacer()
-
-                                Image(systemName: "doc.on.doc")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.5))
-                            }
-
-                            Text(item.preview)
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.86))
-                                .lineLimit(5)
-                        }
-                        .padding(10)
-                    }
-                    .frame(width: 126, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                    Text(item.createdAt, style: .time)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.55))
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(item.preview)
+                        .font(AssistFont.roundedFootnote(.medium))
+                        .foregroundStyle(.white.opacity(0.86))
+                        .lineLimit(7)
                 }
-                .padding(8)
+                .padding(12)
                 .frame(width: 142, height: 142, alignment: .topLeading)
                 .background(Color.white.opacity(isSelected ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(isSelected ? Color.white.opacity(0.72) : Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(isSelected ? Color.white.opacity(0.72) : .clear, lineWidth: 1)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
             .onDrag {
                 item.dragProvider
             }
+            .help("Click card to copy text")
 
-            DeleteCardButton(action: deleteAction)
+            DeleteCardButton(isVisible: isDeleteVisible, isHovered: $isDeleteHovered, action: deleteAction)
                 .padding(5)
         }
-    }
-}
-
-private struct FileSelectionBadge: View {
-    let isSelected: Bool
-
-    var body: some View {
-        Circle()
-            .fill(Color.black.opacity(isSelected ? 0.78 : 0.46))
-            .frame(width: 22, height: 22)
-            .overlay {
-                Image(systemName: isSelected ? "checkmark" : "circle")
-                    .font(.system(size: isSelected ? 10 : 9, weight: .semibold))
-                    .foregroundStyle(.white.opacity(isSelected ? 0.96 : 0.52))
-            }
-            .overlay {
-                Circle()
-                    .stroke(Color.white.opacity(isSelected ? 0.55 : 0.16), lineWidth: 1)
-            }
-            .help(isSelected ? "Selected for file copy" : "Command-click to select multiple files")
-            .allowsHitTesting(false)
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -683,20 +623,36 @@ private extension TextClipItem {
 }
 
 private struct DeleteCardButton: View {
+    let isVisible: Bool
+    @Binding var isHovered: Bool
     let action: () -> Void
 
+    private var red: Color {
+        Color(hex: 0xFF453A)
+    }
+
     var body: some View {
-        Button(action: action) {
-            Circle()
-                .fill(Color.black.opacity(0.74))
-                .frame(width: 22, height: 22)
-                .overlay {
-                    Image(systemName: "trash")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.92))
-                }
+        ZStack {
+            Color.clear
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+
+            Button(action: action) {
+                HugeIcon(.trash, size: 12, color: red.opacity(isHovered ? 1 : 0.9))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        red.opacity(isHovered ? 0.26 : 0.16),
+                        in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Delete item")
+            .accessibilityLabel("Delete item")
+            .opacity(isVisible ? 1 : 0)
+            .scaleEffect(isVisible ? 1 : 0.92)
         }
-        .buttonStyle(.plain)
-        .help("Delete item")
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .animation(.easeOut(duration: 0.12), value: isVisible)
     }
 }

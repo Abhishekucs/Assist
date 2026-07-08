@@ -1,6 +1,14 @@
 import CoreGraphics
 import Foundation
 
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case light
+    case dark
+    case system
+
+    var id: String { rawValue }
+}
+
 final class PillSettings: ObservableObject {
     enum Defaults {
         static let collapsedSize = CGSize(width: 232, height: 30)
@@ -40,6 +48,12 @@ final class PillSettings: ObservableObject {
     @Published var showMenuBarIcon: Bool {
         didSet { defaults.set(showMenuBarIcon, forKey: Keys.showMenuBarIcon) }
     }
+    @Published var downloadUpdatesAutomatically: Bool {
+        didSet { defaults.set(downloadUpdatesAutomatically, forKey: Keys.downloadUpdatesAutomatically) }
+    }
+    @Published var appAppearance: AppAppearance {
+        didSet { defaults.set(appAppearance.rawValue, forKey: Keys.appAppearance) }
+    }
 
     private let defaults: UserDefaults
 
@@ -67,6 +81,8 @@ final class PillSettings: ObservableObject {
         followPointerDisplay = Self.bool(for: Keys.followPointerDisplay, default: true, defaults: defaults)
         showLoadingBorder = Self.bool(for: Keys.showLoadingBorder, default: true, defaults: defaults)
         showMenuBarIcon = Self.bool(for: Keys.showMenuBarIcon, default: true, defaults: defaults)
+        downloadUpdatesAutomatically = Self.bool(for: Keys.downloadUpdatesAutomatically, default: true, defaults: defaults)
+        appAppearance = Self.appearance(for: Keys.appAppearance, default: .system, defaults: defaults)
     }
 
     func resetIslandShape() {
@@ -89,6 +105,15 @@ final class PillSettings: ObservableObject {
         guard defaults.object(forKey: key) != nil else { return defaultValue }
         return defaults.bool(forKey: key)
     }
+
+    private static func appearance(for key: String, default defaultValue: AppAppearance, defaults: UserDefaults) -> AppAppearance {
+        guard let value = defaults.string(forKey: key),
+              let appearance = AppAppearance(rawValue: value) else {
+            return defaultValue
+        }
+
+        return appearance
+    }
 }
 
 private enum Keys {
@@ -100,6 +125,8 @@ private enum Keys {
     static let followPointerDisplay = "pill.followPointerDisplay"
     static let showLoadingBorder = "pill.showLoadingBorder"
     static let showMenuBarIcon = "app.showMenuBarIcon"
+    static let downloadUpdatesAutomatically = "updates.downloadAutomatically"
+    static let appAppearance = "app.appearance"
 }
 
 private extension CGFloat {

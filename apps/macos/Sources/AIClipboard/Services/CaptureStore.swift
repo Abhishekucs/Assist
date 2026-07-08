@@ -55,13 +55,36 @@ final class CaptureStore {
             guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
                 throw StoreError.sqlite(message: lastErrorMessage(database))
             }
-            defer { sqlite3_finalize(statement) }
+            defer {
+                if statement != nil {
+                    sqlite3_finalize(statement)
+                }
+            }
 
             var items: [CaptureItem] = []
+            var staleItems: [CaptureItem] = []
 
             while sqlite3_step(statement) == SQLITE_ROW {
                 guard let item = decodeItem(from: statement) else { continue }
-                items.append(item)
+                if fileManager.fileExists(atPath: item.imagePath) {
+                    items.append(item)
+                } else {
+                    staleItems.append(item)
+                }
+            }
+
+            sqlite3_finalize(statement)
+            statement = nil
+
+            if !staleItems.isEmpty {
+                try deleteCaptureRows(staleItems.map(\.id), in: database)
+                staleItems.forEach { removeFileIfPresent(at: $0.thumbnailPath) }
+                let staleCount = staleItems.count
+                Task { @MainActor in
+                    DebugLogger.log("store.stale-captures.pruned", [
+                        "count": "\(staleCount)"
+                    ])
+                }
             }
 
             return items
@@ -258,6 +281,27 @@ final class CaptureStore {
         }
     }
 
+    private func deleteCaptureRows(_ ids: [UUID], in database: OpaquePointer?) throws {
+        guard !ids.isEmpty else { return }
+
+        let sql = "DELETE FROM captures WHERE id = ?"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+            throw StoreError.sqlite(message: lastErrorMessage(database))
+        }
+        defer { sqlite3_finalize(statement) }
+
+        for id in ids {
+            sqlite3_reset(statement)
+            sqlite3_clear_bindings(statement)
+            bindText(id.uuidString, to: statement, at: 1)
+
+            guard sqlite3_step(statement) == SQLITE_DONE else {
+                throw StoreError.sqlite(message: lastErrorMessage(database))
+            }
+        }
+    }
+
     private func migrateLegacyJSONIfNeeded() {
         guard fileManager.fileExists(atPath: legacyMetadataURL.path),
               loadItems().isEmpty,
@@ -402,7 +446,7 @@ private enum StoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .encodingFailed:
-            "Unable to encode screenshot context."
+            "Unable to encode screenshot details."
         case let .sqlite(message):
             "Database error: \(message)"
         }

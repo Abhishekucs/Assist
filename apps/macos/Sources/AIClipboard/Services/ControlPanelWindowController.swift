@@ -21,14 +21,18 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
     private func makeWindow() -> NSWindow {
         let contentView = ControlPanelView(settings: settings, viewModel: pillViewModel)
         let window = NSWindow(
-            contentRect: CGRect(x: 0, y: 0, width: 720, height: 560),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: CGRect(x: 0, y: 0, width: 980, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        window.title = "Settings"
-        window.minSize = NSSize(width: 700, height: 520)
-        window.toolbarStyle = .unified
+        window.title = "Assist"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.minSize = NSSize(width: 900, height: 620)
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.isMovableByWindowBackground = true
         window.contentView = NSHostingView(rootView: contentView)
         window.isReleasedWhenClosed = false
         window.delegate = self

@@ -24,6 +24,7 @@ final class PillViewModel: ObservableObject {
     var onOpenControls: (() -> Void)?
     var onWillWritePasteboard: (() -> Void)?
     var onDeleteHistoryItem: ((ClipboardHistoryItem) -> Void)?
+    var onWillShowHistory: (() -> Void)?
 
     init(settings: PillSettings) {
         self.settings = settings
@@ -72,20 +73,12 @@ final class PillViewModel: ObservableObject {
     }
 
     func openControls() {
+        onWillShowHistory?()
         onOpenControls?()
     }
 
-    func copyLatestContext() {
-        guard let selectedItem else { return }
-
-        let pasteboard = NSPasteboard.general
-        onWillWritePasteboard?()
-        pasteboard.clearContents()
-        pasteboard.setString(selectedItem.copyPayload, forType: .string)
-
-        if case .text = selectedItem {
-            statusText = "Copied text"
-        }
+    func willShowHistory() {
+        onWillShowHistory?()
     }
 
     func copyLatestImage() {
@@ -145,6 +138,10 @@ final class PillViewModel: ObservableObject {
     }
 
     var canCopySelectedImage: Bool {
+        guard selectedFileIDs.isEmpty else {
+            return false
+        }
+
         if case .screenshot = selectedItem {
             return true
         }
@@ -179,7 +176,7 @@ final class PillViewModel: ObservableObject {
                 selectedFileIDs.insert(item.id)
             }
         } else {
-            selectedFileIDs = [item.id]
+            selectedFileIDs.removeAll()
         }
     }
 
@@ -245,6 +242,28 @@ final class PillViewModel: ObservableObject {
         }
     }
 
+    func replaceHistory(screenshots: [CaptureItem], textClips: [TextClipItem]) {
+        items = screenshots
+        textItems = textClips
+        selectedFileIDs = selectedFileIDs.intersection(Set(screenshots.map(\.id)))
+
+        if let selectedHistoryItem,
+           !historyItems.contains(selectedHistoryItem) {
+            self.selectedHistoryItem = historyItems.first
+        } else if selectedHistoryItem == nil {
+            selectedHistoryItem = historyItems.first
+        }
+
+        if let latestItem,
+           !screenshots.contains(where: { $0.id == latestItem.id }) {
+            self.latestItem = screenshots.first
+        } else if latestItem == nil {
+            latestItem = screenshots.first
+        }
+
+        cacheThumbnails(for: screenshots)
+    }
+
     func replaceScreenshot(_ item: CaptureItem) {
         captureIssue = nil
         var nextItems = items.filter { $0.id != item.id }
@@ -306,48 +325,5 @@ final class PillViewModel: ObservableObject {
     private func openSystemSettingsPane(_ urlString: String) {
         guard let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
-    }
-}
-
-private extension CaptureItem {
-    var agentMarkdown: String {
-        """
-        # Assist Capture
-
-        Image: \(imagePath)
-
-        Summary:
-        \(context.summary)
-
-        Visible text:
-        \(context.visibleText.map { "- \($0)" }.joined(separator: "\n"))
-
-        Agent instructions:
-        \(context.agentInstructions.map { "- \($0)" }.joined(separator: "\n"))
-        """
-    }
-}
-
-private extension TextClipItem {
-    var agentMarkdown: String {
-        """
-        # Assist Text Clip
-
-        Copied at: \(createdAt)
-
-        Text:
-        \(text)
-        """
-    }
-}
-
-private extension ClipboardHistoryItem {
-    var copyPayload: String {
-        switch self {
-        case let .screenshot(item):
-            item.agentMarkdown
-        case let .text(item):
-            item.text
-        }
     }
 }
