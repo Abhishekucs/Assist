@@ -6,12 +6,65 @@ import CoreText
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
     private var controlPanelController: ControlPanelWindowController?
+    private var licenseActivationController: LicenseActivationWindowController?
     private var pillViewModel: PillViewModel?
     private var statusItem: NSStatusItem?
     private var settingsCancellable: AnyCancellable?
+    private let licenseActivationStore = LicenseActivationStore()
+    private let licenseValidationService = LicenseValidationService()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerBundledFonts()
+
+        guard LicenseActivationRequirement.isRequired else {
+            startMainApp()
+            return
+        }
+
+        Task {
+            await validateLicenseAndStart()
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        coordinator?.stop()
+    }
+
+    private func validateLicenseAndStart() async {
+        do {
+            guard let activation = try licenseActivationStore.load() else {
+                showLicenseActivationWindow()
+                return
+            }
+
+            let validatedActivation = try await licenseValidationService.validate(activation)
+            try licenseActivationStore.save(validatedActivation)
+            startMainApp()
+        } catch {
+            licenseActivationStore.clear()
+            showLicenseActivationWindow(
+                initialErrorMessage: "Saved activation could not be verified. Enter your license key again."
+            )
+        }
+    }
+
+    private func showLicenseActivationWindow(initialErrorMessage: String? = nil) {
+        let activationController = LicenseActivationWindowController(
+            validationService: licenseValidationService,
+            activationStore: licenseActivationStore,
+            initialErrorMessage: initialErrorMessage
+        ) { [weak self] _ in
+            self?.licenseActivationController?.closeAfterActivation()
+            self?.licenseActivationController = nil
+            self?.startMainApp()
+        }
+
+        licenseActivationController = activationController
+        activationController.showActivationWindow()
+    }
+
+    private func startMainApp() {
+        guard coordinator == nil else { return }
 
         let store = CaptureStore()
         let settings = PillSettings()
@@ -35,10 +88,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureStatusItem(settings: settings)
         coordinator.start()
         controlPanelController.showWindow()
-    }
-
-    func applicationWillTerminate(_ notification: Notification) {
-        coordinator?.stop()
     }
 
     private func registerBundledFonts() {

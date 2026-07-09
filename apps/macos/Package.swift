@@ -21,6 +21,7 @@ let package = Package(
             ],
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
+                .linkedFramework("Security"),
                 .linkedLibrary("sqlite3")
             ]
         )

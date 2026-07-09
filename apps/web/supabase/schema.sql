@@ -25,6 +25,10 @@ create index if not exists purchases_customer_email_idx
 create index if not exists purchases_status_idx
   on purchases (status);
 
+create unique index if not exists purchases_license_key_unique_idx
+  on purchases (license_key)
+  where license_key is not null;
+
 create table if not exists purchase_events (
   id uuid primary key default gen_random_uuid(),
   dodo_webhook_id text not null unique,
