@@ -9,15 +9,17 @@ final class PillViewModel: ObservableObject {
     @Published var items: [CaptureItem] = []
     @Published var textItems: [TextClipItem] = []
     @Published var selectedHistoryItem: ClipboardHistoryItem?
-    @Published var selectedFileIDs: Set<UUID> = []
     @Published private(set) var thumbnailImages: [UUID: NSImage] = [:]
-    @Published var statusText = "Hold Ctrl / Ctrl+Opt"
+    @Published var statusText = "Hold Opt / Ctrl+Opt"
     @Published var isExpanded = false
     @Published var isExpandedContentVisible = false
     @Published var isCollapsedContentVisible = true
     @Published var isBusy = false
     @Published var diagnosticMessage: String?
     @Published var captureIssue: CaptureIssue?
+    @Published var copyFeedback: CopyFeedback?
+
+    private var copyFeedbackDismissWorkItem: DispatchWorkItem?
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -30,9 +32,30 @@ final class PillViewModel: ObservableObject {
         self.settings = settings
     }
 
+    func showCopyFeedback(badge: String, preview: String) {
+        copyFeedbackDismissWorkItem?.cancel()
+
+        let collapsedPreview = preview
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        let feedback = CopyFeedback(
+            id: UUID(),
+            badge: badge,
+            preview: String(collapsedPreview.prefix(80))
+        )
+        copyFeedback = feedback
+
+        let dismissWorkItem = DispatchWorkItem { [weak self] in
+            guard let self, self.copyFeedback?.id == feedback.id else { return }
+            self.copyFeedback = nil
+        }
+        copyFeedbackDismissWorkItem = dismissWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: dismissWorkItem)
+    }
+
     func clearCaptureIssue() {
         if statusText == "Capture failed" || statusText == "Capture fallback" {
-            statusText = "Hold Ctrl / Ctrl+Opt"
+            statusText = "Hold Opt / Ctrl+Opt"
         }
 
         captureIssue = nil
@@ -92,29 +115,6 @@ final class PillViewModel: ObservableObject {
         NSPasteboard.general.writeObjects([image])
     }
 
-    func copySelectedScreenshotFiles() {
-        let urls = selectedScreenshotFileURLs
-        guard !urls.isEmpty else {
-            statusText = "No files"
-            diagnosticMessage = "No selected screenshot files were found."
-            return
-        }
-
-        onWillWritePasteboard?()
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        let didWrite = pasteboard.writeObjects(urls.map { $0 as NSURL })
-
-        if didWrite {
-            let suffix = urls.count == 1 ? "file" : "files"
-            statusText = "Copied \(urls.count) \(suffix)"
-            diagnosticMessage = "Copied \(urls.count) screenshot \(suffix) to the clipboard."
-        } else {
-            statusText = "Copy failed"
-            diagnosticMessage = "macOS refused to write the selected files to the clipboard."
-        }
-    }
-
     var historyItems: [ClipboardHistoryItem] {
         (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
             .sorted { $0.createdAt > $1.createdAt }
@@ -129,19 +129,7 @@ final class PillViewModel: ObservableObject {
         return historyItems.first
     }
 
-    var selectedFileCount: Int {
-        selectedScreenshotFileURLs.count
-    }
-
-    var canCopySelectedFiles: Bool {
-        selectedFileCount > 0
-    }
-
     var canCopySelectedImage: Bool {
-        guard selectedFileIDs.isEmpty else {
-            return false
-        }
-
         if case .screenshot = selectedItem {
             return true
         }
@@ -165,29 +153,19 @@ final class PillViewModel: ObservableObject {
         }
     }
 
-    func selectScreenshot(_ item: CaptureItem, extendingFileSelection: Bool) {
+    func selectScreenshot(_ item: CaptureItem) {
         selectedHistoryItem = .screenshot(item)
         latestItem = item
-
-        if extendingFileSelection {
-            if selectedFileIDs.contains(item.id) {
-                selectedFileIDs.remove(item.id)
-            } else {
-                selectedFileIDs.insert(item.id)
-            }
-        } else {
-            selectedFileIDs.removeAll()
-        }
     }
 
     func copyTextItem(_ item: TextClipItem) {
         select(.text(item))
-        selectedFileIDs.removeAll()
         onWillWritePasteboard?()
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(item.text, forType: .string)
         statusText = "Copied text"
         diagnosticMessage = "Copied previous text"
+        showCopyFeedback(badge: "Copied", preview: item.preview)
     }
 
     func revealSelectedScreenshotInFinder() {
@@ -223,7 +201,6 @@ final class PillViewModel: ObservableObject {
         case let .screenshot(capture):
             items.removeAll { $0.id == capture.id }
             thumbnailImages.removeValue(forKey: capture.id)
-            selectedFileIDs.remove(capture.id)
             if latestItem?.id == capture.id {
                 latestItem = items.first
             }
@@ -245,7 +222,6 @@ final class PillViewModel: ObservableObject {
     func replaceHistory(screenshots: [CaptureItem], textClips: [TextClipItem]) {
         items = screenshots
         textItems = textClips
-        selectedFileIDs = selectedFileIDs.intersection(Set(screenshots.map(\.id)))
 
         if let selectedHistoryItem,
            !historyItems.contains(selectedHistoryItem) {
@@ -271,7 +247,6 @@ final class PillViewModel: ObservableObject {
         items = nextItems
         latestItem = item
         selectedHistoryItem = .screenshot(item)
-        selectedFileIDs = [item.id]
         cacheThumbnails(for: nextItems)
     }
 
@@ -280,7 +255,6 @@ final class PillViewModel: ObservableObject {
         nextItems.insert(item, at: 0)
         textItems = Array(nextItems.prefix(80))
         selectedHistoryItem = .text(item)
-        selectedFileIDs.removeAll()
     }
 
     func cacheThumbnails(for items: [CaptureItem]) {
@@ -308,18 +282,6 @@ final class PillViewModel: ObservableObject {
         _ = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil)
 
         return image
-    }
-
-    private var selectedScreenshotFileURLs: [URL] {
-        historyItems.compactMap { historyItem in
-            guard case let .screenshot(item) = historyItem,
-                  selectedFileIDs.contains(item.id) else {
-                return nil
-            }
-
-            let url = URL(fileURLWithPath: item.imagePath)
-            return FileManager.default.fileExists(atPath: url.path) ? url : nil
-        }
     }
 
     private func openSystemSettingsPane(_ urlString: String) {

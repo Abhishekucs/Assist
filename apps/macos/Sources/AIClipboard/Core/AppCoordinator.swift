@@ -79,6 +79,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             pillViewModel.insertTextItem(item)
             pillViewModel.statusText = "Copied text"
             pillViewModel.diagnosticMessage = "Captured copied text"
+            pillViewModel.showCopyFeedback(badge: "Copied", preview: item.preview)
             DebugLogger.log("clipboard.text.saved", [
                 "id": item.id.uuidString,
                 "characters": "\(item.text.count)"
@@ -124,7 +125,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
     }
 
-    func controlGestureDidBegin(at globalPoint: CGPoint) {
+    func annotationGestureDidBegin(at globalPoint: CGPoint) {
         guard !isCapturing else { return }
 
         guard let screen = NSScreen.screen(containing: globalPoint) ?? NSScreen.main else {
@@ -155,7 +156,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         ])
     }
 
-    func controlGestureDidMove(to globalPoint: CGPoint) {
+    func annotationGestureDidMove(to globalPoint: CGPoint) {
         guard isCapturing, let screen = activeScreen, var stroke = activeStroke else { return }
 
         let point = screen.localTopLeftPoint(forGlobalPoint: globalPoint)
@@ -172,7 +173,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
     }
 
-    func controlGestureDidEnd(at globalPoint: CGPoint) {
+    func annotationGestureDidEnd(at globalPoint: CGPoint) {
         guard isCapturing, let screen = activeScreen, var stroke = activeStroke else {
             DebugLogger.log("annotation.end.no-active-stroke", [
                 "point": DebugLogger.describe(globalPoint)
@@ -260,6 +261,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             ])
             pillViewModel.statusText = "Ready"
             pillViewModel.isBusy = false
+            pillViewModel.showCopyFeedback(badge: "Saved", preview: "Screenshot")
         } catch {
             DebugLogger.log("capture.save.error", errorFields(error))
             pillViewModel.statusText = error.localizedDescription

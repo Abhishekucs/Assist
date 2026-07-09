@@ -35,8 +35,8 @@ export default function Home() {
             <span className="headline-captured">captured.</span>
           </h1>
           <p className="hero-copy">
-            Assist turns screenshots, annotations, and local OCR into searchable
-            context you can paste back into your workflow when it matters.
+            Assist keeps screenshots, annotations, and copied text in a fast
+            local shelf you can reuse when your workflow needs context.
           </p>
           <a className="hero-download-button" href={checkoutHref}>
             <span aria-hidden="true"></span>
@@ -65,18 +65,18 @@ export default function Home() {
           <h2>Your clipboard, wherever you need it</h2>
           <p>
             Use the notch shelf, drag and drop, and the full Library view to
-            find, reuse, and organize anything you copied.
+            reuse recent screenshots, annotations, and copied text.
           </p>
           <div className="feature-tags" aria-label="Assist features">
             <span>Local first</span>
             <span>Privacy first</span>
-            <span>Search anything</span>
+            <span>Option to annotate</span>
             <span>Screenshots</span>
-            <span>Screenshot and image OCR</span>
-            <span>Grouped by App</span>
-            <span>Type filters</span>
-            <span>Sensitive detection</span>
-            <span>Custom categories</span>
+            <span>Control + Option capture</span>
+            <span>Copied text</span>
+            <span>Drag from notch</span>
+            <span>Local library</span>
+            <span>Delete history items</span>
           </div>
         </div>
       </section>
@@ -87,8 +87,8 @@ export default function Home() {
             <p className="feature-kicker">Full screen memory</p>
             <h3>Take full screen screenshots</h3>
             <p>
-              Capture the whole desktop in one motion, including the work
-              around your active window.
+              Press Control + Option to capture the whole desktop in one
+              motion, without starting annotation.
             </p>
           </div>
           <div className="feature-visual full-capture-visual" aria-hidden="true">
@@ -127,8 +127,8 @@ export default function Home() {
               <p className="feature-kicker">Fast markup</p>
               <h3>Annotate anywhere</h3>
               <p>
-                Mark an idea, circle a detail, or point to a bug without
-                breaking your flow.
+                Hold Option, draw with your pointer, and release to save the
+                annotated screenshot.
               </p>
             </div>
             <div className="feature-visual annotate-visual" aria-hidden="true">
@@ -169,32 +169,6 @@ export default function Home() {
               </div>
             </div>
           </article>
-
-          <article className="feature-panel">
-            <div className="feature-copy-block">
-              <p className="feature-kicker">Batch context</p>
-              <h3>Multi copy</h3>
-              <p>
-                Select multiple captures, notes, and screenshots, then reuse
-                them together when the task needs context.
-              </p>
-            </div>
-            <div className="feature-visual multi-copy-visual" aria-hidden="true">
-              <div className="copy-stack copy-stack-one">
-                <span />
-                <span />
-              </div>
-              <div className="copy-stack copy-stack-two">
-                <span />
-                <span />
-              </div>
-              <div className="copy-stack copy-stack-three">
-                <span />
-                <span />
-              </div>
-              <div className="copy-count">4 copied</div>
-            </div>
-          </article>
         </div>
       </section>
 
@@ -204,7 +178,7 @@ export default function Home() {
           <h2>One price. Lifetime access.</h2>
           <p>
             Get Assist for your Mac with every capture, markup, notch shelf,
-            and multi-copy feature unlocked from day one.
+            copied text item, and local history feature unlocked from day one.
           </p>
         </div>
 
@@ -232,9 +206,10 @@ export default function Home() {
             <li>One-time payment</li>
             <li>All features unlocked from day one</li>
             <li>Full screen screenshot capture</li>
-            <li>Annotate anywhere</li>
+            <li>Option-hold annotation</li>
+            <li>Control + Option clean screenshots</li>
             <li>Drag and drop from notch</li>
-            <li>Multi copy context bundles</li>
+            <li>Copied text and screenshot history</li>
             <li>Lifetime updates included</li>
             <li>Native macOS app</li>
           </ul>
@@ -269,8 +244,8 @@ export default function Home() {
             </summary>
             <p>
               Assist is a native macOS capture tool that keeps screenshots,
-              annotations, copied context, and quick notes close to your
-              workflow through a notch-style shelf.
+              annotations, and copied text close to your workflow through a
+              notch-style shelf.
             </p>
           </details>
 
@@ -293,8 +268,8 @@ export default function Home() {
             </summary>
             <p>
               No automatic upload is required for the core workflow. Capture,
-              annotate, search, and reuse items from your Mac without sending
-              your history to a cloud service.
+              annotate, and reuse items from your Mac without sending your
+              history to a cloud service.
             </p>
           </details>
 
@@ -304,9 +279,9 @@ export default function Home() {
               <span className="faq-icon" aria-hidden="true" />
             </summary>
             <p>
-              You can capture full screen screenshots, selected visual context,
-              annotations, reusable snippets, and groups of copied items for
-              tasks that need more than one piece of context.
+              You can capture full screen screenshots with Control + Option,
+              create annotated screenshots by holding Option, and save copied
+              text for reuse.
             </p>
           </details>
 
@@ -348,7 +323,7 @@ export default function Home() {
             <span>captured.</span>
           </h2>
           <p>
-            Keep screenshots, annotations, and copied context ready whenever
+            Keep screenshots, annotations, and copied text ready whenever
             your workflow needs them.
           </p>
           <a className="footer-download-button" href={checkoutHref}>

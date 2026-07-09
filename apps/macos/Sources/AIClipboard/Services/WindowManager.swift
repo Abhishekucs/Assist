@@ -104,7 +104,10 @@ final class WindowManager {
 
             let chromeSize = self.pillViewModel.isExpanded
                 ? PillChromeMetrics.expandedSize(settings: self.settings)
-                : PillChromeMetrics.collapsedSize(settings: self.settings)
+                : PillChromeMetrics.collapsedSize(
+                    settings: self.settings,
+                    showingCopyFeedback: self.pillViewModel.copyFeedback != nil
+                )
             let bounds = hostingView.bounds
 
             return CGRect(

@@ -4,9 +4,9 @@ Assist is a native macOS screenshot utility for quick annotation and structured 
 
 The first version is intentionally small:
 
-- Hold `Control` anywhere on macOS to start a capture.
-- Move the pointer while holding `Control` to annotate.
-- Release `Control` to save the annotated screenshot.
+- Hold `Option` anywhere on macOS to start an annotated capture.
+- Move the pointer while holding `Option` to annotate.
+- Release `Option` to save the annotated screenshot.
 - Press `Control + Option` to save a clean full-display screenshot without annotation.
 - Hover the top-center pill to preview the latest capture.
 - Copy the screenshot or local structured context from the pill.
@@ -62,7 +62,7 @@ make run
 Assist asks for:
 
 - Screen Recording, to capture the screen.
-- Accessibility/Input Monitoring, to detect the global `Control` hold gesture.
+- Accessibility/Input Monitoring, to detect the global `Option` and `Control + Option` shortcuts.
 
 If capture or the global gesture does not work after granting permissions, quit and reopen the app.
 
@@ -104,10 +104,10 @@ Sources/AIClipboard
 The main flow is:
 
 ```text
-Control down
+Option down
 → show transparent annotation overlay
 → record pointer path
-→ Control up
+→ Option up
 → hide overlay and capture the active display
 → composite annotation onto screenshot
 → save PNG and thumbnail
@@ -139,7 +139,7 @@ The database stores capture metadata, paths, timestamps, and structured context.
 
 - The first version captures the display under the pointer, not a stitched multi-display canvas.
 - Context generation is local Vision OCR, not a remote multimodal model yet.
-- The `Control`-only gesture is intentionally direct; future versions should add a setting to choose a safer trigger.
+- The annotation gesture uses `Option` directly; future versions should add a setting to customize shortcuts.
 - App signing and notarization are not configured yet.
 
 ## Roadmap

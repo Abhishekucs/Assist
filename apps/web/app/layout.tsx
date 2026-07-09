@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Assist",
   description:
-    "Assist is a native macOS capture tool for screenshots, annotations, and agent-ready context.",
+    "Assist is a native macOS capture tool for screenshots, annotations, and copied text history.",
   icons: {
     icon: "/ai-clipboard-icon.svg",
     apple: "/ai-clipboard-icon.svg"
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Assist",
     description:
-      "A native macOS capture tool for screenshots, annotations, and agent-ready context.",
+      "A native macOS capture tool for screenshots, annotations, and copied text history.",
     type: "website"
   }
 };

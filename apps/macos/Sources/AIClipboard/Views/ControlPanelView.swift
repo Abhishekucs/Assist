@@ -265,10 +265,7 @@ private struct CaptureLibraryView: View {
     private func select(_ item: ClipboardHistoryItem) {
         switch item {
         case let .screenshot(capture):
-            viewModel.selectScreenshot(
-                capture,
-                extendingFileSelection: NSApp.currentEvent?.modifierFlags.contains(.command) == true
-            )
+            viewModel.selectScreenshot(capture)
         case let .text(textClip):
             viewModel.copyTextItem(textClip)
         }
@@ -287,7 +284,7 @@ private struct EmptyCaptureLibraryView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(theme.foreground)
 
-            Text("Hold Control to annotate a screenshot, or press Control + Option for a clean capture.")
+            Text("Hold Option to annotate a screenshot, or press Control + Option for a clean capture.")
                 .font(.subheadline)
                 .foregroundStyle(theme.muted)
                 .multilineTextAlignment(.center)
@@ -681,11 +678,9 @@ private struct CaptureSettingsPane: View {
             subtitle: "Shortcuts used by the capture island."
         ) {
             SettingsSection("Shortcuts") {
-                ShortcutRow(title: "Annotate screenshot", keys: ["Control"], detail: "Hold and move the pointer to draw.")
+                ShortcutRow(title: "Annotate screenshot", keys: ["Option"], detail: "Hold and move the pointer to draw.")
                 RowDivider()
                 ShortcutRow(title: "Clean screenshot", keys: ["Control", "Option"], detail: "Capture the active display without annotation.")
-                RowDivider()
-                ShortcutRow(title: "Select files", keys: ["Command", "Click"], detail: "Select one or more screenshot files for copying.")
             }
 
             SettingsSection("Diagnostics") {

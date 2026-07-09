@@ -3,16 +3,16 @@ import CoreGraphics
 
 @MainActor
 protocol ControlGestureMonitorDelegate: AnyObject {
-    func controlGestureDidBegin(at globalPoint: CGPoint)
-    func controlGestureDidMove(to globalPoint: CGPoint)
-    func controlGestureDidEnd(at globalPoint: CGPoint)
+    func annotationGestureDidBegin(at globalPoint: CGPoint)
+    func annotationGestureDidMove(to globalPoint: CGPoint)
+    func annotationGestureDidEnd(at globalPoint: CGPoint)
     func controlOptionScreenshotRequested(at globalPoint: CGPoint)
 }
 
 @MainActor
 final class ControlGestureMonitor: @unchecked Sendable {
     private enum Timing {
-        static let controlHoldDelay: TimeInterval = 0.10
+        static let annotationHoldDelay: TimeInterval = 0.10
         static let pointerPollInterval: TimeInterval = 1.0 / 60.0
     }
 
@@ -22,11 +22,12 @@ final class ControlGestureMonitor: @unchecked Sendable {
     private var runLoopSource: CFRunLoopSource?
     private var globalFlagsMonitor: Any?
     private var localFlagsMonitor: Any?
-    private var isControlDown = false
+    private var isOptionDown = false
+    private var isAnnotating = false
     private var isControlOptionDown = false
-    private var suppressControlGestureUntilRelease = false
-    private var pendingControlBeginPoint: CGPoint?
-    private var pendingControlBeginWorkItem: DispatchWorkItem?
+    private var suppressAnnotationUntilOptionRelease = false
+    private var pendingAnnotationBeginPoint: CGPoint?
+    private var pendingAnnotationBeginWorkItem: DispatchWorkItem?
     private var pointerPollTimer: Timer?
 
     func start() throws {
@@ -93,15 +94,16 @@ final class ControlGestureMonitor: @unchecked Sendable {
             NSEvent.removeMonitor(localFlagsMonitor)
         }
 
-        cancelPendingControlBegin()
+        cancelPendingAnnotationBegin()
         stopPointerPolling()
         eventTap = nil
         runLoopSource = nil
         globalFlagsMonitor = nil
         localFlagsMonitor = nil
-        isControlDown = false
+        isOptionDown = false
+        isAnnotating = false
         isControlOptionDown = false
-        suppressControlGestureUntilRelease = false
+        suppressAnnotationUntilOptionRelease = false
     }
 
     nonisolated private func handle(type: CGEventType, controlIsDown: Bool, optionIsDown: Bool) {
@@ -161,12 +163,14 @@ final class ControlGestureMonitor: @unchecked Sendable {
 
         if chordIsDown && !isControlOptionDown {
             isControlOptionDown = true
-            isControlDown = false
-            suppressControlGestureUntilRelease = true
-            cancelPendingControlBegin()
-            stopPointerPolling()
+            suppressAnnotationUntilOptionRelease = true
+            cancelPendingAnnotationBegin()
             DebugLogger.log("monitor.control-option.down", ["point": DebugLogger.describe(point)])
-            delegate?.controlOptionScreenshotRequested(at: point)
+
+            if !isAnnotating {
+                stopPointerPolling()
+                delegate?.controlOptionScreenshotRequested(at: point)
+            }
             return
         }
 
@@ -174,67 +178,71 @@ final class ControlGestureMonitor: @unchecked Sendable {
             isControlOptionDown = false
         }
 
-        if !controlIsDown {
-            cancelPendingControlBegin()
-            if isControlDown {
-                isControlDown = false
+        if !optionIsDown {
+            cancelPendingAnnotationBegin()
+            isOptionDown = false
+            suppressAnnotationUntilOptionRelease = false
+
+            if isAnnotating {
+                isAnnotating = false
                 stopPointerPolling()
-                DebugLogger.log("monitor.control.up", ["point": DebugLogger.describe(point)])
-                delegate?.controlGestureDidEnd(at: point)
+                DebugLogger.log("monitor.option.up", ["point": DebugLogger.describe(point)])
+                delegate?.annotationGestureDidEnd(at: point)
             }
-            suppressControlGestureUntilRelease = false
             return
         }
 
-        guard !optionIsDown, !suppressControlGestureUntilRelease else {
+        isOptionDown = true
+
+        guard !controlIsDown, !suppressAnnotationUntilOptionRelease else {
             return
         }
 
-        if !isControlDown, pendingControlBeginWorkItem == nil {
-            DebugLogger.log("monitor.control.pending", ["point": DebugLogger.describe(point)])
-            scheduleControlBegin(at: point)
+        if !isAnnotating, pendingAnnotationBeginWorkItem == nil {
+            DebugLogger.log("monitor.option.pending", ["point": DebugLogger.describe(point)])
+            scheduleAnnotationBegin(at: point)
         }
     }
 
     private func handleMouseMoved(to point: CGPoint) {
-        if isControlDown {
-            delegate?.controlGestureDidMove(to: point)
+        if isAnnotating {
+            delegate?.annotationGestureDidMove(to: point)
             return
         }
 
-        if pendingControlBeginWorkItem != nil, !suppressControlGestureUntilRelease {
-            firePendingControlBegin()
-            delegate?.controlGestureDidMove(to: point)
+        if pendingAnnotationBeginWorkItem != nil, isOptionDown, !suppressAnnotationUntilOptionRelease {
+            firePendingAnnotationBegin()
+            delegate?.annotationGestureDidMove(to: point)
         }
     }
 
-    private func scheduleControlBegin(at point: CGPoint) {
-        pendingControlBeginPoint = point
+    private func scheduleAnnotationBegin(at point: CGPoint) {
+        pendingAnnotationBeginPoint = point
 
         let workItem = DispatchWorkItem { [weak self] in
-            self?.firePendingControlBegin()
+            self?.firePendingAnnotationBegin()
         }
 
-        pendingControlBeginWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.controlHoldDelay, execute: workItem)
+        pendingAnnotationBeginWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.annotationHoldDelay, execute: workItem)
     }
 
-    private func firePendingControlBegin() {
-        guard let point = pendingControlBeginPoint else { return }
+    private func firePendingAnnotationBegin() {
+        guard let point = pendingAnnotationBeginPoint else { return }
 
-        cancelPendingControlBegin()
-        guard !isControlDown, !suppressControlGestureUntilRelease else { return }
+        cancelPendingAnnotationBegin()
+        guard isOptionDown, !isAnnotating, !isControlOptionDown, !suppressAnnotationUntilOptionRelease else { return }
 
-        isControlDown = true
-        DebugLogger.log("monitor.control.down", ["point": DebugLogger.describe(point)])
-        delegate?.controlGestureDidBegin(at: point)
+        isAnnotating = true
+        DebugLogger.log("monitor.option.down", ["point": DebugLogger.describe(point)])
+        delegate?.annotationGestureDidBegin(at: point)
         startPointerPolling()
     }
 
-    private func cancelPendingControlBegin() {
-        pendingControlBeginWorkItem?.cancel()
-        pendingControlBeginWorkItem = nil
-        pendingControlBeginPoint = nil
+    private func cancelPendingAnnotationBegin() {
+        pendingAnnotationBeginWorkItem?.cancel()
+        pendingAnnotationBeginWorkItem = nil
+        pendingAnnotationBeginPoint = nil
     }
 
     private func startPointerPolling() {
@@ -243,8 +251,8 @@ final class ControlGestureMonitor: @unchecked Sendable {
 
         let timer = Timer(timeInterval: Timing.pointerPollInterval, repeats: true) { [weak self] _ in
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.isControlDown else { return }
-                self.delegate?.controlGestureDidMove(to: NSEvent.mouseLocation)
+                guard let self, self.isAnnotating else { return }
+                self.delegate?.annotationGestureDidMove(to: NSEvent.mouseLocation)
             }
         }
 

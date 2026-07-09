@@ -15,7 +15,10 @@ struct PillView: View {
     }
 
     private var collapsedSize: CGSize {
-        PillChromeMetrics.collapsedSize(settings: settings)
+        PillChromeMetrics.collapsedSize(
+            settings: settings,
+            showingCopyFeedback: viewModel.copyFeedback != nil
+        )
     }
 
     private var expandedSize: CGSize {
@@ -71,6 +74,7 @@ struct PillView: View {
             }
             .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
             .animation(islandAnimation, value: viewModel.isExpanded)
+            .animation(islandAnimation, value: viewModel.copyFeedback != nil)
             .background {
                 BoringNotchShape(
                     topCornerRadius: chromeTopCornerRadius,
@@ -119,19 +123,52 @@ private struct CollapsedIslandHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(viewModel.statusText)
-                .font(AssistFont.roundedFootnote(.medium))
-                .foregroundStyle(.white.opacity(0.92))
-                .lineLimit(1)
-                .minimumScaleFactor(0.86)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if let feedback = viewModel.copyFeedback {
+                CopyFeedbackRow(feedback: feedback)
+                    .transition(
+                        .opacity
+                            .combined(with: .scale(scale: 0.96))
+                            .animation(.easeOut(duration: 0.16))
+                    )
+            } else {
+                Text(viewModel.statusText)
+                    .font(AssistFont.roundedFootnote(.medium))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            if viewModel.latestItem != nil {
-                HugeIcon(.image, size: 13, color: .white.opacity(0.7))
-                    .help("Recent item available")
+                if viewModel.latestItem != nil {
+                    HugeIcon(.image, size: 13, color: .white.opacity(0.7))
+                        .help("Recent item available")
+                }
             }
         }
         .padding(.horizontal, 18)
+        .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
+    }
+}
+
+private struct CopyFeedbackRow: View {
+    let feedback: CopyFeedback
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(feedback.preview)
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(feedback.badge)
+                .font(AssistFont.roundedFootnote(.semibold))
+                .foregroundStyle(.black)
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .frame(height: 19)
+                .background(Color.white, in: Capsule())
+        }
     }
 }
 
@@ -262,10 +299,7 @@ struct ExpandedIslandView: View {
                                     thumbnail: viewModel.thumbnail(for: capture),
                                     isSelected: item.id == selectedID
                                 ) {
-                                    viewModel.selectScreenshot(
-                                        capture,
-                                        extendingFileSelection: NSApp.currentEvent?.modifierFlags.contains(.command) == true
-                                    )
+                                    viewModel.selectScreenshot(capture)
                                 } deleteAction: {
                                     viewModel.delete(item)
                                 }
@@ -288,7 +322,7 @@ struct ExpandedIslandView: View {
                     Text("No items yet")
                         .font(.headline)
 
-                    Text("Hold Control to annotate, press Control + Option for a clean screenshot, or copy text.")
+                    Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -323,15 +357,6 @@ private struct ExpandedIslandHeader: View {
             if viewModel.canCopySelectedImage {
                 IslandIconButton(icon: .image, tooltip: "Copy selected screenshot image") {
                     viewModel.copyLatestImage()
-                }
-            }
-
-            if viewModel.canCopySelectedFiles {
-                IslandIconButton(
-                    icon: .copy,
-                    tooltip: "Copy \(viewModel.selectedFileCount) screenshot file\(viewModel.selectedFileCount == 1 ? "" : "s")"
-                ) {
-                    viewModel.copySelectedScreenshotFiles()
                 }
             }
 

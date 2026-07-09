@@ -45,6 +45,12 @@ enum ClipboardHistoryItem: Identifiable, Equatable {
     }
 }
 
+struct CopyFeedback: Equatable {
+    let id: UUID
+    let badge: String
+    let preview: String
+}
+
 enum CaptureIssueAction: Equatable {
     case openScreenRecordingSettings
     case openAccessibilitySettings
@@ -76,7 +82,7 @@ struct CaptureIssue: Equatable {
     static func inputMonitoring(detail: String?) -> CaptureIssue {
         CaptureIssue(
             title: "Input permission needed",
-            message: "Assist needs Accessibility or Input Monitoring permission to detect the global Control shortcut.",
+            message: "Assist needs Accessibility or Input Monitoring permission to detect the global Option and Control + Option shortcuts.",
             detail: detail,
             primaryActionTitle: "Open Accessibility",
             primaryAction: .openAccessibilitySettings,
@@ -141,7 +147,7 @@ enum AppError: LocalizedError {
         case .imageEncodingFailed:
             "Unable to encode the annotated screenshot."
         case .eventTapUnavailable:
-            "Unable to listen for the Control key. Enable Accessibility/Input Monitoring for global shortcuts."
+            "Unable to listen for global shortcuts. Enable Accessibility/Input Monitoring for Assist."
         }
     }
 }
