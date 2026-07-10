@@ -230,7 +230,7 @@ private struct CaptureLibraryView: View {
     @Environment(\.assistTheme) private var theme
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 18, alignment: .top)]
+        [GridItem(.adaptive(minimum: 210, maximum: 240), spacing: 14, alignment: .top)]
     }
 
     var body: some View {
@@ -239,7 +239,7 @@ private struct CaptureLibraryView: View {
                 EmptyCaptureLibraryView()
             } else {
                 ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
                         ForEach(viewModel.historyItems) { item in
                             CaptureLibraryCard(
                                 item: item,
@@ -250,7 +250,7 @@ private struct CaptureLibraryView: View {
                             )
                         }
                     }
-                    .padding(28)
+                    .padding(18)
                 }
                 .background(theme.background)
             }
@@ -296,6 +296,8 @@ private struct EmptyCaptureLibraryView: View {
 }
 
 private struct CaptureLibraryCard: View {
+    private static let cardHeight: CGFloat = 122
+
     let item: ClipboardHistoryItem
     let isSelected: Bool
     let thumbnail: NSImage?
@@ -313,13 +315,14 @@ private struct CaptureLibraryCard: View {
         ZStack(alignment: .topTrailing) {
             Button(action: selectAction) {
                 preview
-                    .frame(maxWidth: .infinity, minHeight: 208, alignment: .topLeading)
-                .background(cardBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(maxWidth: .infinity, minHeight: Self.cardHeight, maxHeight: Self.cardHeight, alignment: .topLeading)
+                .background(cardBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .stroke(isSelected ? theme.foreground.opacity(0.42) : .clear, lineWidth: 1)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .shadow(color: .black.opacity(theme.isDark ? 0.16 : 0.08), radius: 9, y: 5)
             }
             .buttonStyle(.plain)
             .onDrag { item.dragProvider }
@@ -330,7 +333,7 @@ private struct CaptureLibraryCard: View {
                 .zIndex(1)
                 .padding(7)
         }
-        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isHovered)
     }
@@ -343,8 +346,9 @@ private struct CaptureLibraryCard: View {
                 if let thumbnail {
                     Image(nsImage: thumbnail)
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .padding(10)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                 } else {
                     HugeIcon(.image, size: 30)
                         .foregroundStyle(theme.muted)
@@ -352,15 +356,15 @@ private struct CaptureLibraryCard: View {
             }
         case let .text(textClip):
             VStack(alignment: .leading, spacing: 12) {
-                HugeIcon(.document, size: 24)
+                HugeIcon(.document, size: 18)
                     .foregroundStyle(theme.muted)
                 Text(textClip.preview)
-                    .font(.subheadline.weight(.medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(theme.foreground)
-                    .lineLimit(7)
+                    .lineLimit(4)
                     .multilineTextAlignment(.leading)
             }
-            .padding(14)
+            .padding(10)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
