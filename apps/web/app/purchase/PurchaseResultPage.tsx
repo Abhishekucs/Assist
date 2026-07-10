@@ -87,8 +87,8 @@ async function savePurchase(
     );
 
     return { purchase, state: "ready" };
-  } catch {
-    console.warn("Purchase verification needs attention.");
+  } catch (error) {
+    console.warn("Purchase verification needs attention.", error);
 
     return { purchase: null, state: "attention" };
   }
@@ -125,6 +125,13 @@ export default async function PurchaseResultPage({
         <p className="purchase-kicker">{copy.kicker}</p>
         <h1 id="purchase-title">{copy.title}</h1>
         <p>{copy.body}</p>
+
+        {state === "ready" && purchase?.license_key ? (
+          <div className="purchase-license">
+            <span>License key</span>
+            <code>{purchase.license_key}</code>
+          </div>
+        ) : null}
 
         {downloadHref ? (
           <div className="purchase-actions">

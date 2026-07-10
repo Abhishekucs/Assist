@@ -15,6 +15,22 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function getConfiguredDownloadUrl() {
+  const configuredUrl = process.env.ASSIST_DOWNLOAD_URL?.trim();
+
+  if (!configuredUrl) {
+    return null;
+  }
+
+  const url = new URL(configuredUrl);
+
+  if (url.protocol !== "https:") {
+    throw new Error("ASSIST_DOWNLOAD_URL must use https.");
+  }
+
+  return url;
+}
+
 function getConfiguredDownloadFile() {
   const configuredPath = requiredEnv("ASSIST_DOWNLOAD_FILE");
 
@@ -70,6 +86,17 @@ export async function GET(request: NextRequest) {
         { error: `Purchase is for ${purchase.product_id}, not ${productId}.` },
         { status: 403 },
       );
+    }
+
+    const downloadUrl = getConfiguredDownloadUrl();
+
+    if (downloadUrl) {
+      await markPurchaseDownloaded(purchase);
+
+      const response = NextResponse.redirect(downloadUrl, 303);
+      response.headers.set("Cache-Control", "private, no-store");
+
+      return response;
     }
 
     const filePath = getConfiguredDownloadFile();

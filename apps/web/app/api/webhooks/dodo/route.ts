@@ -59,7 +59,11 @@ export async function POST(request: NextRequest) {
     });
     const paymentId = getPaymentIdFromWebhookData(event.data);
 
-    await recordDodoWebhookEvent(request.headers, event.type, paymentId, event);
+    try {
+      await recordDodoWebhookEvent(request.headers, event.type, paymentId, event);
+    } catch (error) {
+      console.error("Dodo webhook event recording failed", error);
+    }
 
     if (
       (event.type === "license_key.created" ||
