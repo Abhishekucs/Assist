@@ -72,5 +72,5 @@ Release for that tag and uploads:
 For the website download button, use the stable release asset URL:
 
 ```text
-https://github.com/Thinking-Sound-Lab/Assist/releases/latest/download/Assist.dmg
+https://github.com/Abhishekucs/Assist/releases/latest/download/Assist.dmg
 ```

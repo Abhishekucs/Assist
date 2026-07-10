@@ -45,7 +45,8 @@ The download route only serves the file when:
 - Supabase has a purchase for the Dodo payment id
 - the saved purchase status is `succeeded`
 - the saved product matches `DODO_PAYMENTS_PRODUCT_ID`
-- the app binary exists in `private-downloads/`
+- either `ASSIST_DOWNLOAD_URL` points to an HTTPS installer URL, or the app
+  binary exists in `private-downloads/`
 
 Required server-side environment variables:
 
@@ -60,6 +61,7 @@ DODO_PAYMENTS_RETURN_URL=http://localhost:3000/purchase/result
 DODO_PAYMENTS_CANCEL_URL=http://localhost:3000/#pricing
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+ASSIST_DOWNLOAD_URL=https://github.com/Abhishekucs/Assist/releases/latest/download/Assist.dmg
 ASSIST_DOWNLOAD_FILE=Assist.dmg
 ASSIST_DOWNLOAD_FILENAME=Assist.dmg
 ```
@@ -67,9 +69,11 @@ ASSIST_DOWNLOAD_FILENAME=Assist.dmg
 Create the Supabase tables by running the SQL in
 `apps/web/supabase/schema.sql` inside the Supabase SQL editor.
 
-Keep the `.dmg`, `.zip`, or `.pkg` in `private-downloads/`, not `public/`.
-`ASSIST_DOWNLOAD_FILE` is resolved inside that folder and the folder is
-gitignored so the app binary is not committed or publicly fetchable.
+Production can set `ASSIST_DOWNLOAD_URL` to the stable GitHub Release asset.
+For local file serving, keep the `.dmg`, `.zip`, or `.pkg` in
+`private-downloads/`, not `public/`. `ASSIST_DOWNLOAD_FILE` is resolved inside
+that folder and the folder is gitignored so the app binary is not committed or
+publicly fetchable.
 
 ## Production Dodo Setup
 

@@ -126,6 +126,13 @@ export default async function PurchaseResultPage({
         <h1 id="purchase-title">{copy.title}</h1>
         <p>{copy.body}</p>
 
+        {state === "ready" && purchase?.license_key ? (
+          <div className="purchase-license">
+            <span>License key</span>
+            <code>{purchase.license_key}</code>
+          </div>
+        ) : null}
+
         {downloadHref ? (
           <div className="purchase-actions">
             <a className="purchase-download-button" href={downloadHref}>
