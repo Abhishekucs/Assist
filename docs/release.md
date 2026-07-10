@@ -42,14 +42,29 @@ activation endpoint is read from `AssistLicenseVerificationURL` in
 1. Update `CFBundleShortVersionString` and `CFBundleVersion` in
    `apps/macos/Sources/AIClipboard/Resources/Info.plist`.
 2. Commit and push the version bump.
-3. Create and push a matching tag:
+3. Create and push a matching macOS release tag:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag macos-v0.1.0
+git push origin macos-v0.1.0
 ```
 
-The workflow creates or updates the GitHub Release for that tag and uploads:
+The workflow listens only to `macos-v*` tags. Plain `v*` tags do not trigger a
+macOS build, signing, or notarization run.
+
+For tag-triggered runs, the workflow first compares the new tag commit with the
+previous `macos-v*` tag, falling back to the latest legacy `v*` tag during the
+tag-prefix migration. It builds and notarizes only when macOS release inputs
+changed:
+
+- `apps/macos/**`
+- `.github/workflows/release.yml`
+
+Manual `workflow_dispatch` runs are treated as explicit release requests and
+always build, sign, notarize, verify, and publish the DMG.
+
+When the release is in scope, the workflow creates or updates the GitHub
+Release for that tag and uploads:
 
 - `Assist-<version>.dmg`
 - `Assist.dmg`
