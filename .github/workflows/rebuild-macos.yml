@@ -1,0 +1,30 @@
+name: Rebuild macOS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/macos/**"
+      - ".github/workflows/rebuild-macos.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rebuild-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild-macos:
+    name: Rebuild macOS
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build macOS application
+        run: make -C apps/macos build
