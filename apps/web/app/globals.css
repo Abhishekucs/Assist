@@ -1866,23 +1866,21 @@ h1 {
   padding: 72px 20px;
   color: #050505;
   background:
-    radial-gradient(circle at 50% 0%, rgba(22, 139, 255, 0.2), transparent 32%),
-    radial-gradient(circle at 12% 88%, rgba(127, 214, 148, 0.2), transparent 32%),
-    linear-gradient(180deg, #edf8ff 0%, #ffffff 58%, #f7fbf6 100%);
+    linear-gradient(140deg, rgba(226, 245, 255, 0.95) 0%, rgba(255, 255, 255, 0.96) 46%, rgba(243, 252, 245, 0.95) 100%);
 }
 
 .purchase-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: min(720px, 100%);
+  width: min(620px, 100%);
   margin: 0 auto;
-  padding: 34px 42px 40px;
+  padding: 42px 48px 46px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 26px;
-  box-shadow: 0 28px 80px rgba(5, 22, 50, 0.14);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(9, 36, 74, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 26px 70px rgba(5, 22, 50, 0.12);
   backdrop-filter: blur(18px);
 }
 
@@ -1898,66 +1896,83 @@ h1 {
 .purchase-status-mark {
   display: grid;
   place-items: center;
-  width: 74px;
-  height: 74px;
+  width: 46px;
+  height: 46px;
   margin-top: 44px;
-  color: #050505;
-  background: #050505;
-  border-radius: 24px;
-  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.18);
+  color: #064a32;
+  background: #e6fff4;
+  border: 1px solid rgba(6, 74, 50, 0.14);
+  border-radius: 14px;
+  box-shadow: 0 16px 34px rgba(6, 74, 50, 0.12);
 }
 
 .purchase-status-mark span {
   position: relative;
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
 }
 
 .purchase-card-ready .purchase-status-mark span::before {
   position: absolute;
-  top: 4px;
-  left: 7px;
-  width: 12px;
-  height: 20px;
+  top: 2px;
+  left: 5px;
+  width: 9px;
+  height: 15px;
   content: "";
-  border-right: 3px solid #ffffff;
-  border-bottom: 3px solid #ffffff;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
   transform: rotate(42deg);
 }
 
-.purchase-card-failed .purchase-status-mark,
 .purchase-card-attention .purchase-status-mark {
-  background: #111111;
+  color: #7d4a00;
+  background: #fff7e4;
+  border-color: rgba(125, 74, 0, 0.16);
+  box-shadow: 0 16px 34px rgba(125, 74, 0, 0.1);
 }
 
 .purchase-card-failed .purchase-status-mark span::before,
-.purchase-card-failed .purchase-status-mark span::after,
-.purchase-card-attention .purchase-status-mark span::before,
-.purchase-card-attention .purchase-status-mark span::after {
+.purchase-card-failed .purchase-status-mark span::after {
   position: absolute;
-  top: 12px;
-  left: 4px;
-  width: 20px;
-  height: 3px;
+  top: 9px;
+  left: 3px;
+  width: 14px;
+  height: 2px;
   content: "";
-  background: #ffffff;
+  background: currentColor;
   border-radius: 999px;
 }
 
-.purchase-card-failed .purchase-status-mark span::before,
-.purchase-card-attention .purchase-status-mark span::before {
+.purchase-card-failed .purchase-status-mark {
+  color: #9c1f3c;
+  background: #fff1f5;
+  border-color: rgba(156, 31, 60, 0.14);
+  box-shadow: 0 16px 34px rgba(156, 31, 60, 0.1);
+}
+
+.purchase-card-failed .purchase-status-mark span::before {
   transform: rotate(45deg);
 }
 
-.purchase-card-failed .purchase-status-mark span::after,
-.purchase-card-attention .purchase-status-mark span::after {
+.purchase-card-failed .purchase-status-mark span::after {
   transform: rotate(-45deg);
+}
+
+.purchase-card-attention .purchase-status-mark span::before {
+  position: absolute;
+  inset: 0;
+  content: "!";
+  color: currentColor;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
 }
 
 .purchase-kicker {
   margin: 28px 0 14px;
-  color: rgba(0, 0, 0, 0.48);
+  color: rgba(0, 0, 0, 0.5);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.2;
@@ -1967,21 +1982,27 @@ h1 {
 
 .purchase-card h1 {
   max-width: 560px;
-  margin: 0 0 18px;
+  margin: 0 0 24px;
   color: #050505;
-  font-size: clamp(42px, 7vw, 64px);
+  font-size: clamp(38px, 5vw, 54px);
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.04;
   letter-spacing: 0;
   text-shadow: none;
 }
 
-.purchase-card > p {
+.purchase-card-failed h1,
+.purchase-card-attention h1 {
+  max-width: 500px;
+  font-size: clamp(34px, 4.4vw, 46px);
+}
+
+.purchase-card > p:not(.purchase-kicker) {
   max-width: 520px;
   margin: 0;
   color: rgba(0, 0, 0, 0.62);
   font-size: 17px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .purchase-actions {
@@ -2001,38 +2022,18 @@ h1 {
   padding: 0 24px;
   color: #ffffff;
   background: #050505;
-  border-radius: 16px;
+  border-radius: 12px;
   font-size: 15px;
   font-weight: 500;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
 }
 
-.purchase-warning {
-  width: min(480px, 100%);
-  margin-top: 30px !important;
-  padding: 14px 16px;
-  text-align: left;
-  color: rgba(0, 0, 0, 0.62);
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 16px;
-}
-
-.purchase-warning summary {
-  cursor: pointer;
-  color: rgba(0, 0, 0, 0.76);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.purchase-warning p {
-  margin: 12px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
+.purchase-recovery-actions {
+  margin-top: 40px;
 }
 
 .purchase-back-link {
-  margin-top: 24px;
+  margin-top: 34px;
   color: rgba(0, 0, 0, 0.56);
   font-size: 14px;
   font-weight: 500;
@@ -2040,8 +2041,7 @@ h1 {
 
 .purchase-download-button:focus-visible,
 .purchase-brand:focus-visible,
-.purchase-back-link:focus-visible,
-.purchase-warning summary:focus-visible {
+.purchase-back-link:focus-visible {
   outline: 2px solid rgba(17, 135, 255, 0.9);
   outline-offset: 4px;
 }
@@ -2651,22 +2651,27 @@ h1 {
   }
 
   .purchase-card {
-    padding: 28px 20px 30px;
-    border-radius: 22px;
+    padding: 34px 22px 36px;
+    border-radius: 18px;
   }
 
   .purchase-status-mark {
-    width: 64px;
-    height: 64px;
+    width: 44px;
+    height: 44px;
     margin-top: 34px;
-    border-radius: 20px;
+    border-radius: 14px;
   }
 
   .purchase-card h1 {
     font-size: clamp(36px, 11vw, 48px);
   }
 
-  .purchase-card > p {
+  .purchase-card-failed h1,
+  .purchase-card-attention h1 {
+    font-size: clamp(32px, 9vw, 40px);
+  }
+
+  .purchase-card > p:not(.purchase-kicker) {
     font-size: 15px;
   }
 

@@ -46,10 +46,10 @@ printf "\n"
 KEYCHAIN_PASSWORD="$(openssl rand -base64 32 | tr -d '\n')"
 CERTIFICATE_BASE64="$(base64 < "$P12_PATH" | tr -d '\n')"
 
-printf "%s" "$CERTIFICATE_BASE64" | gh secret set APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 -b -
-printf "%s" "$CERTIFICATE_PASSWORD" | gh secret set APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD -b -
-printf "%s" "$KEYCHAIN_PASSWORD" | gh secret set APPLE_KEYCHAIN_PASSWORD -b -
-printf "%s" "$APPLE_ID" | gh secret set APPLE_ID -b -
-printf "%s" "$APP_SPECIFIC_PASSWORD" | gh secret set APPLE_APP_SPECIFIC_PASSWORD -b -
+printf "%s" "$CERTIFICATE_BASE64" | gh secret set APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64
+printf "%s" "$CERTIFICATE_PASSWORD" | gh secret set APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD
+printf "%s" "$KEYCHAIN_PASSWORD" | gh secret set APPLE_KEYCHAIN_PASSWORD
+printf "%s" "$APPLE_ID" | gh secret set APPLE_ID
+printf "%s" "$APP_SPECIFIC_PASSWORD" | gh secret set APPLE_APP_SPECIFIC_PASSWORD
 
 echo "GitHub Actions release secrets have been configured."
