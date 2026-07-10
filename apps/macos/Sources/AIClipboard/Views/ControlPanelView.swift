@@ -228,9 +228,21 @@ private struct AppTopBar: View {
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
     @Environment(\.assistTheme) private var theme
+    @State private var selectedFilter: LibraryFilter = .all
 
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: 210, maximum: 240), spacing: 14, alignment: .top)]
+    }
+
+    private var filteredItems: [ClipboardHistoryItem] {
+        viewModel.historyItems.filter { item in
+            switch (selectedFilter, item) {
+            case (.all, _), (.images, .screenshot), (.text, .text):
+                true
+            default:
+                false
+            }
+        }
     }
 
     var body: some View {
@@ -238,19 +250,36 @@ private struct CaptureLibraryView: View {
             if viewModel.historyItems.isEmpty {
                 EmptyCaptureLibraryView()
             } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
-                        ForEach(viewModel.historyItems) { item in
-                            CaptureLibraryCard(
-                                item: item,
-                                isSelected: item.id == viewModel.selectedItem?.id,
-                                thumbnail: thumbnail(for: item),
-                                selectAction: { select(item) },
-                                deleteAction: { viewModel.delete(item) }
-                            )
+                VStack(spacing: 0) {
+                    LibraryFilterBar(
+                        selectedFilter: $selectedFilter,
+                        shownCount: filteredItems.count,
+                        totalCount: viewModel.historyItems.count
+                    )
+
+                    Rectangle()
+                        .fill(theme.border.opacity(0.72))
+                        .frame(height: 1)
+
+                    if filteredItems.isEmpty {
+                        EmptyFilteredLibraryView(filter: selectedFilter)
+                    } else {
+                        ScrollView {
+                            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                                ForEach(filteredItems) { item in
+                                    CaptureLibraryCard(
+                                        item: item,
+                                        isSelected: item.id == viewModel.selectedItem?.id,
+                                        thumbnail: thumbnail(for: item),
+                                        selectAction: { select(item) },
+                                        deleteAction: { viewModel.delete(item) }
+                                    )
+                                }
+                            }
+                            .padding(18)
                         }
+                        .background(theme.background)
                     }
-                    .padding(18)
                 }
                 .background(theme.background)
             }
@@ -269,6 +298,95 @@ private struct CaptureLibraryView: View {
         case let .text(textClip):
             viewModel.copyTextItem(textClip)
         }
+    }
+}
+
+private enum LibraryFilter: String, CaseIterable, Identifiable {
+    case all
+    case text
+    case images
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all:
+            "All"
+        case .text:
+            "Text"
+        case .images:
+            "Images"
+        }
+    }
+}
+
+private struct LibraryFilterBar: View {
+    @Binding var selectedFilter: LibraryFilter
+    let shownCount: Int
+    let totalCount: Int
+    @Environment(\.assistTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 20) {
+            HStack(spacing: 24) {
+                ForEach(LibraryFilter.allCases) { filter in
+                    Button {
+                        selectedFilter = filter
+                    } label: {
+                        VStack(spacing: 7) {
+                            Text(filter.title)
+                                .font(AssistFont.roundedFootnote(filter == selectedFilter ? .semibold : .medium))
+                                .foregroundStyle(filter == selectedFilter ? theme.foreground : theme.muted)
+                                .lineLimit(1)
+
+                            Capsule()
+                                .fill(filter == selectedFilter ? theme.foreground : .clear)
+                                .frame(width: 28, height: 2)
+                        }
+                        .frame(minWidth: 46)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show \(filter.title.lowercased())")
+                }
+            }
+
+            Spacer()
+
+            Text("\(shownCount) of \(totalCount)")
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(theme.subtle)
+
+            Text("Most recent")
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(theme.foreground.opacity(0.82))
+                .padding(.horizontal, 12)
+                .frame(height: 28)
+                .background(theme.selected.opacity(theme.isDark ? 0.72 : 1), in: Capsule())
+        }
+        .padding(.horizontal, 26)
+        .padding(.top, 11)
+        .padding(.bottom, 8)
+        .background(theme.card)
+    }
+}
+
+private struct EmptyFilteredLibraryView: View {
+    let filter: LibraryFilter
+    @Environment(\.assistTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("No \(filter.title.lowercased()) yet")
+                .font(.headline)
+                .foregroundStyle(theme.foreground)
+
+            Text("Switch to All to see every saved item.")
+                .font(.subheadline)
+                .foregroundStyle(theme.muted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.background)
     }
 }
 
