@@ -5,3 +5,4 @@ private-downloads/*
 !private-downloads/.gitkeep
 *.local
 tsconfig.tsbuildinfo
+.vercel
