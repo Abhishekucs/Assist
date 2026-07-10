@@ -68,6 +68,16 @@ If capture or the global gesture does not work after granting permissions, quit 
 
 The app does not block behind a permission gateway. Capture is attempted directly, and failures are reported through status text plus the debug log.
 
+## License Activation
+
+Debug builds open without activation. Release builds show an activation window
+before the app creates its menu bar item, capture monitors, pill, or control
+panel. A successful activation is validated by the web app's
+`/api/license/verify` route and stored in the macOS Keychain.
+
+The activation endpoint is configured in `Info.plist` with
+`AssistLicenseVerificationURL`.
+
 The expanded pill includes diagnostic buttons:
 
 - `Test Overlay` draws a temporary annotation path without using screen capture.

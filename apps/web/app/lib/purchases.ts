@@ -26,6 +26,10 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+export function normalizeLicenseKey(value: string) {
+  return value.trim().replace(/\s+/g, "").toUpperCase();
+}
+
 function requirePaymentField(value: string | null | undefined, fieldName: string) {
   if (!value) {
     throw new Error(`Dodo payment is missing ${fieldName}`);
@@ -68,14 +72,14 @@ function getLicenseKeyFromParams(
 
   if (Array.isArray(value)) {
     if (value[0]) {
-      return value[0];
+      return normalizeLicenseKey(value[0]);
     }
 
     return null;
   }
 
   if (value) {
-    return value;
+    return normalizeLicenseKey(value);
   }
 
   return null;
@@ -129,7 +133,7 @@ export async function savePurchaseFromDodoPayment(
   };
 
   if (licenseKey) {
-    row.license_key = licenseKey;
+    row.license_key = normalizeLicenseKey(licenseKey);
   }
 
   const { data, error } = await getSupabaseClient()
@@ -167,6 +171,49 @@ export async function getSuccessfulPurchase(paymentId: string) {
   }
 
   return data;
+}
+
+export async function getSuccessfulPurchaseByLicenseKey(licenseKey: string) {
+  const normalizedLicenseKey = normalizeLicenseKey(licenseKey);
+  const { data, error } = await getSupabaseClient()
+    .from("purchases")
+    .select("*")
+    .eq("license_key", normalizedLicenseKey)
+    .eq("status", "succeeded")
+    .eq("product_id", getDodoProductId())
+    .maybeSingle<PurchaseRecord>();
+
+  if (error) {
+    throw new Error(`Supabase license lookup failed: ${error.message}`);
+  }
+
+  return data;
+}
+
+export async function saveLicenseKeyForDodoPayment(
+  paymentId: string,
+  licenseKey: string,
+) {
+  const normalizedLicenseKey = normalizeLicenseKey(licenseKey);
+  const { data, error } = await getSupabaseClient()
+    .from("purchases")
+    .update({
+      license_key: normalizedLicenseKey,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("dodo_payment_id", paymentId)
+    .select("*")
+    .maybeSingle<PurchaseRecord>();
+
+  if (error) {
+    throw new Error(`Supabase license update failed: ${error.message}`);
+  }
+
+  if (data) {
+    return data;
+  }
+
+  return savePurchaseFromDodoPaymentId(paymentId, normalizedLicenseKey);
 }
 
 export async function markPurchaseDownloaded(purchase: PurchaseRecord) {

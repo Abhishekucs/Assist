@@ -24,6 +24,8 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>AssistLicenseVerificationURL</key>
+	<string>https://assist-woad.vercel.app/api/license/verify</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Assist contributors.</string>
 	<key>NSScreenCaptureUsageDescription</key>

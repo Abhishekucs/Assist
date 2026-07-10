@@ -33,6 +33,9 @@ apps/macos/scripts/package_dmg.sh release
 ```
 
 The DMG is written to `apps/macos/.build/dist/Assist-<version>.dmg`.
+Release builds require Dodo license activation before the macOS app opens. The
+activation endpoint is read from `AssistLicenseVerificationURL` in
+`apps/macos/Sources/AIClipboard/Resources/Info.plist`.
 
 ## GitHub Release Flow
 

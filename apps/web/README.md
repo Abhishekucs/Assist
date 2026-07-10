@@ -27,7 +27,18 @@ The Dodo webhook endpoint is:
 ```
 
 It verifies Dodo webhook signatures and saves `payment.succeeded` purchases to
-Supabase.
+Supabase. It also saves Dodo `license_key.created` and
+`entitlement_grant.delivered` license keys onto the matching purchase row when
+those events are delivered.
+
+The macOS app activation endpoint is:
+
+```text
+/api/license/verify
+```
+
+It activates a new Dodo license key or validates an existing Dodo license key
+instance for a previously activated Mac.
 
 The download route only serves the file when:
 
@@ -43,6 +54,7 @@ DODO_PAYMENTS_API_KEY=
 DODO_PAYMENTS_WEBHOOK_KEY=
 DODO_PAYMENTS_PRODUCT_ID=
 DODO_PAYMENTS_ENVIRONMENT=test_mode
+ASSIST_REQUIRE_DODO_LIVE_MODE=0
 DODO_PAYMENTS_RETURN_URL=http://localhost:3000/purchase/result
 DODO_PAYMENTS_CANCEL_URL=http://localhost:3000/#pricing
 SUPABASE_URL=
@@ -57,3 +69,7 @@ Create the Supabase tables by running the SQL in
 Keep the `.dmg`, `.zip`, or `.pkg` in `private-downloads/`, not `public/`.
 `ASSIST_DOWNLOAD_FILE` is resolved inside that folder and the folder is
 gitignored so the app binary is not committed or publicly fetchable.
+
+Production deployments must set `DODO_PAYMENTS_ENVIRONMENT=live_mode`. Vercel
+production deployments reject `test_mode` automatically through `VERCEL_ENV`;
+other hosts can set `ASSIST_REQUIRE_DODO_LIVE_MODE=1` for the same guard.
