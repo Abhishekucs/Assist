@@ -103,10 +103,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configureStatusItem(settings: PillSettings) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(
+        item.button?.image = AssistLogoImageStore.menuBarImage() ?? NSImage(
             systemSymbolName: "rectangle.topthird.inset.filled",
             accessibilityDescription: AppIdentity.name
         )
+        item.button?.imagePosition = .imageOnly
         item.button?.toolTip = AppIdentity.name
 
         let menu = NSMenu()

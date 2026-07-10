@@ -123,6 +123,9 @@ private struct CollapsedIslandHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            AssistLogo(size: 16)
+                .help(AppIdentity.name)
+
             if let feedback = viewModel.copyFeedback {
                 CopyFeedbackRow(feedback: feedback)
                     .transition(
