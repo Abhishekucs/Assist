@@ -45,6 +45,17 @@ These rules apply to this repository. Follow them when adding or changing code.
 ## Implementation Quality
 
 - Prefer native Swift and AppKit/SwiftUI APIs over custom workarounds.
+- Do not implement fallback code paths as the fix for a bug. Fallbacks should not
+  mask unresolved state, lifecycle, payment, licensing, permission, or data-flow
+  problems.
+- Do not use `setTimeout`, artificial sleeps, delayed retries, or timing-based
+  workarounds to paper over race conditions or missing state. Trace the actual
+  event, data, and ownership flow, then fix the source of the problem.
+- Before changing code, inspect the relevant codebase path and identify the
+  robust owner of the behavior. Prefer a durable root-cause fix over a local
+  patch, shim, or workaround.
+- Do not patch over symptoms. If a proposed change only hides the problem,
+  keep investigating until the real cause and best solution are clear.
 - Preserve existing user data and permissions behavior.
 - Build after code changes with `swift build`.
 - When changing launch, build, packaging, or resources, also verify `make run` or the relevant script path.

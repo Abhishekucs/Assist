@@ -27,7 +27,7 @@ function errorMessage(error: unknown) {
 }
 
 export function normalizeLicenseKey(value: string) {
-  return value.trim().replace(/\s+/g, "").toUpperCase();
+  return value.trim().replace(/\s+/g, "");
 }
 
 function requirePaymentField(value: string | null | undefined, fieldName: string) {

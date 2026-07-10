@@ -102,7 +102,6 @@ final class LicenseValidationService {
         value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
-            .uppercased()
     }
 }
 

@@ -20,6 +20,10 @@ purchase to Supabase, and shows the download button. The download button calls
 `/api/download`, which checks the saved Supabase purchase before streaming the
 app file.
 
+For Dodo to issue a license key, the Assist product must have an automatic
+**License Key** entitlement attached in the Dodo dashboard. Without that product
+configuration, Dodo can complete the payment without returning a license key.
+
 The Dodo webhook endpoint is:
 
 ```text

@@ -12,7 +12,7 @@ type PurchaseResultPageProps = {
 type PurchaseState = "ready" | "failed" | "attention";
 
 type SaveResult =
-  | { purchase: PurchaseRecord; state: "ready" }
+  | { purchase: PurchaseRecord; state: "ready" | "attention" }
   | { purchase: null; state: "failed" | "attention" };
 
 function getReturnStatusFromParams(
@@ -40,7 +40,15 @@ function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
     return {
       kicker: "Payment complete",
       title: "Your download is ready.",
-      body: "Thanks for purchasing Assist. Download the macOS app below and keep it somewhere easy to find.",
+      body: "Thanks for purchasing Assist. Copy your license key, then download the macOS app below. Assist will ask for this key the first time it opens.",
+    };
+  }
+
+  if (state === "attention" && purchase) {
+    return {
+      kicker: "Payment complete",
+      title: "Your license key was not issued.",
+      body: "We confirmed your purchase, but Dodo did not return a license key for this payment. Keep the payment ID below for support.",
     };
   }
 
@@ -86,7 +94,7 @@ async function savePurchase(
       extractLicenseKeyFromSuccessParams(params),
     );
 
-    return { purchase, state: "ready" };
+    return { purchase, state: purchase.license_key ? "ready" : "attention" };
   } catch (error) {
     console.warn("Purchase verification needs attention.", error);
 
@@ -100,10 +108,11 @@ export default async function PurchaseResultPage({
   const params = await searchParams;
   const { purchase, state } = await savePurchase(params);
   const copy = getCopy(state, purchase);
-  const downloadHref = purchase
+  const downloadHref = state === "ready" && purchase
     ? `/api/download?payment_id=${encodeURIComponent(purchase.dodo_payment_id)}`
     : null;
   const isFailed = state === "failed";
+  const missingLicense = state === "attention" && Boolean(purchase);
 
   return (
     <main className="purchase-page">
@@ -128,8 +137,15 @@ export default async function PurchaseResultPage({
 
         {state === "ready" && purchase?.license_key ? (
           <div className="purchase-license">
-            <span>License key</span>
+            <span>License key for activation</span>
             <code>{purchase.license_key}</code>
+          </div>
+        ) : null}
+
+        {missingLicense && purchase ? (
+          <div className="purchase-license">
+            <span>Payment ID</span>
+            <code>{purchase.dodo_payment_id}</code>
           </div>
         ) : null}
 
@@ -147,7 +163,7 @@ export default async function PurchaseResultPage({
               <span>Try payment again</span>
             </a>
           </div>
-        ) : (
+        ) : missingLicense ? null : (
           <div className="purchase-actions purchase-recovery-actions">
             <a className="purchase-download-button" href="/api/checkout">
               <span aria-hidden="true"></span>

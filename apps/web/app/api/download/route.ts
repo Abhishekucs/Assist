@@ -88,6 +88,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!purchase.license_key) {
+      return NextResponse.json(
+        { error: "Purchase does not have an issued license key." },
+        { status: 403 },
+      );
+    }
+
     const downloadUrl = getConfiguredDownloadUrl();
 
     if (downloadUrl) {
