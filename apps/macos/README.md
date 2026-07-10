@@ -69,11 +69,24 @@ and ready for notarization.
 
 ## GitHub Releases
 
-The GitHub Actions release workflow runs for tags that start with `v`, such as
-`v0.1.0`. It builds a release DMG, signs the app with the Developer ID
-Application certificate, notarizes the DMG with Apple, staples the ticket,
+The GitHub Actions release workflow runs for macOS release tags that start with
+`macos-v`, such as `macos-v0.1.0`. Plain `v*` tags do not trigger the macOS
+release workflow.
+
+For tag-triggered runs, the workflow first compares the new tag commit with the
+previous `macos-v*` tag, falling back to the latest legacy `v*` tag during the
+tag-prefix migration. It builds a release DMG, signs the app with the Developer
+ID Application certificate, notarizes the DMG with Apple, staples the ticket,
 verifies Gatekeeper acceptance, and uploads both versioned and stable DMG
-assets to the GitHub Release.
+assets only when macOS release inputs changed:
+
+```text
+apps/macos/**
+.github/workflows/release.yml
+```
+
+Manual workflow dispatches are treated as explicit release requests and always
+run the build, signing, notarization, verification, and release steps.
 
 The workflow is pinned to:
 
@@ -112,8 +125,8 @@ To publish a release:
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.1" apps/macos/Sources/AIClipboard/Resources/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2" apps/macos/Sources/AIClipboard/Resources/Info.plist
 git commit -am "Bump macOS app to 0.1.1"
-git tag v0.1.1
-git push origin HEAD v0.1.1
+git tag macos-v0.1.1
+git push origin HEAD macos-v0.1.1
 ```
 
 ## Permissions

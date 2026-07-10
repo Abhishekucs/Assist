@@ -1,7 +1,6 @@
 import {
   extractLicenseKeyFromSuccessParams,
   getPaymentIdFromParams,
-  getPublicError,
   savePurchaseFromDodoPaymentId,
   type PurchaseRecord,
 } from "../lib/purchases";
@@ -13,8 +12,8 @@ type PurchaseResultPageProps = {
 type PurchaseState = "ready" | "failed" | "attention";
 
 type SaveResult =
-  | { purchase: PurchaseRecord; error: null; state: "ready" }
-  | { purchase: null; error: string; state: "failed" | "attention" };
+  | { purchase: PurchaseRecord; state: "ready" }
+  | { purchase: null; state: "failed" | "attention" };
 
 function getReturnStatusFromParams(
   params: Record<string, string | string[] | undefined>,
@@ -42,7 +41,6 @@ function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
       kicker: "Payment complete",
       title: "Your download is ready.",
       body: "Thanks for purchasing Assist. Download the macOS app below and keep it somewhere easy to find.",
-      detail: null,
     };
   }
 
@@ -51,15 +49,13 @@ function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
       kicker: "Payment failed",
       title: "Payment did not complete.",
       body: "Please try again, or use a different payment method if the checkout keeps failing.",
-      detail: null,
     };
   }
 
   return {
-    kicker: "Payment needs attention",
-    title: "We could not verify this purchase.",
-    body: "Open the checkout link from your payment confirmation again, or return to pricing and start a new checkout.",
-    detail: "Verification detail",
+    kicker: "Purchase needs attention",
+    title: "We could not finish setup.",
+    body: "We could not match this checkout to a completed Assist purchase yet. If you were charged, keep your payment confirmation and try again in a few minutes.",
   };
 }
 
@@ -71,7 +67,6 @@ async function savePurchase(
   if (returnStatus && returnStatus !== "succeeded") {
     return {
       purchase: null,
-      error: `Dodo returned payment status "${returnStatus}".`,
       state: "failed",
     };
   }
@@ -81,7 +76,6 @@ async function savePurchase(
   if (!paymentId) {
     return {
       purchase: null,
-      error: "Dodo return URL is missing payment_id.",
       state: "attention",
     };
   }
@@ -92,9 +86,11 @@ async function savePurchase(
       extractLicenseKeyFromSuccessParams(params),
     );
 
-    return { purchase, error: null, state: "ready" };
-  } catch (error) {
-    return { purchase: null, error: getPublicError(error), state: "attention" };
+    return { purchase, state: "ready" };
+  } catch {
+    console.warn("Purchase verification needs attention.");
+
+    return { purchase: null, state: "attention" };
   }
 }
 
@@ -102,7 +98,7 @@ export default async function PurchaseResultPage({
   searchParams,
 }: PurchaseResultPageProps) {
   const params = await searchParams;
-  const { purchase, error, state } = await savePurchase(params);
+  const { purchase, state } = await savePurchase(params);
   const copy = getCopy(state, purchase);
   const downloadHref = purchase
     ? `/api/download?payment_id=${encodeURIComponent(purchase.dodo_payment_id)}`
@@ -138,17 +134,19 @@ export default async function PurchaseResultPage({
             </a>
           </div>
         ) : isFailed ? (
-          <div className="purchase-actions">
+          <div className="purchase-actions purchase-recovery-actions">
             <a className="purchase-download-button" href="/api/checkout">
               <span aria-hidden="true"></span>
               <span>Try payment again</span>
             </a>
           </div>
         ) : (
-          <details className="purchase-warning">
-            <summary>{copy.detail}</summary>
-            <p>{error}</p>
-          </details>
+          <div className="purchase-actions purchase-recovery-actions">
+            <a className="purchase-download-button" href="/api/checkout">
+              <span aria-hidden="true"></span>
+              <span>Start a new checkout</span>
+            </a>
+          </div>
         )}
 
         <a className="purchase-back-link" href={state === "failed" ? "/#pricing" : "/"}>
