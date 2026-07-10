@@ -57,6 +57,65 @@ scripts/create_dev_certificate.sh
 make run
 ```
 
+Create a local release DMG with:
+
+```sh
+make release
+```
+
+When `ASSIST_SIGN_IDENTITY`, `ASSIST_REQUIRE_SIGNING=1`, and
+`ASSIST_HARDENED_RUNTIME=1` are set, the release DMG is Developer ID signed
+and ready for notarization.
+
+## GitHub Releases
+
+The GitHub Actions release workflow runs for tags that start with `v`, such as
+`v0.1.0`. It builds a release DMG, signs the app with the Developer ID
+Application certificate, notarizes the DMG with Apple, staples the ticket,
+verifies Gatekeeper acceptance, and uploads both versioned and stable DMG
+assets to the GitHub Release.
+
+The workflow is pinned to:
+
+```text
+Team ID: 4M5LV534N5
+Signing identity: Developer ID Application: THINKING SOUND LAB PRIVATE LIMITED (4M5LV534N5)
+```
+
+Configure these GitHub Actions secrets before creating a release tag:
+
+```text
+APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64
+APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD
+APPLE_KEYCHAIN_PASSWORD
+APPLE_ID
+APPLE_APP_SPECIFIC_PASSWORD
+```
+
+To prepare the certificate secret, open Keychain Access and export only this
+item as a `.p12`:
+
+```text
+Developer ID Application: THINKING SOUND LAB PRIVATE LIMITED (4M5LV534N5)
+```
+
+Then generate a fresh app-specific password from the company Apple Account for
+GitHub Actions and run:
+
+```sh
+apps/macos/scripts/configure_github_release_secrets.sh /path/to/developer-id-application.p12
+```
+
+To publish a release:
+
+```sh
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.1" apps/macos/Sources/AIClipboard/Resources/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 2" apps/macos/Sources/AIClipboard/Resources/Info.plist
+git commit -am "Bump macOS app to 0.1.1"
+git tag v0.1.1
+git push origin HEAD v0.1.1
+```
+
 ## Permissions
 
 Assist asks for:
@@ -150,7 +209,6 @@ The database stores capture metadata, paths, timestamps, and structured context.
 - The first version captures the display under the pointer, not a stitched multi-display canvas.
 - Context generation is local Vision OCR, not a remote multimodal model yet.
 - The annotation gesture uses `Option` directly; future versions should add a setting to customize shortcuts.
-- App signing and notarization are not configured yet.
 
 ## Roadmap
 
@@ -160,4 +218,3 @@ The database stores capture metadata, paths, timestamps, and structured context.
 - JSON and Markdown agent export formats.
 - Optional remote vision model integration.
 - MCP/local API for agent handoff.
-- Signed and notarized release pipeline.

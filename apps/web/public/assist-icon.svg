@@ -1,0 +1,75 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="112" fill="url(#canvas)"/>
+  <g filter="url(#iconShadow)">
+    <path d="M83 203C83 151.638 124.638 110 176 110H336C387.362 110 429 151.638 429 203V342C429 393.362 387.362 435 336 435H176C124.638 435 83 393.362 83 342V203Z" fill="url(#base)"/>
+    <path d="M83 203C83 151.638 124.638 110 176 110H336C387.362 110 429 151.638 429 203V342C429 393.362 387.362 435 336 435H176C124.638 435 83 393.362 83 342V203Z" fill="url(#baseSheen)" fill-opacity="0.5"/>
+    <path d="M103 211C103 161.847 137.914 123 183.28 123H237C169 134 128 177 128 236V331C128 370 151 399 187 408H174.5C134.631 408 103 376.517 103 336.193V211Z" fill="url(#leftDepth)" fill-opacity="0.78"/>
+    <g filter="url(#paperShadow)">
+      <path d="M153 88C199.869 72.857 315.951 73.229 363.5 88C391.321 96.641 410 122.219 410 151.346V289C410 330.421 376.421 364 335 364H177C135.579 364 102 330.421 102 289V166.064C102 129.661 118.36 99.195 153 88Z" fill="url(#sheetBack)"/>
+      <path d="M158 102C199.532 88.67 314.773 89.035 356 102C379.056 109.251 394 130.725 394 154.893V284C394 319.346 365.346 348 330 348H182C146.654 348 118 319.346 118 284V168.608C118 137.522 128.435 111.49 158 102Z" fill="url(#sheetFace)"/>
+
+      <path d="M141 154C205 122 310.5 116.5 382 142" stroke="#C7CAC8" stroke-width="6" stroke-linecap="round" stroke-opacity="0.34"/>
+      <path d="M139 197C205.5 167 305 161 379 184" stroke="#B8BCBC" stroke-width="6" stroke-linecap="round" stroke-opacity="0.28"/>
+
+      <path d="M112 170C128 260 197 309 322 320C264 346 172 331 137 289C117 265 108 219 112 170Z" fill="url(#underFold)"/>
+      <path d="M113 168C136 233 200 274 298 292C229 296 165 281 134 238C119 217 112 193 113 168Z" fill="url(#foldTop)"/>
+      <path d="M128 215C167 251 212 273 298 292C231 293 174 283 143 251C134 242 130 228 128 215Z" fill="url(#foldLip)"/>
+    </g>
+  </g>
+
+  <defs>
+    <linearGradient id="canvas" x1="84" y1="35" x2="431" y2="475" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F8F6"/>
+      <stop offset="0.55" stop-color="#ECEDEA"/>
+      <stop offset="1" stop-color="#D7D9D6"/>
+    </linearGradient>
+    <linearGradient id="base" x1="121" y1="121" x2="380" y2="418" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#30312F"/>
+      <stop offset="0.28" stop-color="#191A19"/>
+      <stop offset="0.67" stop-color="#111211"/>
+      <stop offset="1" stop-color="#272925"/>
+    </linearGradient>
+    <radialGradient id="baseSheen" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(336 142) rotate(129.619) scale(254 216.859)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.42" stop-color="#FFFFFF" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.18"/>
+    </radialGradient>
+    <linearGradient id="leftDepth" x1="131" y1="129" x2="169" y2="403" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#464844"/>
+      <stop offset="0.34" stop-color="#20211F"/>
+      <stop offset="1" stop-color="#080808"/>
+    </linearGradient>
+    <linearGradient id="sheetBack" x1="144" y1="76" x2="356" y2="353" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F8F5"/>
+      <stop offset="0.45" stop-color="#D7D9D6"/>
+      <stop offset="1" stop-color="#9EA19E"/>
+    </linearGradient>
+    <linearGradient id="sheetFace" x1="159" y1="88" x2="344" y2="347" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBFCFA"/>
+      <stop offset="0.44" stop-color="#E0E2E0"/>
+      <stop offset="1" stop-color="#AEB1AE"/>
+    </linearGradient>
+    <linearGradient id="underFold" x1="147" y1="186" x2="277" y2="326" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#545753"/>
+      <stop offset="0.5" stop-color="#AEB2AE"/>
+      <stop offset="1" stop-color="#D5D8D5"/>
+    </linearGradient>
+    <linearGradient id="foldTop" x1="126" y1="169" x2="262" y2="297" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DADDD9"/>
+      <stop offset="0.46" stop-color="#C8CBC8"/>
+      <stop offset="1" stop-color="#9FA39F"/>
+    </linearGradient>
+    <linearGradient id="foldLip" x1="145" y1="227" x2="282" y2="292" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#50534F"/>
+      <stop offset="0.5" stop-color="#B8BCB8"/>
+      <stop offset="1" stop-color="#D6D9D5"/>
+    </linearGradient>
+    <filter id="iconShadow" x="45" y="47" width="422" height="428" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="17" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="paperShadow" x="78" y="58" width="356" height="330" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000000" flood-opacity="0.28"/>
+      <feDropShadow dx="-12" dy="14" stdDeviation="8" flood-color="#000000" flood-opacity="0.13"/>
+    </filter>
+  </defs>
+</svg>

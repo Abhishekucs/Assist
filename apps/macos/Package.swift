@@ -16,6 +16,7 @@ let package = Package(
             path: "Sources/AIClipboard",
             exclude: ["Resources/Info.plist"],
             resources: [
+                .copy("Resources/Brand"),
                 .copy("Resources/Fonts"),
                 .copy("Resources/Icons")
             ],

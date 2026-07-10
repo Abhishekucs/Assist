@@ -14,8 +14,8 @@ export const metadata: Metadata = {
   description:
     "Assist is a native macOS capture tool for screenshots, annotations, and copied text history.",
   icons: {
-    icon: "/ai-clipboard-icon.svg",
-    apple: "/ai-clipboard-icon.svg"
+    icon: "/assist-icon.svg",
+    apple: "/assist-icon.svg"
   },
   openGraph: {
     title: "Assist",

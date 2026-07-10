@@ -53,6 +53,7 @@ Required server-side environment variables:
 DODO_PAYMENTS_API_KEY=
 DODO_PAYMENTS_WEBHOOK_KEY=
 DODO_PAYMENTS_PRODUCT_ID=
+# Use test_mode locally and in previews. Vercel Production must use live_mode.
 DODO_PAYMENTS_ENVIRONMENT=test_mode
 ASSIST_REQUIRE_DODO_LIVE_MODE=0
 DODO_PAYMENTS_RETURN_URL=http://localhost:3000/purchase/result
@@ -69,6 +70,33 @@ Create the Supabase tables by running the SQL in
 Keep the `.dmg`, `.zip`, or `.pkg` in `private-downloads/`, not `public/`.
 `ASSIST_DOWNLOAD_FILE` is resolved inside that folder and the folder is
 gitignored so the app binary is not committed or publicly fetchable.
+
+## Production Dodo Setup
+
+If Production returns:
+
+```json
+{
+  "error": "Production checkout requires DODO_PAYMENTS_ENVIRONMENT=live_mode"
+}
+```
+
+the deployed checkout is running with a non-live Dodo environment. Set the
+Production-scoped Vercel variables to live Dodo values, then redeploy:
+
+```sh
+cd apps/web
+printf "live_mode" | npx vercel@latest env update DODO_PAYMENTS_ENVIRONMENT production --yes
+printf "<live Dodo API key>" | npx vercel@latest env update DODO_PAYMENTS_API_KEY production --yes
+printf "<live Dodo webhook key>" | npx vercel@latest env add DODO_PAYMENTS_WEBHOOK_KEY production
+printf "<live Dodo product id>" | npx vercel@latest env update DODO_PAYMENTS_PRODUCT_ID production --yes
+printf "https://assist-woad.vercel.app/purchase/result" | npx vercel@latest env update DODO_PAYMENTS_RETURN_URL production --yes
+printf "https://assist-woad.vercel.app/#pricing" | npx vercel@latest env update DODO_PAYMENTS_CANCEL_URL production --yes
+npx vercel@latest --prod
+```
+
+Keep `DODO_PAYMENTS_ENVIRONMENT=test_mode` for local development and preview
+deployments so test checkouts never create live payments.
 
 Production deployments must set `DODO_PAYMENTS_ENVIRONMENT=live_mode`. Vercel
 production deployments reject `test_mode` automatically through `VERCEL_ENV`;

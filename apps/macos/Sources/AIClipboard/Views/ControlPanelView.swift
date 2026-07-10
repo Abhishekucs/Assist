@@ -228,9 +228,21 @@ private struct AppTopBar: View {
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
     @Environment(\.assistTheme) private var theme
+    @State private var selectedFilter: LibraryFilter = .all
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 18, alignment: .top)]
+        [GridItem(.adaptive(minimum: 210, maximum: 240), spacing: 14, alignment: .top)]
+    }
+
+    private var filteredItems: [ClipboardHistoryItem] {
+        viewModel.historyItems.filter { item in
+            switch (selectedFilter, item) {
+            case (.all, _), (.images, .screenshot), (.text, .text):
+                true
+            default:
+                false
+            }
+        }
     }
 
     var body: some View {
@@ -238,19 +250,36 @@ private struct CaptureLibraryView: View {
             if viewModel.historyItems.isEmpty {
                 EmptyCaptureLibraryView()
             } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
-                        ForEach(viewModel.historyItems) { item in
-                            CaptureLibraryCard(
-                                item: item,
-                                isSelected: item.id == viewModel.selectedItem?.id,
-                                thumbnail: thumbnail(for: item),
-                                selectAction: { select(item) },
-                                deleteAction: { viewModel.delete(item) }
-                            )
+                VStack(spacing: 0) {
+                    LibraryFilterBar(
+                        selectedFilter: $selectedFilter,
+                        shownCount: filteredItems.count,
+                        totalCount: viewModel.historyItems.count
+                    )
+
+                    Rectangle()
+                        .fill(theme.border.opacity(0.72))
+                        .frame(height: 1)
+
+                    if filteredItems.isEmpty {
+                        EmptyFilteredLibraryView(filter: selectedFilter)
+                    } else {
+                        ScrollView {
+                            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                                ForEach(filteredItems) { item in
+                                    CaptureLibraryCard(
+                                        item: item,
+                                        isSelected: item.id == viewModel.selectedItem?.id,
+                                        thumbnail: thumbnail(for: item),
+                                        selectAction: { select(item) },
+                                        deleteAction: { viewModel.delete(item) }
+                                    )
+                                }
+                            }
+                            .padding(18)
                         }
+                        .background(theme.background)
                     }
-                    .padding(28)
                 }
                 .background(theme.background)
             }
@@ -269,6 +298,95 @@ private struct CaptureLibraryView: View {
         case let .text(textClip):
             viewModel.copyTextItem(textClip)
         }
+    }
+}
+
+private enum LibraryFilter: String, CaseIterable, Identifiable {
+    case all
+    case text
+    case images
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all:
+            "All"
+        case .text:
+            "Text"
+        case .images:
+            "Images"
+        }
+    }
+}
+
+private struct LibraryFilterBar: View {
+    @Binding var selectedFilter: LibraryFilter
+    let shownCount: Int
+    let totalCount: Int
+    @Environment(\.assistTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 20) {
+            HStack(spacing: 24) {
+                ForEach(LibraryFilter.allCases) { filter in
+                    Button {
+                        selectedFilter = filter
+                    } label: {
+                        VStack(spacing: 7) {
+                            Text(filter.title)
+                                .font(AssistFont.roundedFootnote(filter == selectedFilter ? .semibold : .medium))
+                                .foregroundStyle(filter == selectedFilter ? theme.foreground : theme.muted)
+                                .lineLimit(1)
+
+                            Capsule()
+                                .fill(filter == selectedFilter ? theme.foreground : .clear)
+                                .frame(width: 28, height: 2)
+                        }
+                        .frame(minWidth: 46)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show \(filter.title.lowercased())")
+                }
+            }
+
+            Spacer()
+
+            Text("\(shownCount) of \(totalCount)")
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(theme.subtle)
+
+            Text("Most recent")
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(theme.foreground.opacity(0.82))
+                .padding(.horizontal, 12)
+                .frame(height: 28)
+                .background(theme.selected.opacity(theme.isDark ? 0.72 : 1), in: Capsule())
+        }
+        .padding(.horizontal, 26)
+        .padding(.top, 11)
+        .padding(.bottom, 8)
+        .background(theme.card)
+    }
+}
+
+private struct EmptyFilteredLibraryView: View {
+    let filter: LibraryFilter
+    @Environment(\.assistTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("No \(filter.title.lowercased()) yet")
+                .font(.headline)
+                .foregroundStyle(theme.foreground)
+
+            Text("Switch to All to see every saved item.")
+                .font(.subheadline)
+                .foregroundStyle(theme.muted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.background)
     }
 }
 
@@ -296,6 +414,8 @@ private struct EmptyCaptureLibraryView: View {
 }
 
 private struct CaptureLibraryCard: View {
+    private static let cardHeight: CGFloat = 122
+
     let item: ClipboardHistoryItem
     let isSelected: Bool
     let thumbnail: NSImage?
@@ -313,13 +433,14 @@ private struct CaptureLibraryCard: View {
         ZStack(alignment: .topTrailing) {
             Button(action: selectAction) {
                 preview
-                    .frame(maxWidth: .infinity, minHeight: 208, alignment: .topLeading)
-                .background(cardBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(maxWidth: .infinity, minHeight: Self.cardHeight, maxHeight: Self.cardHeight, alignment: .topLeading)
+                .background(cardBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .stroke(isSelected ? theme.foreground.opacity(0.42) : .clear, lineWidth: 1)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .shadow(color: .black.opacity(theme.isDark ? 0.16 : 0.08), radius: 9, y: 5)
             }
             .buttonStyle(.plain)
             .onDrag { item.dragProvider }
@@ -330,7 +451,7 @@ private struct CaptureLibraryCard: View {
                 .zIndex(1)
                 .padding(7)
         }
-        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isHovered)
     }
@@ -343,8 +464,9 @@ private struct CaptureLibraryCard: View {
                 if let thumbnail {
                     Image(nsImage: thumbnail)
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .padding(10)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                 } else {
                     HugeIcon(.image, size: 30)
                         .foregroundStyle(theme.muted)
@@ -352,15 +474,15 @@ private struct CaptureLibraryCard: View {
             }
         case let .text(textClip):
             VStack(alignment: .leading, spacing: 12) {
-                HugeIcon(.document, size: 24)
+                HugeIcon(.document, size: 18)
                     .foregroundStyle(theme.muted)
                 Text(textClip.preview)
-                    .font(.subheadline.weight(.medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(theme.foreground)
-                    .lineLimit(7)
+                    .lineLimit(4)
                     .multilineTextAlignment(.leading)
             }
-            .padding(14)
+            .padding(10)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }

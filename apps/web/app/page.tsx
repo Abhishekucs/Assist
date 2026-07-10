@@ -10,7 +10,7 @@ export default function Home() {
         <nav className="header-pill" aria-label="Primary navigation">
           <a className="brand" href="#top" aria-label="Assist home">
             <span className="brand-mark">
-              <img src="/ai-clipboard-icon.svg" alt="" width="30" height="30" />
+              <img src="/assist-icon.svg" alt="" width="30" height="30" />
             </span>
             <span>Assist</span>
           </a>
@@ -314,7 +314,7 @@ export default function Home() {
         <div className="footer-app-card">
           <div className="footer-app-label">
             <span className="footer-app-dot">
-              <img src="/ai-clipboard-icon.svg" alt="" width="30" height="30" />
+              <img src="/assist-icon.svg" alt="" width="30" height="30" />
             </span>
             <span>macOS app</span>
           </div>
@@ -336,7 +336,7 @@ export default function Home() {
           <div className="footer-brand-block">
             <a className="footer-brand" href="#top" aria-label="Assist home">
               <span className="brand-mark">
-                <img src="/ai-clipboard-icon.svg" alt="" width="30" height="30" />
+                <img src="/assist-icon.svg" alt="" width="30" height="30" />
               </span>
               <span>Assist</span>
             </a>
