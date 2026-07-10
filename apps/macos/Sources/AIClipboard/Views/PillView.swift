@@ -292,33 +292,44 @@ struct ExpandedIslandView: View {
             if let issue = viewModel.captureIssue {
                 CaptureIssuePanel(issue: issue, viewModel: viewModel)
             } else if !historyItems.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 12) {
-                        ForEach(historyItems) { item in
-                            switch item {
-                            case let .screenshot(capture):
-                                CaptureGalleryCard(
-                                    item: capture,
-                                    thumbnail: viewModel.thumbnail(for: capture),
-                                    isSelected: item.id == selectedID
-                                ) {
-                                    viewModel.selectScreenshot(capture)
-                                } deleteAction: {
-                                    viewModel.delete(item)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 12) {
+                            ForEach(historyItems) { item in
+                                Group {
+                                    switch item {
+                                    case let .screenshot(capture):
+                                        CaptureGalleryCard(
+                                            item: capture,
+                                            thumbnail: viewModel.thumbnail(for: capture),
+                                            isSelected: item.id == selectedID
+                                        ) {
+                                            viewModel.selectScreenshot(capture)
+                                        } deleteAction: {
+                                            viewModel.delete(item)
+                                        }
+                                    case let .text(textClip):
+                                        TextClipGalleryCard(
+                                            item: textClip,
+                                            isSelected: item.id == selectedID
+                                        ) {
+                                            viewModel.copyTextItem(textClip)
+                                        } deleteAction: {
+                                            viewModel.delete(item)
+                                        }
+                                    }
                                 }
-                            case let .text(textClip):
-                                TextClipGalleryCard(
-                                    item: textClip,
-                                    isSelected: item.id == selectedID
-                                ) {
-                                    viewModel.copyTextItem(textClip)
-                                } deleteAction: {
-                                    viewModel.delete(item)
-                                }
+                                .id(item.id)
                             }
                         }
+                        .padding(.vertical, 1)
                     }
-                    .padding(.vertical, 1)
+                    .onAppear {
+                        alignGalleryToLeadingItem(proxy, firstItemID: historyItems.first?.id)
+                    }
+                    .onChange(of: historyItems.first?.id) { _, firstItemID in
+                        alignGalleryToLeadingItem(proxy, firstItemID: firstItemID)
+                    }
                 }
             } else {
                 VStack(alignment: .center, spacing: 10) {
@@ -339,6 +350,22 @@ struct ExpandedIslandView: View {
         .padding(.horizontal, 30)
         .padding(.top, 6)
         .padding(.bottom, 14)
+    }
+
+    private func alignGalleryToLeadingItem(_ proxy: ScrollViewProxy, firstItemID: UUID?) {
+        guard let firstItemID else { return }
+
+        func align() {
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+
+            withTransaction(transaction) {
+                proxy.scrollTo(firstItemID, anchor: .leading)
+            }
+        }
+
+        align()
+        DispatchQueue.main.async(execute: align)
     }
 }
 
