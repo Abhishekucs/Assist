@@ -87,8 +87,8 @@ async function savePurchase(
     );
 
     return { purchase, state: "ready" };
-  } catch {
-    console.warn("Purchase verification needs attention.");
+  } catch (error) {
+    console.warn("Purchase verification needs attention.", error);
 
     return { purchase: null, state: "attention" };
   }
