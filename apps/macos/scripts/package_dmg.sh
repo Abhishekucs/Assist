@@ -3,6 +3,8 @@ set -euo pipefail
 
 CONFIGURATION="${1:-release}"
 APP_NAME="Assist"
+REQUIRE_SIGNING="${ASSIST_REQUIRE_SIGNING:-0}"
+TIMESTAMP="${ASSIST_TIMESTAMP:-0}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INFO_PLIST="$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist"
 VERSION="${2:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")}"
@@ -38,7 +40,14 @@ hdiutil create \
   "$DMG_PATH"
 
 if [[ -n "${ASSIST_SIGN_IDENTITY:-}" ]] && security find-identity -v -p codesigning | grep -F "\"$ASSIST_SIGN_IDENTITY\"" >/dev/null; then
-  codesign --force --sign "$ASSIST_SIGN_IDENTITY" "$DMG_PATH"
+  CODESIGN_ARGS=(--force --sign "$ASSIST_SIGN_IDENTITY")
+  if [[ "$TIMESTAMP" == "1" ]]; then
+    CODESIGN_ARGS+=(--timestamp)
+  fi
+  codesign "${CODESIGN_ARGS[@]}" "$DMG_PATH"
+elif [[ "$REQUIRE_SIGNING" == "1" ]]; then
+  echo "error: signing identity '${ASSIST_SIGN_IDENTITY:-}' not found for DMG signing" >&2
+  exit 1
 fi
 
 printf "%s\n" "$DMG_PATH" > "$BUILD_DIR/dmg_path"

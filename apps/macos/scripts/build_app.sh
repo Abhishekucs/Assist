@@ -3,9 +3,14 @@ set -euo pipefail
 
 CONFIGURATION="${1:-debug}"
 APP_NAME="Assist"
-DEV_SIGN_IDENTITY="${ASSIST_SIGN_IDENTITY:-${AI_CLIPBOARD_SIGN_IDENTITY:-Assist Local Development}}"
 REQUIRE_SIGNING="${ASSIST_REQUIRE_SIGNING:-0}"
 HARDENED_RUNTIME="${ASSIST_HARDENED_RUNTIME:-0}"
+TIMESTAMP="${ASSIST_TIMESTAMP:-0}"
+if [[ "$REQUIRE_SIGNING" == "1" && -z "${ASSIST_SIGN_IDENTITY:-}" ]]; then
+  echo "error: ASSIST_SIGN_IDENTITY must be set when ASSIST_REQUIRE_SIGNING=1" >&2
+  exit 1
+fi
+DEV_SIGN_IDENTITY="${ASSIST_SIGN_IDENTITY:-${AI_CLIPBOARD_SIGN_IDENTITY:-Assist Local Development}}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
@@ -37,6 +42,9 @@ if security find-identity -v -p codesigning | grep -F "\"$DEV_SIGN_IDENTITY\"" >
   CODESIGN_ARGS=(--force --deep --sign "$DEV_SIGN_IDENTITY")
   if [[ "$HARDENED_RUNTIME" == "1" ]]; then
     CODESIGN_ARGS+=(--options runtime)
+  fi
+  if [[ "$TIMESTAMP" == "1" ]]; then
+    CODESIGN_ARGS+=(--timestamp)
   fi
   codesign "${CODESIGN_ARGS[@]}" "$APP_DIR"
 else

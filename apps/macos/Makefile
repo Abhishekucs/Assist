@@ -10,7 +10,7 @@ run: install
 	open "$$(cat .build/installed_app_path)"
 
 release:
-	scripts/build_app.sh release
+	scripts/package_dmg.sh release
 
 clean:
 	rm -rf .build

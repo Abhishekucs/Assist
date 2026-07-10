@@ -9,3 +9,8 @@ DerivedData/
 .env.local
 .env.*.local
 node_modules/
+*.cer
+*.certSigningRequest
+*.developerprofile
+*.mobileprovision
+*.p12

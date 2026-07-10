@@ -19,9 +19,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: macos-release-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: false
+
 env:
-  HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 != '' && 'true' || 'false' }}
-  HAS_NOTARY_CREDENTIALS: ${{ secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' && 'true' || 'false' }}
+  APPLE_TEAM_ID: 4M5LV534N5
+  APPLE_DEVELOPER_ID_APPLICATION_IDENTITY: "Developer ID Application: THINKING SOUND LAB PRIVATE LIMITED (4M5LV534N5)"
 
 jobs:
   build-release:
@@ -32,6 +36,33 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Validate release secrets
+        env:
+          APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
+          APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in \
+            APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 \
+            APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD \
+            APPLE_KEYCHAIN_PASSWORD \
+            APPLE_ID \
+            APPLE_APP_SPECIFIC_PASSWORD
+          do
+            if [[ -z "${!name}" ]]; then
+              echo "::error title=Missing GitHub secret::$name is required for notarized macOS releases"
+              missing=1
+            fi
+          done
+
+          exit "$missing"
 
       - name: Select release version
         id: version
@@ -60,7 +91,6 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Import Developer ID certificate
-        if: env.HAS_APPLE_CERTIFICATE == 'true'
         env:
           CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
@@ -78,21 +108,26 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          if ! security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "\"$APPLE_DEVELOPER_ID_APPLICATION_IDENTITY\"" >/dev/null; then
+            echo "::error title=Missing signing identity::Imported certificate does not contain $APPLE_DEVELOPER_ID_APPLICATION_IDENTITY"
+            exit 1
+          fi
 
       - name: Build DMG
         env:
-          ASSIST_SIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
-          ASSIST_REQUIRE_SIGNING: ${{ env.HAS_APPLE_CERTIFICATE == 'true' && '1' || '0' }}
-          ASSIST_HARDENED_RUNTIME: ${{ env.HAS_APPLE_CERTIFICATE == 'true' && '1' || '0' }}
+          ASSIST_SIGN_IDENTITY: ${{ env.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          ASSIST_REQUIRE_SIGNING: "1"
+          ASSIST_HARDENED_RUNTIME: "1"
+          ASSIST_TIMESTAMP: "1"
         run: apps/macos/scripts/package_dmg.sh release "${{ steps.version.outputs.version }}"
 
       - name: Notarize DMG
-        if: env.HAS_NOTARY_CREDENTIALS == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -112,8 +147,25 @@ jobs:
           set -euo pipefail
 
           DMG_PATH=$(cat apps/macos/.build/dmg_path)
+          MOUNT_DIR=$(mktemp -d "$RUNNER_TEMP/assist-dmg-XXXXXX")
+          attached=0
+          cleanup() {
+            if [[ "$attached" == "1" ]]; then
+              hdiutil detach "$MOUNT_DIR" >/dev/null || true
+            fi
+            rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
           hdiutil verify "$DMG_PATH"
-          spctl -a -t open --context context:primary-signature -v "$DMG_PATH" || true
+          xcrun stapler validate "$DMG_PATH"
+          spctl -a -vv --type open --context context:primary-signature "$DMG_PATH"
+          codesign --verify --verbose=2 "$DMG_PATH"
+
+          hdiutil attach "$DMG_PATH" -nobrowse -readonly -mountpoint "$MOUNT_DIR"
+          attached=1
+          spctl -a -vv --type execute "$MOUNT_DIR/Assist.app"
+          codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/Assist.app"
 
       - name: Create stable DMG alias
         shell: bash
@@ -144,21 +196,21 @@ jobs:
           DMG_PATH=$(cat apps/macos/.build/dmg_path)
           ALIAS_PATH="apps/macos/.build/dist/Assist.dmg"
 
-          if [[ "${GITHUB_REF_TYPE:-}" != "tag" ]]; then
-            git tag "$TAG"
-            git push origin "$TAG"
-          fi
-
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$DMG_PATH" "$ALIAS_PATH" --clobber
           else
-            PRERELEASE_FLAG=""
+            TARGET_ARGS=()
+            PRERELEASE_ARGS=()
+            if [[ "${GITHUB_REF_TYPE:-}" != "tag" ]]; then
+              TARGET_ARGS=(--target "$GITHUB_SHA")
+            fi
             if [[ "$IS_PRERELEASE" == "true" ]]; then
-              PRERELEASE_FLAG="--prerelease"
+              PRERELEASE_ARGS=(--prerelease)
             fi
 
             gh release create "$TAG" "$DMG_PATH" "$ALIAS_PATH" \
               --title "Assist $VERSION" \
               --generate-notes \
-              $PRERELEASE_FLAG
+              "${TARGET_ARGS[@]}" \
+              "${PRERELEASE_ARGS[@]}"
           fi
