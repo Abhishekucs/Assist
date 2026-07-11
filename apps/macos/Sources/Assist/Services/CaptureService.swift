@@ -128,15 +128,10 @@ struct CaptureService: Sendable {
         configuration.queueDepth = 1
         configuration.capturesAudio = false
 
-        let image = try await withCheckedThrowingContinuation { continuation in
-            SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) { image, error in
-                if let image {
-                    continuation.resume(returning: image)
-                } else {
-                    continuation.resume(throwing: error ?? AppError.screenCaptureUnavailable)
-                }
-            }
-        }
+        let image = try await ScreenCaptureKitScreenshot.captureImage(
+            contentFilter: filter,
+            configuration: configuration
+        )
 
         DebugLogger.log("capture.sck.display.success", [
             "displayID": "\(displayID)",
@@ -265,6 +260,25 @@ struct CaptureService: Sendable {
             "code": "\(nsError.code)",
             "description": nsError.localizedDescription
         ]
+    }
+}
+
+@available(macOS 14.0, *)
+private enum ScreenCaptureKitScreenshot {
+    // ScreenCaptureKit calls this completion from replayd's XPC queue, not the main actor.
+    nonisolated static func captureImage(
+        contentFilter: SCContentFilter,
+        configuration: SCStreamConfiguration
+    ) async throws -> CGImage {
+        try await withCheckedThrowingContinuation { continuation in
+            SCScreenshotManager.captureImage(contentFilter: contentFilter, configuration: configuration) { image, error in
+                if let image {
+                    continuation.resume(returning: image)
+                } else {
+                    continuation.resume(throwing: error ?? AppError.screenCaptureUnavailable)
+                }
+            }
+        }
     }
 }
 
