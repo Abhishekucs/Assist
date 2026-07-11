@@ -18,11 +18,15 @@ final class PillViewModel: ObservableObject {
     @Published var diagnosticMessage: String?
     @Published var captureIssue: CaptureIssue?
     @Published var copyFeedback: CopyFeedback?
+    @Published var isCopyFeedbackVisible = false
     @Published var isCheckingForUpdates = false
     @Published var updateStatusText: String?
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
+    private var copyFeedbackClearWorkItem: DispatchWorkItem?
     private let updateService = AppUpdateService()
+
+    private static let copyFeedbackClearDelay: TimeInterval = 0.22
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -37,6 +41,7 @@ final class PillViewModel: ObservableObject {
 
     func showCopyFeedback(badge: String, preview: String) {
         copyFeedbackDismissWorkItem?.cancel()
+        copyFeedbackClearWorkItem?.cancel()
 
         let collapsedPreview = preview
             .split(whereSeparator: \.isWhitespace)
@@ -47,10 +52,21 @@ final class PillViewModel: ObservableObject {
             preview: String(collapsedPreview.prefix(80))
         )
         copyFeedback = feedback
+        isCopyFeedbackVisible = true
 
         let dismissWorkItem = DispatchWorkItem { [weak self] in
             guard let self, self.copyFeedback?.id == feedback.id else { return }
-            self.copyFeedback = nil
+            self.isCopyFeedbackVisible = false
+
+            let clearWorkItem = DispatchWorkItem { [weak self] in
+                guard let self, self.copyFeedback?.id == feedback.id else { return }
+                self.copyFeedback = nil
+            }
+            self.copyFeedbackClearWorkItem = clearWorkItem
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Self.copyFeedbackClearDelay,
+                execute: clearWorkItem
+            )
         }
         copyFeedbackDismissWorkItem = dismissWorkItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: dismissWorkItem)

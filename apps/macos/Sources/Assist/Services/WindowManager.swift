@@ -79,6 +79,19 @@ final class WindowManager {
         overlayView.stroke = nil
     }
 
+    func restorePillToFront(reason: String) {
+        contentRevealWorkItem?.cancel()
+        collapsedRevealWorkItem?.cancel()
+        currentPillScreenID = screenForCurrentPill()?.displayID
+        setPillFrame(display: true)
+        pillPanel.orderFrontRegardless()
+        pinPillToTopCenter()
+        DebugLogger.log("pill.restore-to-front", [
+            "reason": reason,
+            "screenID": currentPillScreenID.map { "\($0)" } ?? "unknown"
+        ])
+    }
+
     private func configurePillPanel() {
         pillPanel.isOpaque = false
         pillPanel.backgroundColor = .clear

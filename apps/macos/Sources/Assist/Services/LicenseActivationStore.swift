@@ -17,11 +17,6 @@ enum LicenseActivationStoreError: LocalizedError {
 
 final class LicenseActivationStore {
     private let service = "\(AppIdentity.bundleIdentifier).license"
-    private let legacyProductionServices = [
-        "prod.Assist.app.license",
-        "prod.assist.app.license",
-        "dev.assist.app.license"
-    ]
     private let account = "activation"
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -34,22 +29,7 @@ final class LicenseActivationStore {
     }
 
     func load() throws -> LicenseActivation? {
-        if let activation = try load(service: service) {
-            return activation
-        }
-
-        guard !AppIdentity.isDevelopmentBundle else {
-            return nil
-        }
-
-        for legacyService in legacyProductionServices {
-            if let activation = try load(service: legacyService) {
-                try? save(activation)
-                return activation
-            }
-        }
-
-        return nil
+        try load(service: service)
     }
 
     private func load(service: String) throws -> LicenseActivation? {
@@ -101,11 +81,6 @@ final class LicenseActivationStore {
 
     func clear() {
         SecItemDelete(baseQuery(service: service) as CFDictionary)
-        guard !AppIdentity.isDevelopmentBundle else { return }
-
-        for legacyService in legacyProductionServices {
-            SecItemDelete(baseQuery(service: legacyService) as CFDictionary)
-        }
     }
 
     private func baseQuery(service: String) -> [String: Any] {

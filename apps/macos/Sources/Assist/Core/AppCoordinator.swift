@@ -151,6 +151,10 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         activeStroke = stroke
 
         windowManager.showOverlay(on: screen, stroke: stroke)
+        DebugLogger.log("annotation.overlay.show", [
+            "session": sessionID.uuidString,
+            "screenFrame": DebugLogger.describe(screen.frame)
+        ])
         DebugLogger.log("annotation.begin.ready", [
             "session": sessionID.uuidString,
             "startPoint": DebugLogger.describe(startPoint)
@@ -179,7 +183,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             DebugLogger.log("annotation.end.no-active-stroke", [
                 "point": DebugLogger.describe(globalPoint)
             ])
-            resetCaptureState()
+            resetCaptureState(reason: "annotation.no-active-stroke")
             return
         }
 
@@ -189,6 +193,10 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
 
         windowManager.hideOverlay()
+        DebugLogger.log("annotation.overlay.hide", [
+            "reason": "annotation.end",
+            "session": annotationSessionID?.uuidString ?? "unknown"
+        ])
         pillViewModel.isBusy = true
         pillViewModel.statusText = "Saving capture..."
         DebugLogger.log("annotation.end", [
@@ -198,18 +206,43 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         ])
 
         let sessionID = annotationSessionID
+        let sessionLogID = sessionID?.uuidString ?? "unknown"
         Task {
             do {
+                DebugLogger.log("annotation.capture.start", ["session": sessionLogID])
                 let captured = try await captureService.capture(screen: screen)
-                guard self.annotationSessionID == sessionID else { return }
+                guard self.annotationSessionID == sessionID else {
+                    DebugLogger.log("annotation.capture.stale-session", ["session": sessionLogID])
+                    return
+                }
+
+                DebugLogger.log("annotation.capture.success", [
+                    "session": sessionLogID,
+                    "displayID": "\(captured.displayID)",
+                    "imageSize": "\(captured.image.width)x\(captured.image.height)"
+                ])
+                DebugLogger.log("annotation.composite.start", [
+                    "session": sessionLogID,
+                    "points": "\(stroke.points.count)"
+                ])
                 let finalImage = try captureService.composite(captured: captured, stroke: stroke)
+                DebugLogger.log("annotation.composite.success", [
+                    "session": sessionLogID,
+                    "imageSize": "\(Int(finalImage.size.width))x\(Int(finalImage.size.height))"
+                ])
                 saveCapture(image: finalImage, statusText: "Saving capture...")
-                resetCaptureState()
+                windowManager.restorePillToFront(reason: "annotation.finished")
+                resetCaptureState(reason: "annotation.finished")
             } catch {
-                guard self.annotationSessionID == sessionID else { return }
+                guard self.annotationSessionID == sessionID else {
+                    DebugLogger.log("annotation.error.stale-session", ["session": sessionLogID])
+                    return
+                }
+
                 DebugLogger.log("annotation.capture-or-composite.error", errorFields(error))
                 handleCaptureError(error)
-                resetCaptureState()
+                windowManager.restorePillToFront(reason: "annotation.error")
+                resetCaptureState(reason: "annotation.error")
             }
         }
     }
@@ -219,7 +252,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             "point": DebugLogger.describe(globalPoint)
         ])
         windowManager.hideOverlay()
-        resetCaptureState()
+        resetCaptureState(reason: "clean-screenshot.shortcut")
         saveCleanScreenshot(at: globalPoint)
     }
 
@@ -250,12 +283,20 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private func saveCapture(image: NSImage, statusText: String) {
         pillViewModel.statusText = statusText
         pillViewModel.isBusy = true
+        DebugLogger.log("capture.save.start", [
+            "status": statusText,
+            "imageSize": "\(Int(image.size.width))x\(Int(image.size.height))"
+        ])
 
         do {
             pillViewModel.clearCaptureIssue()
             let item = try store.save(image: image, context: .saved)
             insertOrUpdate(item)
             pillViewModel.diagnosticMessage = "Saved \(URL(fileURLWithPath: item.imagePath).lastPathComponent)"
+            DebugLogger.log("capture.save.success", [
+                "id": item.id.uuidString,
+                "imagePath": item.imagePath
+            ])
             DebugLogger.log("capture.saved", [
                 "id": item.id.uuidString,
                 "imagePath": item.imagePath
@@ -264,6 +305,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             pillViewModel.isBusy = false
             pillViewModel.showCopyFeedback(badge: "Saved", preview: "Screenshot")
         } catch {
+            DebugLogger.log("capture.save.failure", errorFields(error))
             DebugLogger.log("capture.save.error", errorFields(error))
             pillViewModel.statusText = error.localizedDescription
             pillViewModel.isBusy = false
@@ -399,7 +441,14 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         pillViewModel.replaceScreenshot(item)
     }
 
-    private func resetCaptureState() {
+    private func resetCaptureState(reason: String) {
+        DebugLogger.log("capture.state.reset", [
+            "reason": reason,
+            "wasCapturing": "\(isCapturing)",
+            "hadActiveScreen": "\(activeScreen != nil)",
+            "hadActiveStroke": "\(activeStroke != nil)",
+            "session": annotationSessionID?.uuidString ?? "none"
+        ])
         isCapturing = false
         activeScreen = nil
         activeStroke = nil
