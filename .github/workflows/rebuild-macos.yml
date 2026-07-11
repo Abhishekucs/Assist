@@ -27,4 +27,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build macOS application
+        env:
+          # This workflow verifies the debug bundle but does not release it.
+          # Trusted Developer ID signing remains isolated to release.yml.
+          ASSIST_ALLOW_ADHOC_DEBUG_SIGNING: "1"
         run: make -C apps/macos build

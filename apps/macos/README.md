@@ -74,6 +74,9 @@ make run
 
 Debug builds refuse to fall back to ad-hoc signing, because an ad-hoc
 signature changes on every rebuild and resets the TCC permission grants.
+Non-installed CI verification builds may set
+`ASSIST_ALLOW_ADHOC_DEBUG_SIGNING=1` because they do not preserve TCC grants
+between runs and are not released.
 
 If a permission prompt loops or the app does not appear in System Settings,
 a stale TCC row from an earlier signature is usually the cause. Reset with:
