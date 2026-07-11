@@ -3,14 +3,11 @@
 import { PointerEvent, useRef, useState } from "react";
 
 const cards = [
-  { className: "annotated left-note", kind: "screen" },
-  { className: "annotated", kind: "screen" },
-  { className: "annotated tight-note", kind: "screen" },
-  { className: "", kind: "text" },
-  { className: "color-thumb", kind: "color" },
-  { className: "note-thumb", kind: "note" },
-  { className: "annotated", kind: "screen" }
-];
+  { kind: "image", src: "/island-card-annotation.png" },
+  { kind: "image", src: "/island-card-cta.png" },
+  { kind: "image", src: "/island-card-assist.png" },
+  { kind: "text" }
+] as const;
 
 export default function ClipRow() {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -69,27 +66,13 @@ export default function ClipRow() {
           className={`clip-card${index === 0 ? " selected" : ""}${
             card.kind === "text" ? " text-clip" : ""
           }`}
-          key={`${card.kind}-${index}`}
+          key={card.kind === "image" ? card.src : `${card.kind}-${index}`}
         >
-          {card.kind === "screen" && (
-            <div className={`mini-screen ${card.className}`}>
-              <span className="mini-title">Context</span>
-              <span className="mini-subtitle">captured.</span>
-              <span className="mini-button" />
-              <span className="mini-hill" />
-            </div>
+          {card.kind === "image" && (
+            <img className="clip-image" src={card.src} alt="" draggable={false} />
           )}
           {card.kind === "text" && (
             <div className="text-thumb">
-              <span />
-              <span />
-              <span />
-            </div>
-          )}
-          {card.kind === "color" && <div className="color-thumb" />}
-          {card.kind === "note" && (
-            <div className="note-thumb">
-              <span />
               <span />
               <span />
               <span />

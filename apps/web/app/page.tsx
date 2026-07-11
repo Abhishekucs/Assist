@@ -47,12 +47,11 @@ export default function Home() {
           <div className="glass-shell" />
           <div className="notch-preview">
             <div className="notch-bar">
-              <span>RECENT ITEMS</span>
+              <span>Recent items</span>
               <div className="notch-tools">
-                <span className="tool-icon filter-icon" />
+                <span className="tool-icon grid-icon" />
                 <span className="tool-icon image-icon" />
                 <span className="tool-icon folder-icon" />
-                <span className="tool-icon copy-icon" />
               </div>
             </div>
             <ClipRow />
