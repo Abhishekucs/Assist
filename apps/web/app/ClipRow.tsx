@@ -5,13 +5,14 @@ import { PointerEvent, useRef, useState } from "react";
 const cards = [
   {
     kind: "image",
-    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/4B4E873B-AFDE-4DC3-999F-B1B8EFEFFE81-thumb.png"
+    fullSrc: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/4B4E873B-AFDE-4DC3-999F-B1B8EFEFFE81.png",
+    thumbSrc: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/4B4E873B-AFDE-4DC3-999F-B1B8EFEFFE81-thumb.png"
   },
   {
     kind: "image",
-    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/6E28B0F5-206C-440B-ADF9-FA69E583F9FD-thumb.png"
+    fullSrc: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/6E28B0F5-206C-440B-ADF9-FA69E583F9FD.png",
+    thumbSrc: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/6E28B0F5-206C-440B-ADF9-FA69E583F9FD-thumb.png"
   },
-  { kind: "image", src: "/island-card-assist-thumb.jpg" },
   { kind: "text" }
 ] as const;
 
@@ -72,10 +73,17 @@ export default function ClipRow() {
           className={`clip-card${index === 0 ? " selected" : ""}${
             card.kind === "text" ? " text-clip" : ""
           }`}
-          key={card.kind === "image" ? card.src : `${card.kind}-${index}`}
+          key={card.kind === "image" ? card.thumbSrc : `${card.kind}-${index}`}
         >
           {card.kind === "image" && (
-            <img className="clip-image" src={card.src} alt="" draggable={false} />
+            <img
+              className="clip-image"
+              src={card.thumbSrc}
+              srcSet={`${card.thumbSrc} 640w, ${card.fullSrc} 3840w`}
+              sizes="(max-width: 640px) 112px, 142px"
+              alt=""
+              draggable={false}
+            />
           )}
           {card.kind === "text" && (
             <div className="text-thumb">
