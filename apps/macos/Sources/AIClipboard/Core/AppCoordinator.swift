@@ -1,4 +1,5 @@
 import AppKit
+@preconcurrency import ScreenCaptureKit
 
 @MainActor
 final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorDelegate {
@@ -127,6 +128,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     func annotationGestureDidBegin(at globalPoint: CGPoint) {
         guard !isCapturing else { return }
+        guard ensureScreenCaptureAccess() else { return }
 
         guard let screen = NSScreen.screen(containing: globalPoint) ?? NSScreen.main else {
             return
@@ -223,6 +225,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     }
 
     private func saveCleanScreenshot(at globalPoint: CGPoint) {
+        guard ensureScreenCaptureAccess() else { return }
+
         guard let screen = NSScreen.screen(containing: globalPoint) ?? NSScreen.main else {
             return
         }
@@ -271,19 +275,26 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     }
 
     private func handleCaptureError(_ error: Error) {
+        let hasScreenCaptureAccess = CGPreflightScreenCaptureAccess()
         DebugLogger.log("capture.handle-error", errorFields(error).merging([
-            "screenPreflight": "\(CGPreflightScreenCaptureAccess())"
+            "screenPreflight": "\(hasScreenCaptureAccess)"
         ]) { current, _ in current })
 
         let nsError = error as NSError
         pillViewModel.clearCaptureIssue()
 
-        if !CGPreflightScreenCaptureAccess() || isScreenCaptureKitTCCDenial(nsError) {
+        if !hasScreenCaptureAccess {
             DebugLogger.log("capture.handle-error.tcc-denied", [
                 "description": nsError.localizedDescription
             ])
             pillViewModel.showCaptureIssue(.screenRecording(detail: nsError.localizedDescription))
             return
+        }
+
+        if isScreenCaptureKitUserDeclined(nsError) {
+            DebugLogger.log("capture.handle-error.sck-user-declined-with-access", [
+                "description": nsError.localizedDescription
+            ])
         }
 
         DebugLogger.log("capture.handle-error.status-only", [
@@ -292,9 +303,37 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         pillViewModel.showCaptureIssue(.captureFailed(detail: nsError.localizedDescription))
     }
 
-    private func isScreenCaptureKitTCCDenial(_ error: NSError) -> Bool {
+    private func ensureScreenCaptureAccess() -> Bool {
+        let preflight = CGPreflightScreenCaptureAccess()
+        guard !preflight else { return true }
+
+        DebugLogger.log("screen-recording.request.start", [
+            "bundle": Bundle.main.bundleIdentifier ?? "unknown",
+            "executable": Bundle.main.executablePath ?? "unknown",
+            "preflight": "\(preflight)"
+        ])
+
+        let requestResult = CGRequestScreenCaptureAccess()
+        let postflight = CGPreflightScreenCaptureAccess()
+        DebugLogger.log("screen-recording.request.result", [
+            "requestResult": "\(requestResult)",
+            "postflight": "\(postflight)"
+        ])
+
+        guard postflight else {
+            pillViewModel.showCaptureIssue(.screenRecording(
+                detail: "Grant Assist Screen Recording access in System Settings, then quit and reopen Assist."
+            ))
+            return false
+        }
+
+        pillViewModel.clearCaptureIssue()
+        return true
+    }
+
+    private func isScreenCaptureKitUserDeclined(_ error: NSError) -> Bool {
         error.domain == "com.apple.ScreenCaptureKit.SCStreamErrorDomain"
-            && error.code == -3801
+            && error.code == SCStreamError.Code.userDeclined.rawValue
     }
 
     private func runDebugScreenshotTest() {

@@ -11,9 +11,13 @@ final class CaptureStore {
         return base.appendingPathComponent(AppIdentity.supportDirectoryName, isDirectory: true)
     }
 
-    private var legacySupportDirectory: URL {
+    private var legacySupportDirectory: URL? {
+        guard let legacySupportDirectoryName = AppIdentity.legacySupportDirectoryName else {
+            return nil
+        }
+
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent(AppIdentity.legacySupportDirectoryName, isDirectory: true)
+        return base.appendingPathComponent(legacySupportDirectoryName, isDirectory: true)
     }
 
     private var capturesDirectory: URL {
@@ -316,7 +320,8 @@ final class CaptureStore {
     }
 
     private func migrateLegacySupportDirectoryIfNeeded() {
-        guard fileManager.fileExists(atPath: legacySupportDirectory.path),
+        guard let legacySupportDirectory,
+              fileManager.fileExists(atPath: legacySupportDirectory.path),
               !fileManager.fileExists(atPath: supportDirectory.path) else {
             return
         }
@@ -325,6 +330,8 @@ final class CaptureStore {
     }
 
     private func rewriteLegacyCapturePathsIfNeeded() {
+        guard let legacySupportDirectory else { return }
+
         let oldPrefix = legacySupportDirectory.path + "/"
         let newPrefix = supportDirectory.path + "/"
 

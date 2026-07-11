@@ -16,10 +16,6 @@ else
   echo "error: /Applications is not writable. Set ASSIST_INSTALL_ROOT explicitly if you want another install path." >&2
   exit 1
 fi
-APP_DIR="$INSTALL_ROOT/$APP_NAME.app"
-CONTENTS_DIR="$APP_DIR/Contents"
-MACOS_DIR="$CONTENTS_DIR/MacOS"
-RESOURCES_DIR="$CONTENTS_DIR/Resources"
 INSTALLED_PATH_FILE="$ROOT_DIR/.build/installed_app_path"
 
 case "$CONFIGURATION" in
@@ -30,11 +26,27 @@ case "$CONFIGURATION" in
     ;;
 esac
 
+if [[ "$CONFIGURATION" == "release" ]]; then
+  APP_BUNDLE_NAME="Assist"
+  BUNDLE_IDENTIFIER="prod.Assist.app"
+else
+  APP_BUNDLE_NAME="Assist Dev"
+  BUNDLE_IDENTIFIER="dev.Assist.app"
+fi
+
+APP_DIR="$INSTALL_ROOT/$APP_BUNDLE_NAME.app"
+CONTENTS_DIR="$APP_DIR/Contents"
+MACOS_DIR="$CONTENTS_DIR/MacOS"
+RESOURCES_DIR="$CONTENTS_DIR/Resources"
+
 swift build -c "$CONFIGURATION"
 
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$ROOT_DIR/.build/$CONFIGURATION/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 cp "$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_IDENTIFIER" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_BUNDLE_NAME" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_BUNDLE_NAME" "$CONTENTS_DIR/Info.plist"
 rsync -a --delete --exclude "Info.plist" "$ROOT_DIR/Sources/AIClipboard/Resources/" "$RESOURCES_DIR/"
 chmod +x "$MACOS_DIR/$APP_NAME"
 xattr -dr com.apple.quarantine "$APP_DIR" 2>/dev/null || true

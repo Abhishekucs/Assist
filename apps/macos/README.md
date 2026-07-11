@@ -33,7 +33,7 @@ make build
 The app bundle is created at:
 
 ```text
-.build/Assist.app
+.build/Assist Dev.app
 ```
 
 Run it with:
@@ -45,10 +45,10 @@ make run
 `make run` installs and opens a stable development copy at:
 
 ```text
-/Applications/Assist.app
+/Applications/Assist Dev.app
 ```
 
-Use the `/Applications` app when granting Screen Recording permission. Avoid granting permission to `.build/Assist.app`; that bundle is disposable and may be recreated during development.
+Use `/Applications/Assist Dev.app` when granting local Screen Recording permission. Production uses `/Applications/Assist.app`, so the local app and downloaded app have separate macOS permission entries.
 
 For local development, use a stable signing identity so macOS Screen Recording permission survives rebuilds:
 

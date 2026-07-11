@@ -13,10 +13,6 @@ fi
 DEV_SIGN_IDENTITY="${ASSIST_SIGN_IDENTITY:-${AI_CLIPBOARD_SIGN_IDENTITY:-Assist Local Development}}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build"
-APP_DIR="$BUILD_DIR/$APP_NAME.app"
-CONTENTS_DIR="$APP_DIR/Contents"
-MACOS_DIR="$CONTENTS_DIR/MacOS"
-RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
 case "$CONFIGURATION" in
   debug|release) ;;
@@ -26,6 +22,19 @@ case "$CONFIGURATION" in
     ;;
 esac
 
+if [[ "$CONFIGURATION" == "release" ]]; then
+  APP_BUNDLE_NAME="Assist"
+  BUNDLE_IDENTIFIER="prod.Assist.app"
+else
+  APP_BUNDLE_NAME="Assist Dev"
+  BUNDLE_IDENTIFIER="dev.Assist.app"
+fi
+
+APP_DIR="$BUILD_DIR/$APP_BUNDLE_NAME.app"
+CONTENTS_DIR="$APP_DIR/Contents"
+MACOS_DIR="$CONTENTS_DIR/MacOS"
+RESOURCES_DIR="$CONTENTS_DIR/Resources"
+
 cd "$ROOT_DIR"
 swift build -c "$CONFIGURATION"
 
@@ -34,6 +43,9 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp "$BUILD_DIR/$CONFIGURATION/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 cp "$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_IDENTIFIER" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_BUNDLE_NAME" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_BUNDLE_NAME" "$CONTENTS_DIR/Info.plist"
 rsync -a --exclude "Info.plist" "$ROOT_DIR/Sources/AIClipboard/Resources/" "$RESOURCES_DIR/"
 
 chmod +x "$MACOS_DIR/$APP_NAME"

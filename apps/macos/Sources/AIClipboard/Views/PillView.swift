@@ -140,11 +140,6 @@ private struct CollapsedIslandHeader: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.86)
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                if viewModel.latestItem != nil {
-                    HugeIcon(.image, size: 13, color: .white.opacity(0.7))
-                        .help("Recent item available")
-                }
             }
         }
         .padding(.horizontal, 18)
@@ -288,6 +283,7 @@ struct ExpandedIslandView: View {
         VStack(alignment: .leading, spacing: 10) {
             ExpandedIslandHeader(viewModel: viewModel)
                 .frame(height: 34)
+                .zIndex(1)
 
             if let issue = viewModel.captureIssue {
                 CaptureIssuePanel(issue: issue, viewModel: viewModel)
@@ -503,6 +499,23 @@ private struct IslandIconButton: View {
         .buttonStyle(.plain)
         .help(tooltip)
         .accessibilityLabel(tooltip)
+        .pointingHandCursor()
+        .overlay(alignment: .bottomTrailing) {
+            if isHovered {
+                Text(tooltip)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.94))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.horizontal, 8)
+                    .frame(height: 22)
+                    .background(Color.white.opacity(0.14), in: Capsule())
+                    .offset(y: 26)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
+                    .allowsHitTesting(false)
+            }
+        }
+        .zIndex(isHovered ? 20 : 0)
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isHovered)
     }

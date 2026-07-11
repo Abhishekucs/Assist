@@ -1,10 +1,28 @@
 import Foundation
 
 enum AppIdentity {
-    static let name = "Assist"
-    static let bundleIdentifier = "dev.assist.app"
-    static let supportDirectoryName = "Assist"
-    static let legacySupportDirectoryName = "AIClipboard"
+    static var name: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "Assist"
+    }
+
+    static var bundleIdentifier: String {
+        Bundle.main.bundleIdentifier ?? "prod.Assist.app"
+    }
+
+    static var isDevelopmentBundle: Bool {
+        bundleIdentifier == "dev.Assist.app"
+    }
+
+    static var supportDirectoryName: String {
+        isDevelopmentBundle ? "Assist Dev" : "Assist"
+    }
+
+    static var legacySupportDirectoryName: String? {
+        isDevelopmentBundle ? nil : "AIClipboard"
+    }
+
     static let repositoryURL = URL(string: "https://github.com/Abhishekucs/Assist")!
     static let releasesURL = URL(string: "https://github.com/Abhishekucs/Assist/releases")!
     static let supportEmail = "abhishek@thinkingsoundlab.com"

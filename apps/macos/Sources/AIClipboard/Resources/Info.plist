@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Assist</string>
 	<key>CFBundleIdentifier</key>
-	<string>dev.assist.app</string>
+	<string>prod.Assist.app</string>
 	<key>CFBundleIconFile</key>
 	<string>Assist</string>
 	<key>CFBundleInfoDictionaryVersion</key>
