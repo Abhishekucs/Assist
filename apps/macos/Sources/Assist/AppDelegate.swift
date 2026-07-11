@@ -14,9 +14,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let licenseValidationService = LicenseValidationService()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DebugLogger.log("app.launch", [
+            "bundle": Bundle.main.bundleIdentifier ?? "unknown",
+            "version": appVersion,
+            "build": appBuild,
+            "development": "\(AppIdentity.isDevelopmentBundle)",
+            "licenseRequired": "\(LicenseActivationRequirement.isRequired)"
+        ])
+
         registerBundledFonts()
 
         guard LicenseActivationRequirement.isRequired else {
+            DebugLogger.log("license.validation.skipped", ["reason": "not-required"])
             startMainApp()
             return
         }
@@ -27,21 +36,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        DebugLogger.log("app.terminate")
         coordinator?.stop()
     }
 
     private func validateLicenseAndStart() async {
+        DebugLogger.log("license.validation.start")
+
         do {
             guard let activation = try licenseActivationStore.load() else {
+                DebugLogger.log("license.activation.missing")
                 showLicenseActivationWindow()
                 return
             }
 
+            DebugLogger.log("license.activation.loaded", [
+                "instanceIDPresent": "\(activation.licenseKeyInstanceID.isEmpty == false)"
+            ])
+
             let validatedActivation = try await licenseValidationService.validate(activation)
             try licenseActivationStore.save(validatedActivation)
+            DebugLogger.log("license.validation.success")
             startMainApp()
         } catch {
+            DebugLogger.log("license.validation.error", errorFields(error))
             licenseActivationStore.clear()
+            DebugLogger.log("license.activation.cleared-current")
             showLicenseActivationWindow(
                 initialErrorMessage: "Saved activation could not be verified. Enter your license key again."
             )
@@ -49,11 +69,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showLicenseActivationWindow(initialErrorMessage: String? = nil) {
+        DebugLogger.log("license.activation.window.show", [
+            "hasInitialError": "\(initialErrorMessage != nil)"
+        ])
+
         let activationController = LicenseActivationWindowController(
             validationService: licenseValidationService,
             activationStore: licenseActivationStore,
             initialErrorMessage: initialErrorMessage
         ) { [weak self] _ in
+            DebugLogger.log("license.activation.completed")
             self?.licenseActivationController?.closeAfterActivation()
             self?.licenseActivationController = nil
             self?.startMainApp()
@@ -64,7 +89,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startMainApp() {
-        guard coordinator == nil else { return }
+        guard coordinator == nil else {
+            DebugLogger.log("app.start-main.skipped", ["reason": "coordinator-present"])
+            return
+        }
+
+        DebugLogger.log("app.start-main")
 
         let store = CaptureStore()
         let settings = PillSettings()
@@ -88,6 +118,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureStatusItem(settings: settings)
         coordinator.start()
         controlPanelController.showWindow()
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+    }
+
+    private var appBuild: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+    }
+
+    private func errorFields(_ error: Error) -> [String: String] {
+        let nsError = error as NSError
+        return [
+            "domain": nsError.domain,
+            "code": "\(nsError.code)",
+            "description": nsError.localizedDescription
+        ]
     }
 
     private func registerBundledFonts() {
@@ -146,6 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quit() {
+        DebugLogger.log("app.quit.request")
         NSApp.terminate(nil)
     }
 }

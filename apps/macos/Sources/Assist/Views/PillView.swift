@@ -37,6 +37,10 @@ struct PillView: View {
         .interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
     }
 
+    private var copyFeedbackAnimation: Animation {
+        .spring(response: 0.52, dampingFraction: 0.96, blendDuration: 0.04)
+    }
+
     private var shouldShowLoadingBorder: Bool {
         settings.showLoadingBorder && viewModel.isBusy
     }
@@ -74,7 +78,7 @@ struct PillView: View {
             }
             .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
             .animation(islandAnimation, value: viewModel.isExpanded)
-            .animation(islandAnimation, value: viewModel.copyFeedback != nil)
+            .animation(copyFeedbackAnimation, value: viewModel.copyFeedback != nil)
             .background {
                 BoringNotchShape(
                     topCornerRadius: chromeTopCornerRadius,
@@ -121,6 +125,10 @@ struct PillView: View {
 private struct CollapsedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
 
+    private var copyFeedbackContentAnimation: Animation {
+        .easeOut(duration: 0.18)
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             AssistLogo(size: 16)
@@ -128,6 +136,8 @@ private struct CollapsedIslandHeader: View {
 
             if let feedback = viewModel.copyFeedback {
                 CopyFeedbackRow(feedback: feedback)
+                    .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
+                    .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
                     .transition(
                         .opacity
                             .combined(with: .scale(scale: 0.96))
@@ -144,6 +154,7 @@ private struct CollapsedIslandHeader: View {
         }
         .padding(.horizontal, 18)
         .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
+        .animation(copyFeedbackContentAnimation, value: viewModel.isCopyFeedbackVisible)
     }
 }
 
@@ -276,7 +287,7 @@ private struct LoadingNotchBorderShape: Shape {
 struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
     private static let galleryLeadingAnchorID = "gallery-leading-anchor"
-    private static let galleryEdgeInset: CGFloat = 10
+    private static let galleryClipInset: CGFloat = 2
 
     var body: some View {
         let historyItems = Array(viewModel.historyItems.prefix(24))
@@ -292,51 +303,50 @@ struct ExpandedIslandView: View {
             } else if !historyItems.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 12) {
+                        HStack(spacing: 0) {
                             Color.clear
-                                .frame(width: Self.galleryEdgeInset, height: 1)
+                                .frame(width: 0, height: 1)
                                 .id(Self.galleryLeadingAnchorID)
                                 .accessibilityHidden(true)
 
-                            ForEach(historyItems) { item in
-                                Group {
-                                    switch item {
-                                    case let .screenshot(capture):
-                                        CaptureGalleryCard(
-                                            item: capture,
-                                            thumbnail: viewModel.thumbnail(for: capture),
-                                            isSelected: item.id == selectedID
-                                        ) {
-                                            viewModel.selectScreenshot(capture)
-                                        } deleteAction: {
-                                            viewModel.delete(item)
-                                        }
-                                    case let .text(textClip):
-                                        TextClipGalleryCard(
-                                            item: textClip,
-                                            isSelected: item.id == selectedID
-                                        ) {
-                                            viewModel.copyTextItem(textClip)
-                                        } deleteAction: {
-                                            viewModel.delete(item)
+                            LazyHStack(spacing: 12) {
+                                ForEach(historyItems) { item in
+                                    Group {
+                                        switch item {
+                                        case let .screenshot(capture):
+                                            CaptureGalleryCard(
+                                                item: capture,
+                                                thumbnail: viewModel.thumbnail(for: capture),
+                                                isSelected: item.id == selectedID
+                                            ) {
+                                                viewModel.selectScreenshot(capture)
+                                            } deleteAction: {
+                                                viewModel.delete(item)
+                                            }
+                                        case let .text(textClip):
+                                            TextClipGalleryCard(
+                                                item: textClip,
+                                                isSelected: item.id == selectedID
+                                            ) {
+                                                viewModel.copyTextItem(textClip)
+                                            } deleteAction: {
+                                                viewModel.delete(item)
+                                            }
                                         }
                                     }
+                                    .id(item.id)
                                 }
-                                .id(item.id)
                             }
-
-                            Color.clear
-                                .frame(width: Self.galleryEdgeInset, height: 1)
-                                .accessibilityHidden(true)
+                            .padding(.horizontal, Self.galleryClipInset)
                         }
                         .padding(.vertical, 1)
                     }
                     .onAppear {
-                        alignGalleryToLeadingItem(proxy)
+                        alignGalleryToLeadingEdge(proxy)
                     }
                     .onChange(of: historyItems.first?.id) { _, firstItemID in
                         guard firstItemID != nil else { return }
-                        alignGalleryToLeadingItem(proxy)
+                        alignGalleryToLeadingEdge(proxy)
                     }
                 }
             } else {
@@ -360,7 +370,7 @@ struct ExpandedIslandView: View {
         .padding(.bottom, 14)
     }
 
-    private func alignGalleryToLeadingItem(_ proxy: ScrollViewProxy) {
+    private func alignGalleryToLeadingEdge(_ proxy: ScrollViewProxy) {
         func align() {
             var transaction = Transaction(animation: nil)
             transaction.disablesAnimations = true
