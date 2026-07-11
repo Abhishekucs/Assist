@@ -17,7 +17,11 @@ enum LicenseActivationStoreError: LocalizedError {
 
 final class LicenseActivationStore {
     private let service = "\(AppIdentity.bundleIdentifier).license"
-    private let legacyProductionServices = ["dev.assist.app.license"]
+    private let legacyProductionServices = [
+        "prod.Assist.app.license",
+        "prod.assist.app.license",
+        "dev.assist.app.license"
+    ]
     private let account = "activation"
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder

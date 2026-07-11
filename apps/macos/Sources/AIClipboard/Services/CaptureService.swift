@@ -4,29 +4,30 @@ import AppKit
 @MainActor
 struct CaptureService: Sendable {
     func capture(screen: NSScreen) async throws -> CapturedScreen {
+        let hasPreflightAccess = CGPreflightScreenCaptureAccess()
         DebugLogger.log("capture.request", [
             "displayID": "\(screen.displayID)",
             "screenFrame": DebugLogger.describe(screen.frame),
             "visibleFrame": DebugLogger.describe(screen.visibleFrame),
             "scale": "\(screen.backingScaleFactor)",
-            "preflight": "\(CGPreflightScreenCaptureAccess())"
+            "preflight": "\(hasPreflightAccess)"
         ])
 
         do {
             let captured: CapturedScreen
             if #available(macOS 14.0, *) {
-                do {
-                    captured = try await captureWithScreenCaptureKit(screen: screen)
-                } catch {
-                    DebugLogger.log("capture.sck.primary-failed", Self.errorFields(error))
-                    #if AI_CLIPBOARD_ENABLE_DEPRECATED_CAPTURE_FALLBACK
-                    DebugLogger.log("capture.deprecated-fallback.enabled")
-                    captured = try captureWithCoreGraphicsWindowList(screen: screen)
-                    #else
-                    throw error
-                    #endif
+                guard hasPreflightAccess else {
+                    DebugLogger.log("capture.screen-recording.missing", [
+                        "bundle": Bundle.main.bundleIdentifier ?? "unknown",
+                        "executable": Bundle.main.executablePath ?? "unknown"
+                    ])
+                    throw AppError.screenRecordingPermissionRequired
                 }
+                captured = try await captureWithScreenCaptureKit(screen: screen)
             } else {
+                guard requestScreenCaptureAccessIfNeeded(hasPreflightAccess: hasPreflightAccess) else {
+                    throw AppError.screenRecordingPermissionRequired
+                }
                 captured = try captureWithCoreGraphics(screen: screen)
             }
 
@@ -39,6 +40,25 @@ struct CaptureService: Sendable {
             DebugLogger.log("capture.error", Self.errorFields(error))
             throw error
         }
+    }
+
+    @discardableResult
+    private func requestScreenCaptureAccessIfNeeded(hasPreflightAccess: Bool) -> Bool {
+        guard !hasPreflightAccess else { return true }
+
+        DebugLogger.log("capture.screen-recording.request", [
+            "bundle": Bundle.main.bundleIdentifier ?? "unknown",
+            "executable": Bundle.main.executablePath ?? "unknown"
+        ])
+
+        let requestResult = CGRequestScreenCaptureAccess()
+        let postflight = CGPreflightScreenCaptureAccess()
+        DebugLogger.log("capture.screen-recording.request.result", [
+            "requestResult": "\(requestResult)",
+            "postflight": "\(postflight)"
+        ])
+
+        return postflight
     }
 
     private func captureWithCoreGraphics(screen: NSScreen) throws -> CapturedScreen {

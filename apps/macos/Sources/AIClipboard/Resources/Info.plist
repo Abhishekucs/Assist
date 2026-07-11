@@ -7,8 +7,10 @@
 	<key>CFBundleExecutable</key>
 	<string>Assist</string>
 	<key>CFBundleIdentifier</key>
-	<string>prod.Assist.app</string>
+	<string>com.thinkingsoundlab.assist</string>
 	<key>CFBundleIconFile</key>
+	<string>Assist</string>
+	<key>CFBundleIconName</key>
 	<string>Assist</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
@@ -18,6 +20,10 @@
 	<string>Assist</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.3</string>
 	<key>CFBundleVersion</key>
@@ -28,6 +34,8 @@
 	<true/>
 	<key>AssistLicenseVerificationURL</key>
 	<string>https://assist-woad.vercel.app/api/license/verify</string>
+	<key>AssistDevelopmentBuild</key>
+	<false/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Assist contributors.</string>
 	<key>NSScreenCaptureUsageDescription</key>

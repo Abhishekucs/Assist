@@ -41,10 +41,6 @@ enum DebugLogger {
         }
     }
 
-    static func openLog() {
-        NSWorkspace.shared.open(logURL)
-    }
-
     static func describe(_ rect: CGRect) -> String {
         "x:\(Int(rect.origin.x)),y:\(Int(rect.origin.y)),w:\(Int(rect.width)),h:\(Int(rect.height))"
     }

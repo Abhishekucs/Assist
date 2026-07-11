@@ -9,7 +9,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INFO_PLIST="$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist"
 VERSION="${2:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")}"
 BUILD_DIR="$ROOT_DIR/.build"
-APP_DIR="$BUILD_DIR/$APP_NAME.app"
+if [[ "$CONFIGURATION" == "debug" ]]; then
+  APP_BUNDLE_NAME="Assist Dev"
+else
+  APP_BUNDLE_NAME="Assist"
+fi
+APP_DIR="$BUILD_DIR/$APP_BUNDLE_NAME.app"
 DIST_DIR="$BUILD_DIR/dist"
 STAGING_DIR="$BUILD_DIR/dmg-staging"
 MOUNT_DIR="$BUILD_DIR/dmg-mount"
@@ -31,7 +36,7 @@ esac
 rm -rf "$DIST_DIR" "$STAGING_DIR" "$MOUNT_DIR"
 mkdir -p "$DIST_DIR" "$STAGING_DIR" "$MOUNT_DIR"
 
-ditto "$APP_DIR" "$STAGING_DIR/$APP_NAME.app"
+ditto "$APP_DIR" "$STAGING_DIR/$APP_BUNDLE_NAME.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 mkdir -p "$STAGING_DIR/.fseventsd"
 touch "$STAGING_DIR/.fseventsd/no_log"
@@ -73,7 +78,7 @@ tell application "Finder"
   set icon size of viewOptions to 128
   set background picture of viewOptions to file ".background:background.png" of dmgFolder
 
-  set position of item "$APP_NAME.app" of dmgFolder to {220, 252}
+  set position of item "$APP_BUNDLE_NAME.app" of dmgFolder to {220, 252}
   set position of item "Applications" of dmgFolder to {500, 252}
 
   update dmgFolder without registering applications
