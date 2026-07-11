@@ -4,6 +4,7 @@
 APP_NAME="Assist"
 REQUIRE_SIGNING="${ASSIST_REQUIRE_SIGNING:-0}"
 TIMESTAMP="${ASSIST_TIMESTAMP:-0}"
+ALLOW_ADHOC_DEBUG_SIGNING="${ASSIST_ALLOW_ADHOC_DEBUG_SIGNING:-0}"
 DEVELOPER_ID_SIGN_IDENTITY="Developer ID Application: THINKING SOUND LAB PRIVATE LIMITED (4M5LV534N5)"
 LOCAL_SIGN_IDENTITY="Assist Local Development"
 
@@ -130,12 +131,14 @@ sign_app_bundle() {
   fi
 
   # Ad-hoc signatures pin the binary hash, so every rebuild becomes a new TCC
-  # identity and permissions reset. Debug builds refuse to fall back.
-  if [[ "$CONFIGURATION" == "debug" ]]; then
+  # identity and permissions reset. Debug builds refuse to use them unless an
+  # ephemeral CI build opts in explicitly.
+  if [[ "$CONFIGURATION" == "debug" && "$ALLOW_ADHOC_DEBUG_SIGNING" != "1" ]]; then
     echo "error: no stable code-signing identity found for the debug build." >&2
     echo "Screen Recording and input permissions only survive rebuilds with a stable signature." >&2
     echo "Either add an Apple Development certificate (Xcode > Settings > Accounts) or run:" >&2
     echo "  scripts/create_dev_certificate.sh" >&2
+    echo "For non-installed CI verification builds only, set ASSIST_ALLOW_ADHOC_DEBUG_SIGNING=1." >&2
     exit 1
   fi
 
