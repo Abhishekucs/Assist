@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
+    "@vercel/analytics": "^2.0.1",
     "dodopayments": "^2.40.1",
     "next": "latest",
     "react": "latest",
