@@ -275,6 +275,8 @@ private struct LoadingNotchBorderShape: Shape {
 
 struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
+    private static let galleryLeadingAnchorID = "gallery-leading-anchor"
+    private static let galleryEdgeInset: CGFloat = 10
 
     var body: some View {
         let historyItems = Array(viewModel.historyItems.prefix(24))
@@ -291,6 +293,11 @@ struct ExpandedIslandView: View {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 12) {
+                            Color.clear
+                                .frame(width: Self.galleryEdgeInset, height: 1)
+                                .id(Self.galleryLeadingAnchorID)
+                                .accessibilityHidden(true)
+
                             ForEach(historyItems) { item in
                                 Group {
                                     switch item {
@@ -317,14 +324,19 @@ struct ExpandedIslandView: View {
                                 }
                                 .id(item.id)
                             }
+
+                            Color.clear
+                                .frame(width: Self.galleryEdgeInset, height: 1)
+                                .accessibilityHidden(true)
                         }
                         .padding(.vertical, 1)
                     }
                     .onAppear {
-                        alignGalleryToLeadingItem(proxy, firstItemID: historyItems.first?.id)
+                        alignGalleryToLeadingItem(proxy)
                     }
                     .onChange(of: historyItems.first?.id) { _, firstItemID in
-                        alignGalleryToLeadingItem(proxy, firstItemID: firstItemID)
+                        guard firstItemID != nil else { return }
+                        alignGalleryToLeadingItem(proxy)
                     }
                 }
             } else {
@@ -348,15 +360,13 @@ struct ExpandedIslandView: View {
         .padding(.bottom, 14)
     }
 
-    private func alignGalleryToLeadingItem(_ proxy: ScrollViewProxy, firstItemID: UUID?) {
-        guard let firstItemID else { return }
-
+    private func alignGalleryToLeadingItem(_ proxy: ScrollViewProxy) {
         func align() {
             var transaction = Transaction(animation: nil)
             transaction.disablesAnimations = true
 
             withTransaction(transaction) {
-                proxy.scrollTo(firstItemID, anchor: .leading)
+                proxy.scrollTo(Self.galleryLeadingAnchorID, anchor: .leading)
             }
         }
 
@@ -427,8 +437,8 @@ private struct CaptureIssuePanel: View {
                     Text(detail)
                         .font(.system(.caption, design: .monospaced).weight(.medium))
                         .foregroundStyle(.white.opacity(0.44))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 HStack(spacing: 8) {
@@ -535,10 +545,6 @@ private struct DebugActionsView: View {
 
                 DebugActionButton(title: "Test Overlay", icon: .pen, tooltip: "Run an annotation overlay test") {
                     viewModel.testOverlay()
-                }
-
-                DebugActionButton(title: "Log", icon: .document, tooltip: "Open the debug log") {
-                    viewModel.openDebugLog()
                 }
             }
 

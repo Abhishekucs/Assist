@@ -2,14 +2,17 @@
 set -euo pipefail
 
 CONFIGURATION="${1:-debug}"
-APP_NAME="Assist"
-DEV_SIGN_IDENTITY="${ASSIST_SIGN_IDENTITY:-${AI_CLIPBOARD_SIGN_IDENTITY:-Assist Local Development}}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+source "$ROOT_DIR/scripts/lib/bundle_common.sh"
+
+require_valid_configuration "scripts/install_app.sh"
+resolve_bundle_configuration
+select_sign_identity
+
 DEFAULT_INSTALL_ROOT="/Applications"
 if [[ -n "${ASSIST_INSTALL_ROOT:-}" ]]; then
   INSTALL_ROOT="$ASSIST_INSTALL_ROOT"
-elif [[ -n "${AI_CLIPBOARD_INSTALL_ROOT:-}" ]]; then
-  INSTALL_ROOT="$AI_CLIPBOARD_INSTALL_ROOT"
 elif [[ -w "$DEFAULT_INSTALL_ROOT" ]]; then
   INSTALL_ROOT="$DEFAULT_INSTALL_ROOT"
 else
@@ -18,45 +21,21 @@ else
 fi
 INSTALLED_PATH_FILE="$ROOT_DIR/.build/installed_app_path"
 
-case "$CONFIGURATION" in
-  debug|release) ;;
-  *)
-    echo "Usage: scripts/install_app.sh [debug|release]" >&2
-    exit 1
-    ;;
-esac
-
-if [[ "$CONFIGURATION" == "release" ]]; then
-  APP_BUNDLE_NAME="Assist"
-  BUNDLE_IDENTIFIER="prod.Assist.app"
-else
-  APP_BUNDLE_NAME="Assist Dev"
-  BUNDLE_IDENTIFIER="dev.Assist.app"
-fi
-
 APP_DIR="$INSTALL_ROOT/$APP_BUNDLE_NAME.app"
-CONTENTS_DIR="$APP_DIR/Contents"
-MACOS_DIR="$CONTENTS_DIR/MacOS"
-RESOURCES_DIR="$CONTENTS_DIR/Resources"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
+cd "$ROOT_DIR"
 swift build -c "$CONFIGURATION"
 
-mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-cp "$ROOT_DIR/.build/$CONFIGURATION/$APP_NAME" "$MACOS_DIR/$APP_NAME"
-cp "$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_IDENTIFIER" "$CONTENTS_DIR/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_BUNDLE_NAME" "$CONTENTS_DIR/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_BUNDLE_NAME" "$CONTENTS_DIR/Info.plist"
-rsync -a --delete --exclude "Info.plist" "$ROOT_DIR/Sources/AIClipboard/Resources/" "$RESOURCES_DIR/"
-chmod +x "$MACOS_DIR/$APP_NAME"
-xattr -dr com.apple.quarantine "$APP_DIR" 2>/dev/null || true
-
-if security find-identity -v -p codesigning | grep -F "\"$DEV_SIGN_IDENTITY\"" >/dev/null; then
-  codesign --force --deep --sign "$DEV_SIGN_IDENTITY" "$APP_DIR"
-else
-  echo "warning: signing identity '$DEV_SIGN_IDENTITY' not found; falling back to ad-hoc signing" >&2
-  codesign --force --deep --sign - "$APP_DIR"
+if [[ -d "$APP_DIR" ]]; then
+  "$LSREGISTER" -u "$APP_DIR" >/dev/null 2>&1 || true
+  rm -rf "$APP_DIR"
 fi
+
+assemble_app_bundle "$APP_DIR" "$ROOT_DIR/.build/$CONFIGURATION/$APP_NAME"
+xattr -dr com.apple.quarantine "$APP_DIR" 2>/dev/null || true
+sign_app_bundle "$APP_DIR"
+"$LSREGISTER" -f "$APP_DIR" >/dev/null 2>&1 || true
 
 mkdir -p "$(dirname "$INSTALLED_PATH_FILE")"
 printf "%s\n" "$APP_DIR" > "$INSTALLED_PATH_FILE"

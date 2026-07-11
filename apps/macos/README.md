@@ -48,13 +48,40 @@ make run
 /Applications/Assist Dev.app
 ```
 
-Use `/Applications/Assist Dev.app` when granting local Screen Recording permission. Production uses `/Applications/Assist.app`, so the local app and downloaded app have separate macOS permission entries.
+Development and production are separate apps that can coexist:
 
-For local development, use a stable signing identity so macOS Screen Recording permission survives rebuilds:
+| | Debug | Release |
+| --- | --- | --- |
+| App name | Assist Dev | Assist |
+| Bundle ID | `com.thinkingsoundlab.assist.dev` | `com.thinkingsoundlab.assist` |
+| Install path | `/Applications/Assist Dev.app` | `/Applications/Assist.app` |
+| Support dir | `~/Library/Application Support/Assist Dev` | `~/Library/Application Support/Assist` |
+| Hardened runtime | off (lldb can attach) | on |
+
+macOS TCC keys permission grants to the bundle ID plus the code-signing
+requirement, so each flavor needs its own bundle ID and a signature that stays
+stable across rebuilds. Grant Screen Recording and Accessibility to
+`/Applications/Assist Dev.app` once and the grants survive rebuilds.
+
+Debug builds are signed with your Apple Development certificate when one is in
+the keychain (add one via Xcode > Settings > Accounts). Without one, the
+self-signed `Assist Local Development` identity is used; create it with:
 
 ```sh
 scripts/create_dev_certificate.sh
 make run
+```
+
+Debug builds refuse to fall back to ad-hoc signing, because an ad-hoc
+signature changes on every rebuild and resets the TCC permission grants.
+
+If a permission prompt loops or the app does not appear in System Settings,
+a stale TCC row from an earlier signature is usually the cause. Reset with:
+
+```sh
+tccutil reset ScreenCapture com.thinkingsoundlab.assist.dev
+tccutil reset Accessibility com.thinkingsoundlab.assist.dev
+tccutil reset ListenEvent com.thinkingsoundlab.assist.dev
 ```
 
 Create a local release DMG with:
@@ -122,8 +149,8 @@ apps/macos/scripts/configure_github_release_secrets.sh /path/to/developer-id-app
 To publish a release:
 
 ```sh
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.2" apps/macos/Sources/AIClipboard/Resources/Info.plist
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 3" apps/macos/Sources/AIClipboard/Resources/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.2" apps/macos/Sources/Assist/Resources/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 3" apps/macos/Sources/Assist/Resources/Info.plist
 git commit -am "Bump macOS app to 0.1.2"
 git tag macos-v0.1.2
 git push origin HEAD macos-v0.1.2
@@ -165,7 +192,7 @@ The debug log is written to:
 ## Architecture
 
 ```text
-Sources/AIClipboard
+Sources/Assist
 ├── AppDelegate.swift
 ├── Core
 │   ├── AppCoordinator.swift

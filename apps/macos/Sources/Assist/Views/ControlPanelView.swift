@@ -107,7 +107,7 @@ struct ControlPanelView: View {
         case .storage:
             StorageSettingsPane()
         case .updates:
-            UpdatesSettingsPane(settings: settings)
+            UpdatesSettingsPane(settings: settings, viewModel: viewModel)
         case .about:
             AboutSettingsPane()
         }
@@ -246,7 +246,15 @@ private struct CaptureLibraryView: View {
     }
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            if let issue = viewModel.captureIssue {
+                CapturePermissionBanner(issue: issue, viewModel: viewModel)
+
+                Rectangle()
+                    .fill(theme.border.opacity(0.72))
+                    .frame(height: 1)
+            }
+
             if viewModel.historyItems.isEmpty {
                 EmptyCaptureLibraryView()
             } else {
@@ -298,6 +306,60 @@ private struct CaptureLibraryView: View {
         case let .text(textClip):
             viewModel.copyTextItem(textClip)
         }
+    }
+}
+
+private struct CapturePermissionBanner: View {
+    let issue: CaptureIssue
+    @ObservedObject var viewModel: PillViewModel
+    @Environment(\.assistTheme) private var theme
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            HugeIcon(.desktop, size: 18, color: theme.foreground)
+                .frame(width: 34, height: 34)
+                .background(theme.selected, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(issue.title)
+                    .font(AssistFont.small(.semibold))
+                    .foregroundStyle(theme.foreground)
+
+                Text(issue.detail ?? issue.message)
+                    .font(AssistFont.roundedFootnote(.medium))
+                    .foregroundStyle(theme.muted)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Button(issue.primaryActionTitle) {
+                viewModel.perform(issue.primaryAction)
+            }
+            .buttonStyle(.plain)
+            .font(AssistFont.roundedFootnote(.semibold))
+            .foregroundStyle(theme.card)
+            .padding(.horizontal, 13)
+            .frame(height: 32)
+            .background(theme.foreground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            if let secondaryActionTitle = issue.secondaryActionTitle,
+               let secondaryAction = issue.secondaryAction {
+                Button(secondaryActionTitle) {
+                    viewModel.perform(secondaryAction)
+                }
+                .buttonStyle(.plain)
+                .font(AssistFont.roundedFootnote(.semibold))
+                .foregroundStyle(theme.foreground)
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .background(theme.selected, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
+        .background(theme.card)
     }
 }
 
@@ -814,6 +876,10 @@ private struct CaptureSettingsPane: View {
                     SettingsActionButton(title: "Test annotation overlay", icon: .pen) {
                         viewModel.testOverlay()
                     }
+
+                    SettingsActionButton(title: "Request screen access", icon: .desktop) {
+                        viewModel.requestScreenRecordingPermission()
+                    }
                 }
                 .padding(12)
             }
@@ -960,11 +1026,13 @@ private struct SettingToggleRow: View {
 
 private struct UpdatesSettingsPane: View {
     @ObservedObject var settings: PillSettings
+    @ObservedObject var viewModel: PillViewModel
+    @Environment(\.assistTheme) private var theme
 
     var body: some View {
         SettingsDetailPage(
             title: "Updates",
-            subtitle: "Assist checks for updates in the background and installs them the next time you quit."
+            subtitle: "Check for a new macOS release and install it immediately when one is available."
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 SettingToggleRow(
@@ -974,8 +1042,28 @@ private struct UpdatesSettingsPane: View {
 
                 RowDivider()
 
-                SettingsActionButton(title: "Check for updates", icon: .refresh) {
-                    NSWorkspace.shared.open(AppIdentity.releasesURL)
+                VStack(alignment: .leading, spacing: 10) {
+                    SettingsActionButton(title: viewModel.isCheckingForUpdates ? "Checking..." : "Check for updates", icon: .refresh) {
+                        viewModel.checkForUpdates()
+                    }
+                    .disabled(viewModel.isCheckingForUpdates)
+                    .opacity(viewModel.isCheckingForUpdates ? 0.62 : 1)
+
+                    if let updateStatusText = viewModel.updateStatusText {
+                        HStack(alignment: .top, spacing: 8) {
+                            if viewModel.isCheckingForUpdates {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .padding(.top, 1)
+                            }
+
+                            Text(updateStatusText)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(theme.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .transition(.opacity)
+                    }
                 }
                 .padding(.top, 14)
             }

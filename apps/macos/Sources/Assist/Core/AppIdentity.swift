@@ -8,11 +8,12 @@ enum AppIdentity {
     }
 
     static var bundleIdentifier: String {
-        Bundle.main.bundleIdentifier ?? "prod.Assist.app"
+        Bundle.main.bundleIdentifier ?? "com.thinkingsoundlab.assist"
     }
 
     static var isDevelopmentBundle: Bool {
-        bundleIdentifier == "dev.Assist.app"
+        (Bundle.main.object(forInfoDictionaryKey: "AssistDevelopmentBuild") as? Bool) == true
+            || bundleIdentifier == "com.thinkingsoundlab.assist.dev"
     }
 
     static var supportDirectoryName: String {
@@ -24,7 +25,7 @@ enum AppIdentity {
     }
 
     static let repositoryURL = URL(string: "https://github.com/Abhishekucs/Assist")!
-    static let releasesURL = URL(string: "https://github.com/Abhishekucs/Assist/releases")!
+    static let releasesAPIURL = URL(string: "https://api.github.com/repos/Abhishekucs/Assist/releases?per_page=20")!
     static let supportEmail = "abhishek@thinkingsoundlab.com"
     static let privacyPolicyURL = URL(string: "https://assist.thinkingsoundlab.com/privacy")!
     static var licenseVerificationURL: URL {

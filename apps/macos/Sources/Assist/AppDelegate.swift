@@ -115,7 +115,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(title: "Test Screenshot", action: #selector(testScreenshot), keyEquivalent: ""))
         menu.addItem(menuItem(title: "Test Overlay", action: #selector(testOverlay), keyEquivalent: ""))
-        menu.addItem(menuItem(title: "Open Log", action: #selector(openDebugLog), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(title: "Quit \(AppIdentity.name)", action: #selector(quit), keyEquivalent: "q"))
         item.menu = menu
@@ -144,10 +143,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func testOverlay() {
         pillViewModel?.testOverlay()
-    }
-
-    @objc private func openDebugLog() {
-        pillViewModel?.openDebugLog()
     }
 
     @objc private func quit() {

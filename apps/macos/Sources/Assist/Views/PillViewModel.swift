@@ -18,8 +18,11 @@ final class PillViewModel: ObservableObject {
     @Published var diagnosticMessage: String?
     @Published var captureIssue: CaptureIssue?
     @Published var copyFeedback: CopyFeedback?
+    @Published var isCheckingForUpdates = false
+    @Published var updateStatusText: String?
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
+    private let updateService = AppUpdateService()
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -78,20 +81,73 @@ final class PillViewModel: ObservableObject {
         onTestOverlay?()
     }
 
-    func openDebugLog() {
-        DebugLogger.openLog()
+    func requestScreenRecordingPermission() {
+        if CGPreflightScreenCaptureAccess() {
+            diagnosticMessage = "Screen recording permission is already enabled."
+            statusText = "Ready"
+            clearCaptureIssue()
+            return
+        }
+
+        diagnosticMessage = "Requesting screen recording permission..."
+        let requestResult = CGRequestScreenCaptureAccess()
+        let postflight = CGPreflightScreenCaptureAccess()
+
+        DebugLogger.log("screen-recording.request.result", [
+            "bundle": Bundle.main.bundleIdentifier ?? "unknown",
+            "executable": Bundle.main.executablePath ?? "unknown",
+            "requestResult": "\(requestResult)",
+            "postflight": "\(postflight)"
+        ])
+
+        if postflight {
+            diagnosticMessage = "Screen recording permission is enabled. Quit and reopen Assist if capture still fails."
+            statusText = "Ready"
+            clearCaptureIssue()
+        } else {
+            // macOS shows the screen-recording prompt at most once per app
+            // session; a silent denial means this session already used it.
+            let detail = requestResult
+                ? "Turn on \(AppIdentity.name), then quit and reopen \(AppIdentity.name)."
+                : "macOS did not show a prompt. Quit and reopen \(AppIdentity.name), then try again. If \(AppIdentity.name) is missing from the list, click + and select \(Bundle.main.bundlePath)."
+            diagnosticMessage = detail
+            showCaptureIssue(.screenRecordingNeedsSettings(detail: detail))
+        }
     }
 
     func perform(_ action: CaptureIssueAction) {
         switch action {
+        case .requestScreenRecordingPermission:
+            requestScreenRecordingPermission()
         case .openScreenRecordingSettings:
             openSystemSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
         case .openAccessibilitySettings:
             openSystemSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         case .openInputMonitoringSettings:
             openSystemSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
-        case .openDebugLog:
-            openDebugLog()
+        }
+    }
+
+    func checkForUpdates() {
+        guard !isCheckingForUpdates else { return }
+
+        isCheckingForUpdates = true
+        updateStatusText = "Checking for updates..."
+
+        Task {
+            do {
+                let outcome = try await updateService.checkAndInstallIfAvailable()
+                switch outcome {
+                case let .upToDate(version):
+                    updateStatusText = "Assist is up to date. Current version: v\(version)."
+                    isCheckingForUpdates = false
+                case let .installStarted(version):
+                    updateStatusText = "Installing v\(version). Assist will relaunch automatically."
+                }
+            } catch {
+                updateStatusText = error.localizedDescription
+                isCheckingForUpdates = false
+            }
         }
     }
 

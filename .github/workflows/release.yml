@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          PLIST_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" apps/macos/Sources/AIClipboard/Resources/Info.plist)
+          PLIST_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" apps/macos/Sources/Assist/Resources/Info.plist)
 
           if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
             if [[ "${GITHUB_REF_NAME:-}" != macos-v* ]]; then
