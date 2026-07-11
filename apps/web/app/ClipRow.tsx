@@ -3,9 +3,15 @@
 import { PointerEvent, useRef, useState } from "react";
 
 const cards = [
-  { kind: "image", src: "/island-card-annotation.png" },
-  { kind: "image", src: "/island-card-cta.png" },
-  { kind: "image", src: "/island-card-assist.png" },
+  {
+    kind: "image",
+    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/4B4E873B-AFDE-4DC3-999F-B1B8EFEFFE81-thumb.png"
+  },
+  {
+    kind: "image",
+    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/6E28B0F5-206C-440B-ADF9-FA69E583F9FD-thumb.png"
+  },
+  { kind: "image", src: "/island-card-assist-thumb.jpg" },
   { kind: "text" }
 ] as const;
 
