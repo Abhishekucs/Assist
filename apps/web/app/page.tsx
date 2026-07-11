@@ -1,4 +1,5 @@
 import ClipRow from "./ClipRow";
+import FeatureVideo from "./FeatureVideo";
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
@@ -99,15 +100,7 @@ export default function Home() {
             </p>
           </div>
           <div className="feature-visual feature-video-visual" aria-hidden="true">
-            <video
-              className="feature-video"
-              src={featureVideos.dragDrop}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-            />
+            <FeatureVideo src={featureVideos.dragDrop} />
           </div>
         </article>
 
@@ -122,15 +115,7 @@ export default function Home() {
               </p>
             </div>
             <div className="feature-visual feature-video-visual" aria-hidden="true">
-              <video
-                className="feature-video"
-                src={featureVideos.annotate}
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              />
+              <FeatureVideo src={featureVideos.annotate} />
             </div>
           </article>
 
@@ -144,15 +129,7 @@ export default function Home() {
               </p>
             </div>
             <div className="feature-visual feature-video-visual" aria-hidden="true">
-              <video
-                className="feature-video"
-                src={featureVideos.fullScreen}
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              />
+              <FeatureVideo src={featureVideos.fullScreen} />
             </div>
           </article>
         </div>

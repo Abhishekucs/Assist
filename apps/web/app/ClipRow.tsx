@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { PointerEvent, useRef, useState } from "react";
 
 const cards = [
@@ -78,7 +79,15 @@ export default function ClipRow() {
           className={`clip-card${index === 0 ? " selected" : ""}`}
           key={card.src}
         >
-          <img className="clip-image" src={card.src} alt="" draggable={false} />
+          <Image
+            className="clip-image"
+            src={card.src}
+            alt=""
+            width={142}
+            height={142}
+            sizes="(max-width: 640px) 112px, 142px"
+            draggable={false}
+          />
         </article>
       ))}
     </div>
