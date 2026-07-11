@@ -63,8 +63,6 @@ select_sign_identity() {
 
   if [[ -n "${ASSIST_SIGN_IDENTITY:-}" ]]; then
     SIGN_IDENTITY="$ASSIST_SIGN_IDENTITY"
-  elif [[ -n "${AI_CLIPBOARD_SIGN_IDENTITY:-}" ]]; then
-    SIGN_IDENTITY="$AI_CLIPBOARD_SIGN_IDENTITY"
   elif [[ "$CONFIGURATION" == "debug" ]]; then
     if [[ -n "$apple_development_identity" ]]; then
       SIGN_IDENTITY="$apple_development_identity"
@@ -108,9 +106,9 @@ assemble_app_bundle() {
 
   mkdir -p "$macos_dir" "$resources_dir"
   cp "$binary_path" "$macos_dir/$APP_NAME"
-  cp "$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist" "$contents_dir/Info.plist"
+  cp "$ROOT_DIR/Sources/Assist/Resources/Info.plist" "$contents_dir/Info.plist"
   stamp_info_plist "$contents_dir/Info.plist"
-  rsync -a --exclude "Info.plist" "$ROOT_DIR/Sources/AIClipboard/Resources/" "$resources_dir/"
+  rsync -a --exclude "Info.plist" "$ROOT_DIR/Sources/Assist/Resources/" "$resources_dir/"
   printf "APPL????" > "$contents_dir/PkgInfo"
   chmod +x "$macos_dir/$APP_NAME"
 }

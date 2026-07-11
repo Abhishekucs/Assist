@@ -6,7 +6,7 @@ APP_NAME="Assist"
 REQUIRE_SIGNING="${ASSIST_REQUIRE_SIGNING:-0}"
 TIMESTAMP="${ASSIST_TIMESTAMP:-0}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INFO_PLIST="$ROOT_DIR/Sources/AIClipboard/Resources/Info.plist"
+INFO_PLIST="$ROOT_DIR/Sources/Assist/Resources/Info.plist"
 VERSION="${2:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")}"
 BUILD_DIR="$ROOT_DIR/.build"
 if [[ "$CONFIGURATION" == "debug" ]]; then

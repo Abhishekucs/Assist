@@ -8,12 +8,12 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "Assist", targets: ["AIClipboard"])
+        .executable(name: "Assist", targets: ["Assist"])
     ],
     targets: [
         .executableTarget(
-            name: "AIClipboard",
-            path: "Sources/AIClipboard",
+            name: "Assist",
+            path: "Sources/Assist",
             exclude: ["Resources/Info.plist"],
             resources: [
                 .copy("Resources/Assist.icns"),

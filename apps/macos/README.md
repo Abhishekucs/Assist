@@ -149,8 +149,8 @@ apps/macos/scripts/configure_github_release_secrets.sh /path/to/developer-id-app
 To publish a release:
 
 ```sh
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.2" apps/macos/Sources/AIClipboard/Resources/Info.plist
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 3" apps/macos/Sources/AIClipboard/Resources/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.2" apps/macos/Sources/Assist/Resources/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 3" apps/macos/Sources/Assist/Resources/Info.plist
 git commit -am "Bump macOS app to 0.1.2"
 git tag macos-v0.1.2
 git push origin HEAD macos-v0.1.2
@@ -192,7 +192,7 @@ The debug log is written to:
 ## Architecture
 
 ```text
-Sources/AIClipboard
+Sources/Assist
 ├── AppDelegate.swift
 ├── Core
 │   ├── AppCoordinator.swift

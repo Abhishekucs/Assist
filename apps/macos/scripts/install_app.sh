@@ -13,8 +13,6 @@ select_sign_identity
 DEFAULT_INSTALL_ROOT="/Applications"
 if [[ -n "${ASSIST_INSTALL_ROOT:-}" ]]; then
   INSTALL_ROOT="$ASSIST_INSTALL_ROOT"
-elif [[ -n "${AI_CLIPBOARD_INSTALL_ROOT:-}" ]]; then
-  INSTALL_ROOT="$AI_CLIPBOARD_INSTALL_ROOT"
 elif [[ -w "$DEFAULT_INSTALL_ROOT" ]]; then
   INSTALL_ROOT="$DEFAULT_INSTALL_ROOT"
 else

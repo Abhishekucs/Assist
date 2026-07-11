@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CERT_NAME="${ASSIST_SIGN_IDENTITY:-${AI_CLIPBOARD_SIGN_IDENTITY:-Assist Local Development}}"
+CERT_NAME="${ASSIST_SIGN_IDENTITY:-Assist Local Development}"
 KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
 
 if security find-identity -v -p codesigning | grep -F "\"$CERT_NAME\"" >/dev/null; then

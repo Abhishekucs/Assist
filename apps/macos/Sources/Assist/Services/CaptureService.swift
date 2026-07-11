@@ -155,7 +155,7 @@ struct CaptureService: Sendable {
         )
     }
 
-    #if AI_CLIPBOARD_ENABLE_DEPRECATED_CAPTURE_FALLBACK
+    #if ASSIST_ENABLE_DEPRECATED_CAPTURE_FALLBACK
     private func captureWithCoreGraphicsWindowList(screen: NSScreen) throws -> CapturedScreen {
         let displayID = screen.displayID
         let displayBounds = CGDisplayBounds(displayID)
