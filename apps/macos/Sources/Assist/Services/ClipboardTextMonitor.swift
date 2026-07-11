@@ -80,16 +80,16 @@ final class ClipboardTextMonitor {
     }
 
     private func shouldIgnoreIncidentalText(_ text: String) -> Bool {
-        if isIPv4Address(text) {
-            return true
-        }
-
         guard text.count <= 32,
               text.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
               let lastDeliveredAt,
               Date().timeIntervalSince(lastDeliveredAt) < 3,
               (lastDeliveredText?.count ?? 0) >= 40 else {
             return false
+        }
+
+        if isIPv4Address(text) {
+            return true
         }
 
         let scalars = text.unicodeScalars

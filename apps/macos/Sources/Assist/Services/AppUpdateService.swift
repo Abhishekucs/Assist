@@ -35,6 +35,9 @@ enum AppUpdateError: LocalizedError {
 
 @MainActor
 final class AppUpdateService {
+    private static let expectedReleaseBundleIdentifier = "com.thinkingsoundlab.assist"
+    private static let expectedReleaseTeamIdentifier = "4M5LV534N5"
+
     private let session: URLSession
     private let fileManager: FileManager
 
@@ -150,6 +153,22 @@ final class AppUpdateService {
         if [[ -z "$SOURCE_APP" ]]; then
           exit 1
         fi
+
+        SOURCE_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$SOURCE_APP/Contents/Info.plist" 2>/dev/null || true)"
+        if [[ "$SOURCE_BUNDLE_ID" != "\(Self.expectedReleaseBundleIdentifier)" ]]; then
+          echo "Unexpected update bundle identifier: $SOURCE_BUNDLE_ID" >&2
+          exit 1
+        fi
+
+        /usr/bin/codesign --verify --deep --strict --verbose=2 "$SOURCE_APP"
+
+        SOURCE_TEAM_ID="$(/usr/bin/codesign -dv --verbose=4 "$SOURCE_APP" 2>&1 | /usr/bin/awk -F= '/^TeamIdentifier=/{print $2; exit}')"
+        if [[ "$SOURCE_TEAM_ID" != "\(Self.expectedReleaseTeamIdentifier)" ]]; then
+          echo "Unexpected update team identifier: $SOURCE_TEAM_ID" >&2
+          exit 1
+        fi
+
+        /usr/sbin/spctl --assess --type execute --verbose=2 "$SOURCE_APP"
 
         TARGET_APP="$CURRENT_APP_PATH"
         if [[ "$(basename "$CURRENT_APP_PATH")" == "Assist Dev.app" ]]; then
