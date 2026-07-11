@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
@@ -319,7 +318,7 @@ struct ExpandedIslandView: View {
                                                 thumbnail: viewModel.thumbnail(for: capture),
                                                 isSelected: item.id == selectedID
                                             ) {
-                                                viewModel.selectScreenshot(capture)
+                                                viewModel.copyImageItem(capture)
                                             } deleteAction: {
                                                 viewModel.delete(item)
                                             }
@@ -632,7 +631,7 @@ private struct CaptureGalleryCard: View {
             .onDrag {
                 item.dragProvider
             }
-            .help("Select screenshot")
+            .help("Click card to copy screenshot")
 
             DeleteCardButton(isVisible: isDeleteVisible, isHovered: $isDeleteHovered, action: deleteAction)
                 .padding(5)
@@ -681,28 +680,6 @@ private struct TextClipGalleryCard: View {
                 .padding(5)
         }
         .onHover { isHovered = $0 }
-    }
-}
-
-private extension CaptureItem {
-    var dragProvider: NSItemProvider {
-        let imageURL = URL(fileURLWithPath: imagePath)
-
-        if FileManager.default.fileExists(atPath: imageURL.path),
-           let provider = NSItemProvider(contentsOf: imageURL) {
-            return provider
-        }
-
-        return NSItemProvider(
-            item: imageURL as NSSecureCoding,
-            typeIdentifier: UTType.fileURL.identifier
-        )
-    }
-}
-
-private extension TextClipItem {
-    var dragProvider: NSItemProvider {
-        NSItemProvider(object: text as NSString)
     }
 }
 

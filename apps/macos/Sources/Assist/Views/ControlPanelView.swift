@@ -1145,33 +1145,3 @@ private struct AboutSettingsPane: View {
         return "v\(version)"
     }
 }
-
-private extension ClipboardHistoryItem {
-    var dragProvider: NSItemProvider {
-        switch self {
-        case let .screenshot(capture):
-            capture.dragProvider
-        case let .text(textClip):
-            textClip.dragProvider
-        }
-    }
-}
-
-private extension CaptureItem {
-    var dragProvider: NSItemProvider {
-        let imageURL = URL(fileURLWithPath: imagePath)
-
-        if FileManager.default.fileExists(atPath: imageURL.path),
-           let provider = NSItemProvider(contentsOf: imageURL) {
-            return provider
-        }
-
-        return NSItemProvider(object: imagePath as NSString)
-    }
-}
-
-private extension TextClipItem {
-    var dragProvider: NSItemProvider {
-        NSItemProvider(object: text as NSString)
-    }
-}
