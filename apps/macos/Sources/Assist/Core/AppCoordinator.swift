@@ -75,6 +75,14 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     }
 
     func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String) {
+        guard !isAssistCapturePathText(text) else {
+            DebugLogger.log("clipboard.text.ignored", [
+                "characters": "\(text.count)",
+                "reason": "assistCapturePath"
+            ])
+            return
+        }
+
         do {
             let item = try store.save(text: text)
             pillViewModel.insertTextItem(item)
@@ -89,6 +97,53 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             DebugLogger.log("clipboard.text.save.error", errorFields(error))
         }
     }
+
+    private func isAssistCapturePathText(_ text: String) -> Bool {
+        let trimmed = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            .replacingOccurrences(of: "\\ ", with: " ")
+
+        guard trimmed.count < 4_096 else { return false }
+
+        let fileURL: URL
+        if trimmed.hasPrefix("file://"),
+           let url = URL(string: trimmed),
+           url.isFileURL {
+            fileURL = url
+        } else if trimmed.hasPrefix("/") {
+            fileURL = URL(fileURLWithPath: trimmed)
+        } else {
+            return false
+        }
+
+        guard Self.captureImageExtensions.contains(fileURL.pathExtension.lowercased()) else {
+            return false
+        }
+
+        let path = fileURL.standardizedFileURL.path
+        return assistCaptureDirectories.contains { directory in
+            path == directory || path.hasPrefix(directory + "/")
+        }
+    }
+
+    private var assistCaptureDirectories: [String] {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        var supportDirectoryNames = [AppIdentity.supportDirectoryName]
+        if let legacySupportDirectoryName = AppIdentity.legacySupportDirectoryName {
+            supportDirectoryNames.append(legacySupportDirectoryName)
+        }
+
+        return supportDirectoryNames.map {
+            base
+                .appendingPathComponent($0, isDirectory: true)
+                .appendingPathComponent("Captures", isDirectory: true)
+                .standardizedFileURL
+                .path
+        }
+    }
+
+    private static let captureImageExtensions = Set(["png", "jpg", "jpeg", "heic", "tif", "tiff"])
 
     private func deleteHistoryItem(_ item: ClipboardHistoryItem) {
         do {
@@ -112,7 +167,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     private func syncHistoryFromStore() {
         let screenshots = store.loadItems()
-        let textClips = store.loadTextItems()
+        let textClips = visibleTextClips(from: store.loadTextItems())
         let previousIDs = Set(pillViewModel.historyItems.map(\.id))
         let nextIDs = Set((screenshots.map(ClipboardHistoryItem.screenshot) + textClips.map(ClipboardHistoryItem.text)).map(\.id))
 
@@ -124,6 +179,34 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 "textClips": "\(textClips.count)"
             ])
         }
+    }
+
+    private func visibleTextClips(from textClips: [TextClipItem]) -> [TextClipItem] {
+        var visibleTextClips: [TextClipItem] = []
+        var prunedCount = 0
+
+        for textClip in textClips {
+            guard isAssistCapturePathText(textClip.text) else {
+                visibleTextClips.append(textClip)
+                continue
+            }
+
+            do {
+                try store.delete(textItem: textClip)
+                prunedCount += 1
+            } catch {
+                DebugLogger.log("clipboard.text.prune.error", errorFields(error))
+            }
+        }
+
+        if prunedCount > 0 {
+            DebugLogger.log("clipboard.text.pruned", [
+                "count": "\(prunedCount)",
+                "reason": "assistCapturePath"
+            ])
+        }
+
+        return visibleTextClips
     }
 
     func annotationGestureDidBegin(at globalPoint: CGPoint) {

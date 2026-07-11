@@ -47,7 +47,10 @@ final class ClipboardTextMonitor {
         guard changeCount != lastChangeCount else { return }
         lastChangeCount = changeCount
 
-        guard let text = normalizedText(from: pasteboard) else { return }
+        guard let text = normalizedText(from: pasteboard) else {
+            shouldIgnoreNextTextChange = false
+            return
+        }
 
         if shouldIgnoreNextTextChange {
             shouldIgnoreNextTextChange = false
@@ -56,6 +59,7 @@ final class ClipboardTextMonitor {
         }
 
         guard text != lastSeenText else { return }
+
         if shouldIgnoreIncidentalText(text) {
             DebugLogger.log("clipboard.text.ignored", [
                 "characters": "\(text.count)",

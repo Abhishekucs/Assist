@@ -1,16 +1,26 @@
 "use client";
 
+import Image from "next/image";
 import { PointerEvent, useRef, useState } from "react";
 
 const cards = [
-  { className: "annotated left-note", kind: "screen" },
-  { className: "annotated", kind: "screen" },
-  { className: "annotated tight-note", kind: "screen" },
-  { className: "", kind: "text" },
-  { className: "color-thumb", kind: "color" },
-  { className: "note-thumb", kind: "note" },
-  { className: "annotated", kind: "screen" }
-];
+  {
+    kind: "image",
+    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/4B4E873B-AFDE-4DC3-999F-B1B8EFEFFE81-thumb.png"
+  },
+  {
+    kind: "image",
+    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/4B4E873B-AFDE-4DC3-999F-B1B8EFEFFE81.png"
+  },
+  {
+    kind: "image",
+    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/6E28B0F5-206C-440B-ADF9-FA69E583F9FD-thumb.png"
+  },
+  {
+    kind: "image",
+    src: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/6E28B0F5-206C-440B-ADF9-FA69E583F9FD.png"
+  }
+] as const;
 
 export default function ClipRow() {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -66,35 +76,18 @@ export default function ClipRow() {
     >
       {cards.map((card, index) => (
         <article
-          className={`clip-card${index === 0 ? " selected" : ""}${
-            card.kind === "text" ? " text-clip" : ""
-          }`}
-          key={`${card.kind}-${index}`}
+          className={`clip-card${index === 0 ? " selected" : ""}`}
+          key={card.src}
         >
-          {card.kind === "screen" && (
-            <div className={`mini-screen ${card.className}`}>
-              <span className="mini-title">Context</span>
-              <span className="mini-subtitle">captured.</span>
-              <span className="mini-button" />
-              <span className="mini-hill" />
-            </div>
-          )}
-          {card.kind === "text" && (
-            <div className="text-thumb">
-              <span />
-              <span />
-              <span />
-            </div>
-          )}
-          {card.kind === "color" && <div className="color-thumb" />}
-          {card.kind === "note" && (
-            <div className="note-thumb">
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-          )}
+          <Image
+            className="clip-image"
+            src={card.src}
+            alt=""
+            width={142}
+            height={142}
+            sizes="(max-width: 640px) 112px, 142px"
+            draggable={false}
+          />
         </article>
       ))}
     </div>

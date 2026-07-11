@@ -178,13 +178,7 @@ final class PillViewModel: ObservableObject {
 
     func copyLatestImage() {
         guard case let .screenshot(item) = selectedItem,
-              let image = NSImage(contentsOfFile: item.imagePath) else {
-            return
-        }
-
-        onWillWritePasteboard?()
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects([image])
+              copyImageItem(item) else { return }
     }
 
     var historyItems: [ClipboardHistoryItem] {
@@ -230,14 +224,57 @@ final class PillViewModel: ObservableObject {
         latestItem = item
     }
 
+    @discardableResult
+    func copyImageItem(_ item: CaptureItem) -> Bool {
+        selectedHistoryItem = .screenshot(item)
+        latestItem = item
+
+        guard let image = NSImage(contentsOfFile: item.imagePath) else {
+            statusText = "Copy failed"
+            diagnosticMessage = "Screenshot file could not be loaded."
+            return false
+        }
+
+        onWillWritePasteboard?()
+        NSPasteboard.general.clearContents()
+        let didCopy = NSPasteboard.general.writeObjects([image])
+
+        if didCopy {
+            statusText = "Copied image"
+            diagnosticMessage = "Copied screenshot image"
+            showCopyFeedback(badge: "Copied", preview: "Screenshot image")
+        } else {
+            statusText = "Copy failed"
+            diagnosticMessage = "macOS rejected the screenshot pasteboard write."
+        }
+
+        DebugLogger.log("clipboard.image.copy", [
+            "id": item.id.uuidString,
+            "success": "\(didCopy)"
+        ])
+
+        return didCopy
+    }
+
     func copyTextItem(_ item: TextClipItem) {
         select(.text(item))
         onWillWritePasteboard?()
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(item.text, forType: .string)
-        statusText = "Copied text"
-        diagnosticMessage = "Copied previous text"
-        showCopyFeedback(badge: "Copied", preview: item.preview)
+        let didCopy = NSPasteboard.general.setString(item.text, forType: .string)
+
+        if didCopy {
+            statusText = "Copied text"
+            diagnosticMessage = "Copied previous text"
+            showCopyFeedback(badge: "Copied", preview: item.preview)
+        } else {
+            statusText = "Copy failed"
+            diagnosticMessage = "macOS rejected the text pasteboard write."
+        }
+
+        DebugLogger.log("clipboard.text.copy", [
+            "id": item.id.uuidString,
+            "success": "\(didCopy)"
+        ])
     }
 
     func revealSelectedScreenshotInFinder() {

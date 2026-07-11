@@ -1,7 +1,16 @@
 import ClipRow from "./ClipRow";
+import FeatureVideo from "./FeatureVideo";
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
+const featureVideos = {
+  dragDrop:
+    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/Assist%20Demos.mp4",
+  annotate:
+    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/annotationedit.mp4",
+  fullScreen:
+    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/fullscreenedit.mp4"
+};
 
 export default function Home() {
   return (
@@ -47,12 +56,11 @@ export default function Home() {
           <div className="glass-shell" />
           <div className="notch-preview">
             <div className="notch-bar">
-              <span>RECENT ITEMS</span>
+              <span>Recent items</span>
               <div className="notch-tools">
-                <span className="tool-icon filter-icon" />
+                <span className="tool-icon grid-icon" />
                 <span className="tool-icon image-icon" />
                 <span className="tool-icon folder-icon" />
-                <span className="tool-icon copy-icon" />
               </div>
             </div>
             <ClipRow />
@@ -84,40 +92,15 @@ export default function Home() {
       <section className="feature-showcase" aria-label="Assist feature tour">
         <article className="feature-panel feature-panel-wide">
           <div className="feature-copy-block">
-            <p className="feature-kicker">Full screen memory</p>
-            <h3>Take full screen screenshots</h3>
+            <p className="feature-kicker">Notch shelf</p>
+            <h3>Drag and drop from notch</h3>
             <p>
-              Press Control + Option to capture the whole desktop in one
-              motion, without starting annotation.
+              Keep your last captures close and drop them straight into the
+              app that needs them.
             </p>
           </div>
-          <div className="feature-visual full-capture-visual" aria-hidden="true">
-            <div className="feature-desktop">
-              <div className="desktop-window desktop-window-main">
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className="desktop-window desktop-window-side">
-                <span />
-                <span />
-              </div>
-              <div className="capture-outline">
-                <span className="capture-corner corner-tl" />
-                <span className="capture-corner corner-tr" />
-                <span className="capture-corner corner-bl" />
-                <span className="capture-corner corner-br" />
-              </div>
-              <div className="feature-notch">
-                <span>RECENT ITEMS</span>
-                <div className="feature-notch-row">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </div>
-              </div>
-            </div>
+          <div className="feature-visual feature-video-visual" aria-hidden="true">
+            <FeatureVideo src={featureVideos.dragDrop} />
           </div>
         </article>
 
@@ -131,42 +114,22 @@ export default function Home() {
                 annotated screenshot.
               </p>
             </div>
-            <div className="feature-visual annotate-visual" aria-hidden="true">
-              <div className="annotation-canvas">
-                <span className="annotation-line line-one" />
-                <span className="annotation-line line-two" />
-                <span className="annotation-dot" />
-                <div className="annotation-card">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
+            <div className="feature-visual feature-video-visual" aria-hidden="true">
+              <FeatureVideo src={featureVideos.annotate} />
             </div>
           </article>
 
           <article className="feature-panel">
             <div className="feature-copy-block">
-              <p className="feature-kicker">Notch shelf</p>
-              <h3>Drag and drop from notch</h3>
+              <p className="feature-kicker">Full screen memory</p>
+              <h3>Take full screen screenshots</h3>
               <p>
-                Keep your last captures close and drop them straight into the
-                app that needs them.
+                Press Control + Option to capture the whole desktop in one
+                motion, without starting annotation.
               </p>
             </div>
-            <div className="feature-visual drag-visual" aria-hidden="true">
-              <div className="mini-notch-shelf">
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className="dragged-card">
-                <span />
-                <span />
-              </div>
-              <div className="drop-target">
-                <span />
-              </div>
+            <div className="feature-visual feature-video-visual" aria-hidden="true">
+              <FeatureVideo src={featureVideos.fullScreen} />
             </div>
           </article>
         </div>
