@@ -28,10 +28,24 @@ extension CaptureItem {
         provider.registerObject(imagePath as NSString, visibility: .all)
         return provider
     }
+
+    var dragPasteboardWriter: (any NSPasteboardWriting)? {
+        let imageURL = NSURL(fileURLWithPath: imagePath)
+
+        if FileManager.default.fileExists(atPath: imageURL.path ?? imagePath) {
+            return imageURL
+        }
+
+        return imagePath as NSString
+    }
 }
 
 extension TextClipItem {
     var dragProvider: NSItemProvider {
         NSItemProvider(object: text as NSString)
+    }
+
+    var dragPasteboardWriter: (any NSPasteboardWriting)? {
+        text as NSString
     }
 }
