@@ -54,6 +54,9 @@ These rules apply to this repository. Follow them when adding or changing code.
 - Before changing code, inspect the relevant codebase path and identify the
   robust owner of the behavior. Prefer a durable root-cause fix over a local
   patch, shim, or workaround.
+- Do not batch unrelated fixes or speculative changes together. Reproduce or
+  trace the specific failure, identify the root cause, then implement the
+  smallest targeted fix that addresses that cause.
 - Do not patch over symptoms. If a proposed change only hides the problem,
   keep investigating until the real cause and best solution are clear.
 - Preserve existing user data and permissions behavior.

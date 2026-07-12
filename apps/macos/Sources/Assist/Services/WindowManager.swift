@@ -27,6 +27,7 @@ final class WindowManager {
     private var pointerScreenTimer: Timer?
     private var currentPillScreenID: CGDirectDisplayID?
     private var isPointerHoveringPillChrome = false
+    private var isDraggingFromPill = false
     private var settingsCancellable: AnyCancellable?
 
     init(pillViewModel: PillViewModel, settings: PillSettings) {
@@ -109,6 +110,9 @@ final class WindowManager {
                 settings: settings,
                 onHoverChanged: { [weak self] hovering in
                     self?.setPillHovering(hovering)
+                },
+                onIslandDragChanged: { [weak self] dragging in
+                    self?.setPillDragging(dragging)
                 }
             )
         )
@@ -183,6 +187,8 @@ final class WindowManager {
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()
 
+        guard !isDraggingFromPill else { return }
+
         if hovering {
             guard settings.openOnHover else { return }
 
@@ -250,6 +256,49 @@ final class WindowManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16, execute: workItem)
     }
 
+    private func setPillDragging(_ dragging: Bool) {
+        guard isDraggingFromPill != dragging else { return }
+
+        isDraggingFromPill = dragging
+        collapseWorkItem?.cancel()
+        contentRevealWorkItem?.cancel()
+        collapsedRevealWorkItem?.cancel()
+
+        if dragging {
+            isPointerHoveringPillChrome = true
+            pillViewModel.willShowHistory()
+            pillViewModel.isCollapsedContentVisible = false
+            pillViewModel.isExpanded = true
+            pillViewModel.isExpandedContentVisible = true
+            setPillFrame(display: true)
+            pillPanel.orderFrontRegardless()
+            DebugLogger.log("pill.drag.start")
+            return
+        }
+
+        isPointerHoveringPillChrome = isMouseInsideVisiblePillChrome()
+        DebugLogger.log("pill.drag.end", [
+            "hovering": "\(isPointerHoveringPillChrome)"
+        ])
+
+        if !isPointerHoveringPillChrome {
+            setPillHovering(false)
+        }
+    }
+
+    private func isMouseInsideVisiblePillChrome() -> Bool {
+        guard let hostingView = pillPanel.contentView as? PillHostingView else {
+            return false
+        }
+
+        let point = hostingView.convert(pillPanel.mouseLocationOutsideOfEventStream, from: nil)
+        guard let chromeRect = hostingView.visibleChromeRectProvider?() else {
+            return hostingView.bounds.contains(point)
+        }
+
+        return chromeRect.insetBy(dx: -2, dy: -2).contains(point)
+    }
+
     private func observeSettings() {
         settingsCancellable = settings.objectWillChange.sink { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -275,6 +324,7 @@ final class WindowManager {
 
     private func syncPillToPointerScreen() {
         guard settings.followPointerDisplay else { return }
+        guard !isDraggingFromPill else { return }
         guard let pointerScreen = Self.screenContainingMouse() else { return }
         let pointerScreenID = pointerScreen.displayID
 

@@ -1,9 +1,11 @@
+import AppKit
 import SwiftUI
 
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var settings: PillSettings
     let onHoverChanged: (Bool) -> Void
+    let onIslandDragChanged: (Bool) -> Void
 
     private var isIslandChromeVisible: Bool {
         viewModel.isExpanded
@@ -57,7 +59,10 @@ struct PillView: View {
                 }
 
                 if viewModel.isExpandedContentVisible {
-                    ExpandedIslandView(viewModel: viewModel)
+                    ExpandedIslandView(
+                        viewModel: viewModel,
+                        onDragChanged: onIslandDragChanged
+                    )
                         .frame(
                             width: expandedSize.width,
                             height: expandedSize.height,
@@ -285,6 +290,7 @@ private struct LoadingNotchBorderShape: Shape {
 
 struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
+    let onDragChanged: (Bool) -> Void
     private static let galleryLeadingAnchorID = "gallery-leading-anchor"
     private static let galleryClipInset: CGFloat = 2
 
@@ -316,7 +322,8 @@ struct ExpandedIslandView: View {
                                             CaptureGalleryCard(
                                                 item: capture,
                                                 thumbnail: viewModel.thumbnail(for: capture),
-                                                isSelected: item.id == selectedID
+                                                isSelected: item.id == selectedID,
+                                                onDragChanged: onDragChanged
                                             ) {
                                                 viewModel.copyImageItem(capture)
                                             } deleteAction: {
@@ -325,7 +332,8 @@ struct ExpandedIslandView: View {
                                         case let .text(textClip):
                                             TextClipGalleryCard(
                                                 item: textClip,
-                                                isSelected: item.id == selectedID
+                                                isSelected: item.id == selectedID,
+                                                onDragChanged: onDragChanged
                                             ) {
                                                 viewModel.copyTextItem(textClip)
                                             } deleteAction: {
@@ -595,6 +603,7 @@ private struct CaptureGalleryCard: View {
     let item: CaptureItem
     let thumbnail: NSImage?
     let isSelected: Bool
+    let onDragChanged: (Bool) -> Void
     let action: () -> Void
     let deleteAction: () -> Void
     @State private var isHovered = false
@@ -606,7 +615,17 @@ private struct CaptureGalleryCard: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            Button(action: action) {
+            IslandDraggableCard(
+                pasteboardWriter: { item.dragPasteboardWriter },
+                dragImage: {
+                    IslandDragPreview.screenshot(
+                        thumbnail: thumbnail,
+                        imagePath: item.imagePath
+                    )
+                },
+                onClick: action,
+                onDragChanged: onDragChanged
+            ) {
                 ZStack {
                     if let image = thumbnail {
                         Image(nsImage: image)
@@ -627,11 +646,9 @@ private struct CaptureGalleryCard: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .buttonStyle(.plain)
-            .onDrag {
-                item.dragProvider
-            }
             .help("Click card to copy screenshot")
+            .accessibilityLabel("Screenshot")
+            .accessibilityAddTraits(.isButton)
 
             DeleteCardButton(isVisible: isDeleteVisible, isHovered: $isDeleteHovered, action: deleteAction)
                 .padding(5)
@@ -643,6 +660,7 @@ private struct CaptureGalleryCard: View {
 private struct TextClipGalleryCard: View {
     let item: TextClipItem
     let isSelected: Bool
+    let onDragChanged: (Bool) -> Void
     let action: () -> Void
     let deleteAction: () -> Void
     @State private var isHovered = false
@@ -654,7 +672,12 @@ private struct TextClipGalleryCard: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            Button(action: action) {
+            IslandDraggableCard(
+                pasteboardWriter: { item.dragPasteboardWriter },
+                dragImage: { IslandDragPreview.text(item.preview) },
+                onClick: action,
+                onDragChanged: onDragChanged
+            ) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(item.preview)
                         .font(AssistFont.roundedFootnote(.medium))
@@ -670,16 +693,278 @@ private struct TextClipGalleryCard: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .buttonStyle(.plain)
-            .onDrag {
-                item.dragProvider
-            }
             .help("Click card to copy text")
+            .accessibilityLabel("Text clip")
+            .accessibilityAddTraits(.isButton)
 
             DeleteCardButton(isVisible: isDeleteVisible, isHovered: $isDeleteHovered, action: deleteAction)
                 .padding(5)
         }
         .onHover { isHovered = $0 }
+    }
+}
+
+private struct IslandDraggableCard<Content: View>: View {
+    let pasteboardWriter: () -> (any NSPasteboardWriting)?
+    let dragImage: () -> NSImage?
+    let onClick: () -> Void
+    let onDragChanged: (Bool) -> Void
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .overlay {
+                IslandDragSourceOverlay(
+                    pasteboardWriter: pasteboardWriter,
+                    dragImage: dragImage,
+                    onClick: onClick,
+                    onDragChanged: onDragChanged
+                )
+            }
+            .accessibilityAction {
+                onClick()
+            }
+    }
+}
+
+private struct IslandDragSourceOverlay: NSViewRepresentable {
+    let pasteboardWriter: () -> (any NSPasteboardWriting)?
+    let dragImage: () -> NSImage?
+    let onClick: () -> Void
+    let onDragChanged: (Bool) -> Void
+
+    func makeNSView(context: Context) -> IslandDragSourceView {
+        let view = IslandDragSourceView()
+        view.pasteboardWriter = pasteboardWriter
+        view.dragImage = dragImage
+        view.onClick = onClick
+        view.onDragChanged = onDragChanged
+        return view
+    }
+
+    func updateNSView(_ view: IslandDragSourceView, context: Context) {
+        view.pasteboardWriter = pasteboardWriter
+        view.dragImage = dragImage
+        view.onClick = onClick
+        view.onDragChanged = onDragChanged
+    }
+}
+
+private final class IslandDragSourceView: NSView, NSDraggingSource {
+    var pasteboardWriter: (() -> (any NSPasteboardWriting)?)?
+    var dragImage: (() -> NSImage?)?
+    var onClick: (() -> Void)?
+    var onDragChanged: ((Bool) -> Void)?
+
+    private var mouseDownEvent: NSEvent?
+    private var mouseDownPoint = NSPoint.zero
+    private var hasStartedDrag = false
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override var mouseDownCanMoveWindow: Bool {
+        false
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .openHand)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        mouseDownEvent = event
+        mouseDownPoint = convert(event.locationInWindow, from: nil)
+        hasStartedDrag = false
+        NSCursor.closedHand.set()
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard !hasStartedDrag,
+              dragDistance(from: mouseDownPoint, to: convert(event.locationInWindow, from: nil)) >= 3,
+              let writer = pasteboardWriter?() else { return }
+
+        hasStartedDrag = true
+        onDragChanged?(true)
+
+        let draggingItem = NSDraggingItem(pasteboardWriter: writer)
+        let previewImage = dragImage?() ?? fallbackDragImage()
+        draggingItem.setDraggingFrame(draggingFrame(for: previewImage), contents: previewImage)
+
+        let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if !hasStartedDrag {
+            onClick?()
+        }
+
+        mouseDownEvent = nil
+        setOpenHandIfPointerIsInside(localPoint: convert(event.locationInWindow, from: nil))
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        [.copy]
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        endedAt screenPoint: NSPoint,
+        operation: NSDragOperation
+    ) {
+        onDragChanged?(false)
+        mouseDownEvent = nil
+        hasStartedDrag = false
+        setOpenHandIfPointerIsInside(screenPoint: screenPoint)
+    }
+
+    private func dragDistance(from start: NSPoint, to end: NSPoint) -> CGFloat {
+        hypot(end.x - start.x, end.y - start.y)
+    }
+
+    private func setOpenHandIfPointerIsInside(screenPoint: NSPoint) {
+        guard let window else { return }
+
+        let windowPoint = window.convertPoint(fromScreen: screenPoint)
+        setOpenHandIfPointerIsInside(localPoint: convert(windowPoint, from: nil))
+    }
+
+    private func setOpenHandIfPointerIsInside(localPoint: NSPoint) {
+        if bounds.contains(localPoint) {
+            NSCursor.openHand.set()
+        }
+    }
+
+    private func draggingFrame(for image: NSImage) -> NSRect {
+        let size = image.size.width > 0 && image.size.height > 0 ? image.size : bounds.size
+
+        return NSRect(
+            x: bounds.midX - size.width / 2,
+            y: bounds.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    private func fallbackDragImage() -> NSImage {
+        let size = bounds.size.width > 0 && bounds.size.height > 0
+            ? bounds.size
+            : IslandDragPreview.cardSize
+
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor.white.withAlphaComponent(0.16).setFill()
+        NSBezierPath(
+            roundedRect: NSRect(origin: .zero, size: size),
+            xRadius: IslandDragPreview.cornerRadius,
+            yRadius: IslandDragPreview.cornerRadius
+        ).fill()
+        image.unlockFocus()
+        return image
+    }
+}
+
+private enum IslandDragPreview {
+    static let cardSize = NSSize(width: 142, height: 142)
+    static let cornerRadius: CGFloat = 10
+
+    static func screenshot(thumbnail: NSImage?, imagePath: String) -> NSImage {
+        let sourceImage = thumbnail ?? NSImage(contentsOfFile: imagePath)
+        return cardImage { rect in
+            guard let sourceImage else {
+                drawPlaceholder(in: rect, title: "Image")
+                return
+            }
+
+            sourceImage.draw(
+                in: aspectFillRect(for: sourceImage.size, in: rect),
+                from: .zero,
+                operation: .copy,
+                fraction: 1
+            )
+        }
+    }
+
+    static func text(_ preview: String) -> NSImage {
+        cardImage { rect in
+            let insetRect = rect.insetBy(dx: 12, dy: 12)
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.lineBreakMode = .byTruncatingTail
+
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                .foregroundColor: NSColor.white.withAlphaComponent(0.86),
+                .paragraphStyle: paragraphStyle
+            ]
+
+            NSString(string: preview).draw(
+                with: insetRect,
+                options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+                attributes: attributes
+            )
+        }
+    }
+
+    private static func cardImage(drawContent: (NSRect) -> Void) -> NSImage {
+        let image = NSImage(size: cardSize)
+        let rect = NSRect(origin: .zero, size: cardSize)
+
+        image.lockFocus()
+        let cardPath = NSBezierPath(
+            roundedRect: rect,
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
+        )
+
+        NSColor(calibratedWhite: 1, alpha: 0.12).setFill()
+        cardPath.fill()
+        NSGraphicsContext.current?.saveGraphicsState()
+        cardPath.addClip()
+        drawContent(rect)
+        NSGraphicsContext.current?.restoreGraphicsState()
+
+        NSColor.white.withAlphaComponent(0.28).setStroke()
+        cardPath.lineWidth = 1
+        cardPath.stroke()
+        image.unlockFocus()
+
+        return image
+    }
+
+    private static func aspectFillRect(for imageSize: NSSize, in rect: NSRect) -> NSRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+
+        let scale = max(rect.width / imageSize.width, rect.height / imageSize.height)
+        let size = NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
+
+        return NSRect(
+            x: rect.midX - size.width / 2,
+            y: rect.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    private static func drawPlaceholder(in rect: NSRect, title: String) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.58)
+        ]
+        let textSize = NSString(string: title).size(withAttributes: attributes)
+        let textRect = NSRect(
+            x: rect.midX - textSize.width / 2,
+            y: rect.midY - textSize.height / 2,
+            width: textSize.width,
+            height: textSize.height
+        )
+
+        NSString(string: title).draw(in: textRect, withAttributes: attributes)
     }
 }
 
