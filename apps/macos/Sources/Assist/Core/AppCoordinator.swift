@@ -55,6 +55,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
         syncHistoryFromStore()
         pillViewModel.clearCaptureIssue()
+        pillViewModel.startUsageLimitUpdates()
 
         windowManager.showPill()
 
@@ -72,6 +73,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         DebugLogger.log("app.stop")
         monitor.stop()
         clipboardMonitor.stop()
+        pillViewModel.stopUsageLimitUpdates()
     }
 
     func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String) {

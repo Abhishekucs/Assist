@@ -5,7 +5,7 @@ import SwiftUI
 struct ControlPanelView: View {
     @ObservedObject var settings: PillSettings
     @ObservedObject var viewModel: PillViewModel
-    @State private var selectedPage: SettingsPage = .updates
+    @State private var selectedPage: SettingsPage = .general
     @State private var isSettingsDialogPresented = false
     @State private var resolvedSystemColorScheme = SystemAppearanceResolver.currentColorScheme()
 
@@ -100,6 +100,8 @@ struct ControlPanelView: View {
     @ViewBuilder
     private var detailView: some View {
         switch selectedPage {
+        case .general:
+            GeneralSettingsPane(settings: settings)
         case .appearance:
             AppearanceSettingsPane(settings: settings)
         case .capture:
@@ -115,6 +117,7 @@ struct ControlPanelView: View {
 }
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
+    case general
     case appearance
     case capture
     case storage
@@ -125,6 +128,8 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .general:
+            "General"
         case .appearance:
             "Appearance"
         case .capture:
@@ -140,6 +145,8 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
 
     var icon: HugeIconKind {
         switch self {
+        case .general:
+            .settings
         case .appearance:
             .appearance
         case .capture:
@@ -803,6 +810,33 @@ private struct SettingsActionButton: View {
 
     private var actionForeground: Color {
         theme.isDark ? Color.black.opacity(0.86) : Color.white
+    }
+}
+
+private struct GeneralSettingsPane: View {
+    @ObservedObject var settings: PillSettings
+
+    var body: some View {
+        SettingsDetailPage(
+            title: "General",
+            subtitle: "Choose which rate limits appear on the island."
+        ) {
+            SettingsSection("Rate limits") {
+                VStack(alignment: .leading, spacing: 0) {
+                    SettingToggleRow(
+                        title: "Show Claude Code",
+                        isOn: $settings.showClaudeCodeRateLimit
+                    )
+
+                    RowDivider()
+
+                    SettingToggleRow(
+                        title: "Show Codex",
+                        isOn: $settings.showCodexRateLimit
+                    )
+                }
+            }
+        }
     }
 }
 

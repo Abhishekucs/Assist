@@ -11,12 +11,12 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 
 final class PillSettings: ObservableObject {
     enum Defaults {
-        static let collapsedSize = CGSize(width: 232, height: 30)
-        static let expandedSize = CGSize(width: 560, height: 210)
+        static let collapsedSize = CGSize(width: 268, height: 30)
+        static let expandedSize = CGSize(width: 560, height: 300)
         static let collapsedWidthRange: ClosedRange<CGFloat> = 180...360
         static let collapsedHeightRange: ClosedRange<CGFloat> = 26...42
         static let expandedWidthRange: ClosedRange<CGFloat> = 440...760
-        static let expandedHeightRange: ClosedRange<CGFloat> = 168...300
+        static let expandedHeightRange: ClosedRange<CGFloat> = 210...360
         static let collapsedTopCornerRadius: CGFloat = 6
         static let collapsedBottomCornerRadius: CGFloat = 14
         static let expandedTopCornerRadius: CGFloat = 19
@@ -47,6 +47,12 @@ final class PillSettings: ObservableObject {
     }
     @Published var showMenuBarIcon: Bool {
         didSet { defaults.set(showMenuBarIcon, forKey: Keys.showMenuBarIcon) }
+    }
+    @Published var showClaudeCodeRateLimit: Bool {
+        didSet { defaults.set(showClaudeCodeRateLimit, forKey: Keys.showClaudeCodeRateLimit) }
+    }
+    @Published var showCodexRateLimit: Bool {
+        didSet { defaults.set(showCodexRateLimit, forKey: Keys.showCodexRateLimit) }
     }
     @Published var downloadUpdatesAutomatically: Bool {
         didSet { defaults.set(downloadUpdatesAutomatically, forKey: Keys.downloadUpdatesAutomatically) }
@@ -81,6 +87,8 @@ final class PillSettings: ObservableObject {
         followPointerDisplay = Self.bool(for: Keys.followPointerDisplay, default: true, defaults: defaults)
         showLoadingBorder = Self.bool(for: Keys.showLoadingBorder, default: true, defaults: defaults)
         showMenuBarIcon = Self.bool(for: Keys.showMenuBarIcon, default: true, defaults: defaults)
+        showClaudeCodeRateLimit = Self.bool(for: Keys.showClaudeCodeRateLimit, default: true, defaults: defaults)
+        showCodexRateLimit = Self.bool(for: Keys.showCodexRateLimit, default: true, defaults: defaults)
         downloadUpdatesAutomatically = Self.bool(for: Keys.downloadUpdatesAutomatically, default: true, defaults: defaults)
         appAppearance = Self.appearance(for: Keys.appAppearance, default: .system, defaults: defaults)
     }
@@ -125,6 +133,8 @@ private enum Keys {
     static let followPointerDisplay = "pill.followPointerDisplay"
     static let showLoadingBorder = "pill.showLoadingBorder"
     static let showMenuBarIcon = "app.showMenuBarIcon"
+    static let showClaudeCodeRateLimit = "rateLimits.showClaudeCode"
+    static let showCodexRateLimit = "rateLimits.showCodex"
     static let downloadUpdatesAutomatically = "updates.downloadAutomatically"
     static let appAppearance = "app.appearance"
 }

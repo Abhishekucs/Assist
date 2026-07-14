@@ -7,6 +7,8 @@ enum PillChromeMetrics {
     static let expandedBottomCornerRadius = PillSettings.Defaults.expandedBottomCornerRadius
     static let topInset = PillSettings.Defaults.topInset
     static let copyFeedbackWidthBoost: CGFloat = 120
+    static let compactExpandedHeight: CGFloat = 210
+    static let rateLimitExpandedMinHeight: CGFloat = 300
 
     static func collapsedSize(settings: PillSettings) -> CGSize {
         settings.collapsedSize
@@ -27,6 +29,18 @@ enum PillChromeMetrics {
 
     static func expandedSize(settings: PillSettings) -> CGSize {
         settings.expandedSize
+    }
+
+    static func expandedSize(settings: PillSettings, showingRateLimits: Bool) -> CGSize {
+        var size = settings.expandedSize
+
+        if showingRateLimits {
+            size.height = max(size.height, rateLimitExpandedMinHeight)
+        } else {
+            size.height = min(size.height, compactExpandedHeight)
+        }
+
+        return size
     }
 
     static func topCornerRadius(forExpandedState isExpanded: Bool) -> CGFloat {
