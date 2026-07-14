@@ -75,13 +75,13 @@ private enum LocalRateLimitReader {
 
                     if fiveHour?.isAvailable != true,
                        let window = parsed.fiveHour,
-                       window.isAvailable {
+                       isCurrent(window) {
                         fiveHour = window
                     }
 
                     if sevenDay?.isAvailable != true,
                        let window = parsed.sevenDay,
-                       window.isAvailable {
+                       isCurrent(window) {
                         sevenDay = window
                     }
 
@@ -110,6 +110,18 @@ private enum LocalRateLimitReader {
             source: source,
             refreshedAt: refreshedAt
         )
+    }
+
+    private static func isCurrent(_ window: UsageLimitWindow) -> Bool {
+        guard window.isAvailable else {
+            return false
+        }
+
+        guard let resetAt = window.resetAt else {
+            return true
+        }
+
+        return resetAt > Date()
     }
 
     private static func candidateFiles(roots: [URL], maxFiles: Int) -> [UsageLimitFile] {
