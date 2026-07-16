@@ -212,7 +212,7 @@ private struct UsageLimitCompactChip: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            UsageProviderLogo(provider: snapshot.provider, size: 11)
+            UsageProviderLogo(provider: snapshot.provider, size: 14)
 
             Text(snapshot.provider.compactName)
                 .foregroundStyle(.white.opacity(0.78))
@@ -486,7 +486,7 @@ private struct UsageLimitProviderPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 6) {
-                UsageProviderLogo(provider: snapshot.provider, size: 13)
+                UsageProviderLogo(provider: snapshot.provider, size: 16)
 
                 Text(snapshot.provider.displayName)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
