@@ -23,7 +23,10 @@ struct PillView: View {
     }
 
     private var expandedSize: CGSize {
-        PillChromeMetrics.expandedSize(settings: settings)
+        PillChromeMetrics.expandedSize(
+            settings: settings,
+            showingRateLimits: !visibleUsageLimitSnapshots.isEmpty
+        )
     }
 
     private var chromeTopCornerRadius: CGFloat {
@@ -46,11 +49,25 @@ struct PillView: View {
         settings.showLoadingBorder && viewModel.isBusy
     }
 
+    private var visibleUsageLimitSnapshots: [UsageLimitSnapshot] {
+        viewModel.orderedUsageLimitSnapshots.filter { snapshot in
+            switch snapshot.provider {
+            case .claudeCode:
+                settings.showClaudeCodeRateLimit
+            case .codex:
+                settings.showCodexRateLimit
+            }
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             ZStack(alignment: .top) {
                 if viewModel.isCollapsedContentVisible {
-                    CollapsedIslandHeader(viewModel: viewModel)
+                    CollapsedIslandHeader(
+                        viewModel: viewModel,
+                        usageLimitSnapshots: visibleUsageLimitSnapshots
+                    )
                         .frame(
                             width: collapsedSize.width,
                             height: collapsedSize.height
@@ -61,6 +78,7 @@ struct PillView: View {
                 if viewModel.isExpandedContentVisible {
                     ExpandedIslandView(
                         viewModel: viewModel,
+                        usageLimitSnapshots: visibleUsageLimitSnapshots,
                         onDragChanged: onIslandDragChanged
                     )
                         .frame(
@@ -128,6 +146,7 @@ struct PillView: View {
 
 private struct CollapsedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
+    let usageLimitSnapshots: [UsageLimitSnapshot]
 
     private var copyFeedbackContentAnimation: Animation {
         .easeOut(duration: 0.18)
@@ -147,6 +166,11 @@ private struct CollapsedIslandHeader: View {
                             .combined(with: .scale(scale: 0.96))
                             .animation(.easeOut(duration: 0.16))
                     )
+            } else if !usageLimitSnapshots.isEmpty {
+                UsageLimitCollapsedOverview(
+                    snapshots: usageLimitSnapshots,
+                    isRefreshing: viewModel.isRefreshingUsageLimits
+                )
             } else {
                 Text(viewModel.statusText)
                     .font(AssistFont.roundedFootnote(.medium))
@@ -159,6 +183,51 @@ private struct CollapsedIslandHeader: View {
         .padding(.horizontal, 18)
         .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
         .animation(copyFeedbackContentAnimation, value: viewModel.isCopyFeedbackVisible)
+    }
+}
+
+private struct UsageLimitCollapsedOverview: View {
+    let snapshots: [UsageLimitSnapshot]
+    let isRefreshing: Bool
+
+    var body: some View {
+        HStack(spacing: 7) {
+            ForEach(snapshots) { snapshot in
+                UsageLimitCompactChip(snapshot: snapshot)
+            }
+
+            if isRefreshing {
+                Circle()
+                    .fill(.white.opacity(0.42))
+                    .frame(width: 4, height: 4)
+                    .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct UsageLimitCompactChip: View {
+    let snapshot: UsageLimitSnapshot
+
+    var body: some View {
+        HStack(spacing: 5) {
+            UsageProviderLogo(provider: snapshot.provider, size: 14)
+
+            Text(snapshot.provider.compactName)
+                .foregroundStyle(.white.opacity(0.78))
+
+            Text(snapshot.fiveHour.percentageText)
+                .foregroundStyle(.white.opacity(snapshot.fiveHour.isAvailable ? 0.94 : 0.48))
+        }
+        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+        .lineLimit(1)
+        .minimumScaleFactor(0.82)
+        .padding(.horizontal, 8)
+        .frame(height: 20)
+        .background(Color.white.opacity(0.08), in: Capsule())
+        .help("\(snapshot.provider.displayName) 5-hour usage")
+        .accessibilityLabel("\(snapshot.provider.displayName) 5-hour usage \(snapshot.fiveHour.accessibilityText)")
     }
 }
 
@@ -290,6 +359,7 @@ private struct LoadingNotchBorderShape: Shape {
 
 struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
+    let usageLimitSnapshots: [UsageLimitSnapshot]
     let onDragChanged: (Bool) -> Void
     private static let galleryLeadingAnchorID = "gallery-leading-anchor"
     private static let galleryClipInset: CGFloat = 2
@@ -299,6 +369,11 @@ struct ExpandedIslandView: View {
         let selectedID = viewModel.selectedItem?.id
 
         VStack(alignment: .leading, spacing: 10) {
+            if !usageLimitSnapshots.isEmpty {
+                UsageLimitDetailStrip(snapshots: usageLimitSnapshots)
+                    .zIndex(2)
+            }
+
             ExpandedIslandHeader(viewModel: viewModel)
                 .frame(height: 34)
                 .zIndex(1)
@@ -392,6 +467,105 @@ struct ExpandedIslandView: View {
     }
 }
 
+private struct UsageLimitDetailStrip: View {
+    let snapshots: [UsageLimitSnapshot]
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(snapshots) { snapshot in
+                UsageLimitProviderPanel(snapshot: snapshot)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct UsageLimitProviderPanel: View {
+    let snapshot: UsageLimitSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 6) {
+                UsageProviderLogo(provider: snapshot.provider, size: 16)
+
+                Text(snapshot.provider.displayName)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+
+                Spacer(minLength: 0)
+            }
+
+            UsageLimitWindowRow(
+                title: "5h",
+                window: snapshot.fiveHour,
+                color: UsageLimitPalette.color(for: snapshot.provider)
+            )
+
+            UsageLimitWindowRow(
+                title: "7d",
+                window: snapshot.sevenDay,
+                color: UsageLimitPalette.color(for: snapshot.provider)
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct UsageLimitWindowRow: View {
+    let title: String
+    let window: UsageLimitWindow
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Text(title)
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.72))
+                .frame(width: 18, alignment: .leading)
+
+            UsageLimitProgressBar(window: window, color: color)
+                .frame(height: 5)
+
+            Text(window.percentageText)
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(window.isAvailable ? 0.9 : 0.44))
+                .monospacedDigit()
+                .frame(width: 32, alignment: .trailing)
+
+            Text(window.resetText)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(window.isAvailable ? 0.56 : 0.42))
+                .lineLimit(1)
+                .frame(width: 62, alignment: .trailing)
+        }
+        .accessibilityLabel("\(title) \(window.accessibilityText)")
+    }
+}
+
+private struct UsageLimitProgressBar: View {
+    let window: UsageLimitWindow
+    let color: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let progress = min(max((window.usedPercentage ?? 0) / 100, 0), 1)
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.12))
+
+                Capsule()
+                    .fill(color.opacity(window.isAvailable ? 0.92 : 0))
+                    .frame(width: proxy.size.width * progress)
+            }
+        }
+    }
+}
+
 private struct ExpandedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
 
@@ -421,6 +595,73 @@ private struct ExpandedIslandHeader: View {
 
         }
         .foregroundStyle(.white)
+    }
+}
+
+private enum UsageLimitPalette {
+    static func color(for provider: UsageLimitProvider) -> Color {
+        switch provider {
+        case .claudeCode:
+            Color(red: 0.96, green: 0.47, blue: 0.22)
+        case .codex:
+            Color(red: 0.28, green: 0.78, blue: 0.62)
+        }
+    }
+}
+
+private extension UsageLimitWindow {
+    var percentageText: String {
+        guard let usedPercentage else {
+            return "--"
+        }
+
+        return "\(Int(usedPercentage.rounded()))%"
+    }
+
+    var resetText: String {
+        guard isAvailable else {
+            return "Unavailable"
+        }
+
+        guard let resetAt else {
+            return "No reset"
+        }
+
+        let remaining = resetAt.timeIntervalSinceNow
+        guard remaining > 0 else {
+            return "Reset due"
+        }
+
+        if remaining < 60 * 60 {
+            return "\(Int(ceil(remaining / 60)))m"
+        }
+
+        if remaining < 24 * 60 * 60 {
+            return "\(Int(ceil(remaining / 3_600)))h"
+        }
+
+        return UsageLimitResetFormatter.string(from: resetAt)
+    }
+
+    var accessibilityText: String {
+        guard isAvailable else {
+            return "unavailable"
+        }
+
+        if let resetAt {
+            return "\(percentageText), resets \(UsageLimitResetFormatter.string(from: resetAt))"
+        }
+
+        return percentageText
+    }
+}
+
+private enum UsageLimitResetFormatter {
+    static func string(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 

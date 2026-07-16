@@ -21,12 +21,17 @@ final class PillViewModel: ObservableObject {
     @Published var isCopyFeedbackVisible = false
     @Published var isCheckingForUpdates = false
     @Published var updateStatusText: String?
+    @Published private(set) var usageLimitSnapshots: [UsageLimitProvider: UsageLimitSnapshot] = PillViewModel.emptyUsageLimitSnapshots()
+    @Published private(set) var isRefreshingUsageLimits = false
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
     private var copyFeedbackClearWorkItem: DispatchWorkItem?
     private let updateService = AppUpdateService()
+    private var usageLimitRefreshTask: Task<Void, Never>?
+    private var usageLimitOnDemandTask: Task<Void, Never>?
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
+    private static let usageLimitRefreshIntervalNanoseconds: UInt64 = 180_000_000_000
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -37,6 +42,49 @@ final class PillViewModel: ObservableObject {
 
     init(settings: PillSettings) {
         self.settings = settings
+    }
+
+    deinit {
+        usageLimitRefreshTask?.cancel()
+        usageLimitOnDemandTask?.cancel()
+    }
+
+    func startUsageLimitUpdates() {
+        guard usageLimitRefreshTask == nil else { return }
+
+        usageLimitRefreshTask = Task { [weak self] in
+            await self?.refreshUsageLimits()
+
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: Self.usageLimitRefreshIntervalNanoseconds)
+                await self?.refreshUsageLimits()
+            }
+        }
+    }
+
+    func stopUsageLimitUpdates() {
+        usageLimitRefreshTask?.cancel()
+        usageLimitRefreshTask = nil
+        usageLimitOnDemandTask?.cancel()
+        usageLimitOnDemandTask = nil
+    }
+
+    func refreshUsageLimitsSoon() {
+        usageLimitOnDemandTask?.cancel()
+        usageLimitOnDemandTask = Task { [weak self] in
+            await self?.refreshUsageLimits()
+        }
+    }
+
+    private func refreshUsageLimits() async {
+        guard !isRefreshingUsageLimits else { return }
+
+        isRefreshingUsageLimits = true
+        let snapshots = await UsageLimitService.loadSnapshots()
+        usageLimitSnapshots = Dictionary(
+            uniqueKeysWithValues: snapshots.map { ($0.provider, $0) }
+        )
+        isRefreshingUsageLimits = false
     }
 
     func showCopyFeedback(badge: String, preview: String) {
@@ -174,6 +222,21 @@ final class PillViewModel: ObservableObject {
 
     func willShowHistory() {
         onWillShowHistory?()
+        refreshUsageLimitsSoon()
+    }
+
+    var orderedUsageLimitSnapshots: [UsageLimitSnapshot] {
+        UsageLimitProvider.allCases.map {
+            usageLimitSnapshots[$0] ?? .unavailable(provider: $0)
+        }
+    }
+
+    private static func emptyUsageLimitSnapshots() -> [UsageLimitProvider: UsageLimitSnapshot] {
+        Dictionary(
+            uniqueKeysWithValues: UsageLimitProvider.allCases.map {
+                ($0, UsageLimitSnapshot.unavailable(provider: $0))
+            }
+        )
     }
 
     func copyLatestImage() {

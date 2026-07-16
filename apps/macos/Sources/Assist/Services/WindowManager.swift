@@ -30,12 +30,22 @@ final class WindowManager {
     private var isDraggingFromPill = false
     private var settingsCancellable: AnyCancellable?
 
+    private var isShowingRateLimits: Bool {
+        Self.isShowingRateLimits(settings: settings)
+    }
+
     init(pillViewModel: PillViewModel, settings: PillSettings) {
         self.pillViewModel = pillViewModel
         self.settings = settings
 
         pillPanel = NSPanel(
-            contentRect: Self.topCenterFrame(windowSize: PillChromeMetrics.expandedSize(settings: settings), on: Self.screenContainingMouse()),
+            contentRect: Self.topCenterFrame(
+                windowSize: PillChromeMetrics.expandedSize(
+                    settings: settings,
+                    showingRateLimits: Self.isShowingRateLimits(settings: settings)
+                ),
+                on: Self.screenContainingMouse()
+            ),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -120,7 +130,10 @@ final class WindowManager {
             guard let self, let hostingView else { return .zero }
 
             let chromeSize = self.pillViewModel.isExpanded
-                ? PillChromeMetrics.expandedSize(settings: self.settings)
+                ? PillChromeMetrics.expandedSize(
+                    settings: self.settings,
+                    showingRateLimits: self.isShowingRateLimits
+                )
                 : PillChromeMetrics.collapsedSize(
                     settings: self.settings,
                     showingCopyFeedback: self.pillViewModel.copyFeedback != nil
@@ -151,7 +164,10 @@ final class WindowManager {
 
     private func setPillFrame(display: Bool) {
         let frame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(settings: settings),
+            windowSize: PillChromeMetrics.expandedSize(
+                settings: settings,
+                showingRateLimits: isShowingRateLimits
+            ),
             on: screenForCurrentPill()
         )
 
@@ -160,7 +176,10 @@ final class WindowManager {
 
     private func pinPillToTopCenter() {
         let expectedFrame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(settings: settings),
+            windowSize: PillChromeMetrics.expandedSize(
+                settings: settings,
+                showingRateLimits: isShowingRateLimits
+            ),
             on: screenForCurrentPill()
         )
 
@@ -172,7 +191,10 @@ final class WindowManager {
             guard let self, !self.pillViewModel.isExpanded else { return }
             self.pillPanel.setFrame(
                 Self.topCenterFrame(
-                    windowSize: PillChromeMetrics.expandedSize(settings: self.settings),
+                    windowSize: PillChromeMetrics.expandedSize(
+                        settings: self.settings,
+                        showingRateLimits: self.isShowingRateLimits
+                    ),
                     on: self.screenForCurrentPill()
                 ),
                 display: true,
@@ -311,6 +333,10 @@ final class WindowManager {
         setPillFrame(display: true)
     }
 
+    private static func isShowingRateLimits(settings: PillSettings) -> Bool {
+        settings.showClaudeCodeRateLimit || settings.showCodexRateLimit
+    }
+
     private func startPointerScreenTracking() {
         pointerScreenTimer?.invalidate()
         let timer = Timer(timeInterval: Metrics.pointerScreenPollInterval, repeats: true) { [weak self] _ in
@@ -339,7 +365,10 @@ final class WindowManager {
         pillViewModel.isExpanded = false
 
         let targetFrame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(settings: settings),
+            windowSize: PillChromeMetrics.expandedSize(
+                settings: settings,
+                showingRateLimits: isShowingRateLimits
+            ),
             on: pointerScreen
         )
         pillPanel.setFrame(targetFrame, display: true, animate: false)

@@ -51,6 +51,75 @@ struct CopyFeedback: Equatable {
     let preview: String
 }
 
+enum UsageLimitProvider: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
+    case claudeCode
+    case codex
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .claudeCode:
+            "Claude"
+        case .codex:
+            "Codex"
+        }
+    }
+
+    var compactName: String {
+        switch self {
+        case .claudeCode:
+            "Claude"
+        case .codex:
+            "Codex"
+        }
+    }
+}
+
+enum UsageLimitSource: String, Codable, Sendable {
+    case claudeStatusLine
+    case codexSessionLog
+    case unavailable
+}
+
+struct UsageLimitWindow: Codable, Equatable, Sendable {
+    var usedPercentage: Double?
+    var resetAt: Date?
+
+    var isAvailable: Bool {
+        usedPercentage != nil || resetAt != nil
+    }
+
+    static let unavailable = UsageLimitWindow(
+        usedPercentage: nil,
+        resetAt: nil
+    )
+}
+
+struct UsageLimitSnapshot: Codable, Equatable, Identifiable, Sendable {
+    let provider: UsageLimitProvider
+    var fiveHour: UsageLimitWindow
+    var sevenDay: UsageLimitWindow
+    var source: UsageLimitSource
+    var refreshedAt: Date
+
+    var id: UsageLimitProvider { provider }
+
+    var hasAvailableData: Bool {
+        fiveHour.isAvailable || sevenDay.isAvailable
+    }
+
+    static func unavailable(provider: UsageLimitProvider, refreshedAt: Date = Date()) -> UsageLimitSnapshot {
+        UsageLimitSnapshot(
+            provider: provider,
+            fiveHour: .unavailable,
+            sevenDay: .unavailable,
+            source: .unavailable,
+            refreshedAt: refreshedAt
+        )
+    }
+}
+
 enum CaptureIssueAction: Equatable {
     case requestScreenRecordingPermission
     case openScreenRecordingSettings
