@@ -1,24 +1,13 @@
-name: Rebuild macOS
+name: Capture Codex Island
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/macos/**"
-      - ".github/workflows/rebuild-macos.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: rebuild-macos-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  rebuild-macos:
-    name: Rebuild macOS
+  capture:
     runs-on: macos-15
     timeout-minutes: 20
 
@@ -26,20 +15,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Run macOS tests
-        run: swift test --package-path apps/macos
-
-      - name: Build macOS application
+      - name: Build Assist
         env:
-          # This workflow verifies the debug bundle but does not release it.
-          # Trusted Developer ID signing remains isolated to release.yml.
           ASSIST_ALLOW_ADHOC_DEBUG_SIGNING: "1"
         run: make -C apps/macos build
 
-      - name: Capture Codex island preview
+      - name: Create active Codex task fixtures
         env:
           CODEX_HOME: ${{ runner.temp }}/codex
-          ASSIST_BIN: ${{ github.workspace }}/apps/macos/.build/Assist Dev.app/Contents/MacOS/Assist
         run: |
           python3 - <<'PY'
           import json
@@ -49,11 +32,11 @@ jobs:
           sessions = Path(os.environ["CODEX_HOME"]) / "sessions" / "2026" / "07" / "17"
           sessions.mkdir(parents=True)
           tasks = [
-              ("019-example-assist", "Add a Codex task view to the island"),
-              ("019-example-tests", "Validate the macOS app and parser tests"),
-              ("019-example-pr", "Prepare the feature pull request"),
+              ("019-example-assist", "Add a Codex task view to the island", "Assist"),
+              ("019-example-tests", "Validate the macOS application and parser tests", "Assist"),
+              ("019-example-docs", "Prepare the feature pull request", "Assist"),
           ]
-          for index, (thread_id, message) in enumerate(tasks):
+          for index, (thread_id, message, workspace) in enumerate(tasks):
               records = [
                   {
                       "type": "session_meta",
@@ -76,6 +59,17 @@ jobs:
               path.write_text("".join(json.dumps(record) + "\n" for record in records))
           PY
 
+      - name: Launch and capture island
+        env:
+          CODEX_HOME: ${{ runner.temp }}/codex
+          ASSIST_BIN: ${{ github.workspace }}/apps/macos/.build/Assist Dev.app/Contents/MacOS/Assist
+        run: |
+          if [[ ! -x "$ASSIST_BIN" ]]; then
+            echo "Assist debug bundle not found at $ASSIST_BIN"
+            ls -la "$GITHUB_WORKSPACE/apps/macos/.build" || true
+            exit 1
+          fi
+
           cat > "$RUNNER_TEMP/move_mouse.swift" <<'SWIFT'
           import CoreGraphics
           import Foundation
@@ -88,12 +82,6 @@ jobs:
           CGWarpMouseCursorPosition(point)
           SWIFT
           swiftc "$RUNNER_TEMP/move_mouse.swift" -o "$RUNNER_TEMP/move_mouse"
-
-          if [[ ! -x "$ASSIST_BIN" ]]; then
-            echo "Assist debug bundle not found at $ASSIST_BIN"
-            ls -la "$GITHUB_WORKSPACE/apps/macos/.build" || true
-            exit 1
-          fi
 
           "$RUNNER_TEMP/move_mouse" away
           "$ASSIST_BIN" >"$RUNNER_TEMP/assist.log" 2>&1 &
@@ -147,4 +135,3 @@ jobs:
           path: |
             codex-island.png
             codex-island.mp4
-            ${{ runner.temp }}/island-full.png
