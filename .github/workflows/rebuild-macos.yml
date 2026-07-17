@@ -94,7 +94,7 @@ jobs:
           ASSIST_PID=$!
           trap 'kill "$ASSIST_PID" 2>/dev/null || true' EXIT
           sleep 6
-          ps -p "$ASSIST_PID" -o pid,stat,command
+          ps -p "$ASSIST_PID" -o pid,stat,command || true
           cat "$RUNNER_TEMP/assist.log"
           cat > "$RUNNER_TEMP/list_windows.swift" <<'SWIFT'
           import CoreGraphics
