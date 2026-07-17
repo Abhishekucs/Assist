@@ -42,7 +42,7 @@ jobs:
                       "type": "session_meta",
                       "payload": {
                           "id": thread_id,
-                          "cwd": f"/Users/runner/work/{workspace}",
+                          "cwd": os.environ["GITHUB_WORKSPACE"],
                           "source": "cli",
                       },
                   },
@@ -62,7 +62,14 @@ jobs:
       - name: Launch and capture island
         env:
           CODEX_HOME: ${{ runner.temp }}/codex
+          ASSIST_BIN: ${{ github.workspace }}/apps/macos/.build/Assist Dev.app/Contents/MacOS/Assist
         run: |
+          if [[ ! -x "$ASSIST_BIN" ]]; then
+            echo "Assist debug bundle not found at $ASSIST_BIN"
+            ls -la "$GITHUB_WORKSPACE/apps/macos/.build" || true
+            exit 1
+          fi
+
           cat > "$RUNNER_TEMP/move_mouse.swift" <<'SWIFT'
           import CoreGraphics
           import Foundation
@@ -77,11 +84,24 @@ jobs:
           swiftc "$RUNNER_TEMP/move_mouse.swift" -o "$RUNNER_TEMP/move_mouse"
 
           "$RUNNER_TEMP/move_mouse" away
-          "$GITHUB_WORKSPACE/apps/macos/.build/Assist.app/Contents/MacOS/Assist" \
-            >"$RUNNER_TEMP/assist.log" 2>&1 &
+          "$ASSIST_BIN" >"$RUNNER_TEMP/assist.log" 2>&1 &
           ASSIST_PID=$!
           trap 'kill "$ASSIST_PID" 2>/dev/null || true' EXIT
-          sleep 6
+
+          for _ in $(seq 1 30); do
+            if kill -0 "$ASSIST_PID" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if ! kill -0 "$ASSIST_PID" 2>/dev/null; then
+            echo "Assist exited before capture could start"
+            cat "$RUNNER_TEMP/assist.log" || true
+            exit 1
+          fi
+
+          sleep 3
 
           "$RUNNER_TEMP/move_mouse" island
           sleep 3

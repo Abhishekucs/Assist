@@ -39,6 +39,7 @@ jobs:
       - name: Capture Codex island preview
         env:
           CODEX_HOME: ${{ runner.temp }}/codex
+          ASSIST_BIN: ${{ github.workspace }}/apps/macos/.build/Assist Dev.app/Contents/MacOS/Assist
         run: |
           python3 - <<'PY'
           import json
@@ -58,7 +59,7 @@ jobs:
                       "type": "session_meta",
                       "payload": {
                           "id": thread_id,
-                          "cwd": "/Users/runner/work/Assist",
+                          "cwd": os.environ["GITHUB_WORKSPACE"],
                           "source": "cli",
                       },
                   },
@@ -88,28 +89,31 @@ jobs:
           SWIFT
           swiftc "$RUNNER_TEMP/move_mouse.swift" -o "$RUNNER_TEMP/move_mouse"
 
+          if [[ ! -x "$ASSIST_BIN" ]]; then
+            echo "Assist debug bundle not found at $ASSIST_BIN"
+            ls -la "$GITHUB_WORKSPACE/apps/macos/.build" || true
+            exit 1
+          fi
+
           "$RUNNER_TEMP/move_mouse" away
-          "$GITHUB_WORKSPACE/apps/macos/.build/Assist.app/Contents/MacOS/Assist" \
-            >"$RUNNER_TEMP/assist.log" 2>&1 &
+          "$ASSIST_BIN" >"$RUNNER_TEMP/assist.log" 2>&1 &
           ASSIST_PID=$!
           trap 'kill "$ASSIST_PID" 2>/dev/null || true' EXIT
-          sleep 6
-          ps -p "$ASSIST_PID" -o pid,stat,command || true
-          cat "$RUNNER_TEMP/assist.log"
-          cat > "$RUNNER_TEMP/list_windows.swift" <<'SWIFT'
-          import CoreGraphics
-          import Foundation
 
-          let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
-              as? [[String: Any]] ?? []
-          for window in windows {
-              let owner = window[kCGWindowOwnerName as String] as? String ?? ""
-              if owner.localizedCaseInsensitiveContains("Assist") {
-                  print(window)
-              }
-          }
-          SWIFT
-          swift "$RUNNER_TEMP/list_windows.swift"
+          for _ in $(seq 1 30); do
+            if kill -0 "$ASSIST_PID" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if ! kill -0 "$ASSIST_PID" 2>/dev/null; then
+            echo "Assist exited before capture could start"
+            cat "$RUNNER_TEMP/assist.log" || true
+            exit 1
+          fi
+
+          sleep 3
 
           "$RUNNER_TEMP/move_mouse" island
           sleep 3
