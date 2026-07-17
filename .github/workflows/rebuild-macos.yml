@@ -35,3 +35,95 @@ jobs:
           # Trusted Developer ID signing remains isolated to release.yml.
           ASSIST_ALLOW_ADHOC_DEBUG_SIGNING: "1"
         run: make -C apps/macos build
+
+      - name: Capture Codex island preview
+        env:
+          CODEX_HOME: ${{ runner.temp }}/codex
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          sessions = Path(os.environ["CODEX_HOME"]) / "sessions" / "2026" / "07" / "17"
+          sessions.mkdir(parents=True)
+          tasks = [
+              ("019-example-assist", "Add a Codex task view to the island"),
+              ("019-example-tests", "Validate the macOS app and parser tests"),
+              ("019-example-pr", "Prepare the feature pull request"),
+          ]
+          for index, (thread_id, message) in enumerate(tasks):
+              records = [
+                  {
+                      "type": "session_meta",
+                      "payload": {
+                          "id": thread_id,
+                          "cwd": "/Users/runner/work/Assist",
+                          "source": "cli",
+                      },
+                  },
+                  {
+                      "type": "event_msg",
+                      "payload": {"type": "user_message", "message": message},
+                  },
+                  {
+                      "type": "event_msg",
+                      "payload": {"type": "task_started", "turn_id": f"turn-{index}"},
+                  },
+              ]
+              path = sessions / f"rollout-{index}.jsonl"
+              path.write_text("".join(json.dumps(record) + "\n" for record in records))
+          PY
+
+          cat > "$RUNNER_TEMP/move_mouse.swift" <<'SWIFT'
+          import CoreGraphics
+          import Foundation
+
+          let bounds = CGDisplayBounds(CGMainDisplayID())
+          let position = CommandLine.arguments.dropFirst().first ?? "away"
+          let point = position == "island"
+              ? CGPoint(x: bounds.midX, y: bounds.minY + 12)
+              : CGPoint(x: bounds.minX + 80, y: bounds.midY)
+          CGWarpMouseCursorPosition(point)
+          SWIFT
+          swiftc "$RUNNER_TEMP/move_mouse.swift" -o "$RUNNER_TEMP/move_mouse"
+
+          "$RUNNER_TEMP/move_mouse" away
+          "$GITHUB_WORKSPACE/apps/macos/.build/Assist.app/Contents/MacOS/Assist" \
+            >"$RUNNER_TEMP/assist.log" 2>&1 &
+          ASSIST_PID=$!
+          trap 'kill "$ASSIST_PID" 2>/dev/null || true' EXIT
+          sleep 6
+
+          "$RUNNER_TEMP/move_mouse" island
+          sleep 3
+          screencapture -x "$RUNNER_TEMP/island-full.png"
+
+          "$RUNNER_TEMP/move_mouse" away
+          sleep 2
+          screencapture -v -V 10 -x "$RUNNER_TEMP/island-full.mov" &
+          CAPTURE_PID=$!
+          sleep 2
+          "$RUNNER_TEMP/move_mouse" island
+          sleep 5
+          "$RUNNER_TEMP/move_mouse" away
+          wait "$CAPTURE_PID"
+
+          if ! command -v ffmpeg >/dev/null; then
+            brew install ffmpeg
+          fi
+          ffmpeg -y -i "$RUNNER_TEMP/island-full.png" \
+            -vf "crop=760:420:(iw-760)/2:0" \
+            "$GITHUB_WORKSPACE/codex-island.png"
+          ffmpeg -y -i "$RUNNER_TEMP/island-full.mov" \
+            -vf "crop=760:420:(iw-760)/2:0,fps=30" \
+            -c:v libx264 -pix_fmt yuv420p -movflags +faststart \
+            "$GITHUB_WORKSPACE/codex-island.mp4"
+
+      - name: Upload visual artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-island-media
+          path: |
+            codex-island.png
+            codex-island.mp4
