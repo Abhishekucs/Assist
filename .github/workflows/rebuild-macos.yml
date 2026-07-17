@@ -26,6 +26,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Run macOS tests
+        run: swift test --package-path apps/macos
+
       - name: Build macOS application
         env:
           # This workflow verifies the debug bundle but does not release it.

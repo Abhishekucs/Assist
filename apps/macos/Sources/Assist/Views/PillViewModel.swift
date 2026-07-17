@@ -23,15 +23,20 @@ final class PillViewModel: ObservableObject {
     @Published var updateStatusText: String?
     @Published private(set) var usageLimitSnapshots: [UsageLimitProvider: UsageLimitSnapshot] = PillViewModel.emptyUsageLimitSnapshots()
     @Published private(set) var isRefreshingUsageLimits = false
+    @Published private(set) var activeCodexTasks: [CodexTask] = []
+    @Published private(set) var isRefreshingCodexTasks = false
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
     private var copyFeedbackClearWorkItem: DispatchWorkItem?
     private let updateService = AppUpdateService()
     private var usageLimitRefreshTask: Task<Void, Never>?
     private var usageLimitOnDemandTask: Task<Void, Never>?
+    private var codexTaskRefreshTask: Task<Void, Never>?
+    private var codexTaskOnDemandTask: Task<Void, Never>?
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
     private static let usageLimitRefreshIntervalNanoseconds: UInt64 = 180_000_000_000
+    private static let codexTaskRefreshIntervalNanoseconds: UInt64 = 8_000_000_000
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -47,6 +52,8 @@ final class PillViewModel: ObservableObject {
     deinit {
         usageLimitRefreshTask?.cancel()
         usageLimitOnDemandTask?.cancel()
+        codexTaskRefreshTask?.cancel()
+        codexTaskOnDemandTask?.cancel()
     }
 
     func startUsageLimitUpdates() {
@@ -85,6 +92,45 @@ final class PillViewModel: ObservableObject {
             uniqueKeysWithValues: snapshots.map { ($0.provider, $0) }
         )
         isRefreshingUsageLimits = false
+    }
+
+    func startCodexTaskUpdates() {
+        guard codexTaskRefreshTask == nil else { return }
+
+        codexTaskRefreshTask = Task { [weak self] in
+            await self?.refreshCodexTasks()
+
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: Self.codexTaskRefreshIntervalNanoseconds)
+                } catch {
+                    return
+                }
+                await self?.refreshCodexTasks()
+            }
+        }
+    }
+
+    func stopCodexTaskUpdates() {
+        codexTaskRefreshTask?.cancel()
+        codexTaskRefreshTask = nil
+        codexTaskOnDemandTask?.cancel()
+        codexTaskOnDemandTask = nil
+    }
+
+    func refreshCodexTasksSoon() {
+        codexTaskOnDemandTask?.cancel()
+        codexTaskOnDemandTask = Task { [weak self] in
+            await self?.refreshCodexTasks()
+        }
+    }
+
+    private func refreshCodexTasks() async {
+        guard !isRefreshingCodexTasks else { return }
+
+        isRefreshingCodexTasks = true
+        activeCodexTasks = await CodexTaskService.loadActiveTasks()
+        isRefreshingCodexTasks = false
     }
 
     func showCopyFeedback(badge: String, preview: String) {
@@ -223,6 +269,23 @@ final class PillViewModel: ObservableObject {
     func willShowHistory() {
         onWillShowHistory?()
         refreshUsageLimitsSoon()
+        refreshCodexTasksSoon()
+    }
+
+    func openCodexTask(_ task: CodexTask) {
+        guard let url = URL(string: "codex://threads/\(task.id)") else {
+            statusText = "Open failed"
+            diagnosticMessage = "Could not create a Codex task link."
+            return
+        }
+
+        if NSWorkspace.shared.open(url) {
+            statusText = "Opened Codex"
+            diagnosticMessage = "Opened \(task.workspaceName) in Codex"
+        } else {
+            statusText = "Codex not found"
+            diagnosticMessage = "Install the Codex app to open this task."
+        }
     }
 
     var orderedUsageLimitSnapshots: [UsageLimitSnapshot] {

@@ -141,6 +141,11 @@ struct PillView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .preferredColorScheme(.dark)
+        .onChange(of: viewModel.isExpanded) { _, isExpanded in
+            if isExpanded {
+                viewModel.refreshCodexTasksSoon()
+            }
+        }
     }
 }
 
@@ -374,77 +379,87 @@ struct ExpandedIslandView: View {
                     .zIndex(2)
             }
 
-            ExpandedIslandHeader(viewModel: viewModel)
-                .frame(height: 34)
-                .zIndex(1)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ExpandedIslandHeader(viewModel: viewModel)
+                        .frame(height: 34)
+                        .zIndex(1)
 
-            if let issue = viewModel.captureIssue {
-                CaptureIssuePanel(issue: issue, viewModel: viewModel)
-            } else if !historyItems.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 0) {
-                            Color.clear
-                                .frame(width: 0, height: 1)
-                                .id(Self.galleryLeadingAnchorID)
-                                .accessibilityHidden(true)
+                    if let issue = viewModel.captureIssue {
+                        CaptureIssuePanel(issue: issue, viewModel: viewModel)
+                    } else if !historyItems.isEmpty {
+                        ScrollViewReader { proxy in
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 0) {
+                                    Color.clear
+                                        .frame(width: 0, height: 1)
+                                        .id(Self.galleryLeadingAnchorID)
+                                        .accessibilityHidden(true)
 
-                            LazyHStack(spacing: 12) {
-                                ForEach(historyItems) { item in
-                                    Group {
-                                        switch item {
-                                        case let .screenshot(capture):
-                                            CaptureGalleryCard(
-                                                item: capture,
-                                                thumbnail: viewModel.thumbnail(for: capture),
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyImageItem(capture)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
+                                    LazyHStack(spacing: 12) {
+                                        ForEach(historyItems) { item in
+                                            Group {
+                                                switch item {
+                                                case let .screenshot(capture):
+                                                    CaptureGalleryCard(
+                                                        item: capture,
+                                                        thumbnail: viewModel.thumbnail(for: capture),
+                                                        isSelected: item.id == selectedID,
+                                                        onDragChanged: onDragChanged
+                                                    ) {
+                                                        viewModel.copyImageItem(capture)
+                                                    } deleteAction: {
+                                                        viewModel.delete(item)
+                                                    }
+                                                case let .text(textClip):
+                                                    TextClipGalleryCard(
+                                                        item: textClip,
+                                                        isSelected: item.id == selectedID,
+                                                        onDragChanged: onDragChanged
+                                                    ) {
+                                                        viewModel.copyTextItem(textClip)
+                                                    } deleteAction: {
+                                                        viewModel.delete(item)
+                                                    }
+                                                }
                                             }
-                                        case let .text(textClip):
-                                            TextClipGalleryCard(
-                                                item: textClip,
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyTextItem(textClip)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
-                                            }
+                                            .id(item.id)
                                         }
                                     }
-                                    .id(item.id)
+                                    .padding(.horizontal, Self.galleryClipInset)
                                 }
+                                .padding(.vertical, 1)
                             }
-                            .padding(.horizontal, Self.galleryClipInset)
+                            .onAppear {
+                                alignGalleryToLeadingEdge(proxy)
+                            }
+                            .onChange(of: historyItems.first?.id) { _, firstItemID in
+                                guard firstItemID != nil else { return }
+                                alignGalleryToLeadingEdge(proxy)
+                            }
                         }
-                        .padding(.vertical, 1)
-                    }
-                    .onAppear {
-                        alignGalleryToLeadingEdge(proxy)
-                    }
-                    .onChange(of: historyItems.first?.id) { _, firstItemID in
-                        guard firstItemID != nil else { return }
-                        alignGalleryToLeadingEdge(proxy)
+                    } else {
+                        VStack(alignment: .center, spacing: 10) {
+                            Text("No items yet")
+                                .font(.headline)
+
+                            Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            DebugActionsView(viewModel: viewModel)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        .multilineTextAlignment(.center)
                     }
                 }
-            } else {
-                VStack(alignment: .center, spacing: 10) {
-                    Text("No items yet")
-                        .font(.headline)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
-                    Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    DebugActionsView(viewModel: viewModel)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .multilineTextAlignment(.center)
+                CodexTaskList(viewModel: viewModel)
+                    .frame(width: 190)
+                    .frame(maxHeight: .infinity)
+                    .zIndex(3)
             }
         }
         .padding(.horizontal, 30)
@@ -465,6 +480,92 @@ struct ExpandedIslandView: View {
         align()
         DispatchQueue.main.async(execute: align)
     }
+}
+
+private struct CodexTaskList: View {
+    @ObservedObject var viewModel: PillViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                UsageProviderLogo(provider: .codex, size: 16)
+
+                Text("Codex tasks")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+
+                Spacer(minLength: 0)
+
+                if viewModel.isRefreshingCodexTasks {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white.opacity(0.62))
+                }
+            }
+
+            if viewModel.activeCodexTasks.isEmpty {
+                Text(viewModel.isRefreshingCodexTasks ? "Checking active tasks…" : "No active Codex tasks")
+                    .font(AssistFont.roundedFootnote(.medium))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else {
+                ForEach(viewModel.activeCodexTasks.prefix(3)) { task in
+                    CodexTaskCard(task: task) {
+                        viewModel.openCodexTask(task)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct CodexTaskCard: View {
+    let task: CodexTask
+    let openAction: () -> Void
+
+    var body: some View {
+        HStack(spacing: 5) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Text(task.workspaceName)
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.48))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: openAction) {
+                HugeIcon(.arrowUpRight, size: 12, color: .white.opacity(isHovered ? 0.96 : 0.66))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        Color.white.opacity(isHovered ? 0.12 : 0),
+                        in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Open task in Codex")
+            .accessibilityLabel("Open \(task.title) in Codex")
+            .pointingHandCursor()
+            .onHover { isHovered = $0 }
+        }
+        .padding(.leading, 9)
+        .padding(.trailing, 5)
+        .frame(maxWidth: .infinity, minHeight: 42)
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    @State private var isHovered = false
 }
 
 private struct UsageLimitDetailStrip: View {

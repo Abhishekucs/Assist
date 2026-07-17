@@ -21,6 +21,7 @@ enum HugeIconKind: String {
     case check
     case circle
     case close
+    case arrowUpRight = "arrow-up-right"
 
     var assetName: String { rawValue }
 }
