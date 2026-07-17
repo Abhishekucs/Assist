@@ -94,6 +94,22 @@ jobs:
           ASSIST_PID=$!
           trap 'kill "$ASSIST_PID" 2>/dev/null || true' EXIT
           sleep 6
+          ps -p "$ASSIST_PID" -o pid,stat,command
+          cat "$RUNNER_TEMP/assist.log"
+          cat > "$RUNNER_TEMP/list_windows.swift" <<'SWIFT'
+          import CoreGraphics
+          import Foundation
+
+          let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
+              as? [[String: Any]] ?? []
+          for window in windows {
+              let owner = window[kCGWindowOwnerName as String] as? String ?? ""
+              if owner.localizedCaseInsensitiveContains("Assist") {
+                  print(window)
+              }
+          }
+          SWIFT
+          swift "$RUNNER_TEMP/list_windows.swift"
 
           "$RUNNER_TEMP/move_mouse" island
           sleep 3
@@ -127,3 +143,4 @@ jobs:
           path: |
             codex-island.png
             codex-island.mp4
+            ${{ runner.temp }}/island-full.png
