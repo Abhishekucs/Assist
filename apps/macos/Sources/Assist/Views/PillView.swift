@@ -141,6 +141,11 @@ struct PillView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .preferredColorScheme(.dark)
+        .onChange(of: viewModel.isExpanded) { _, isExpanded in
+            if isExpanded {
+                viewModel.refreshCodexTasksSoon()
+            }
+        }
     }
 }
 
@@ -369,6 +374,10 @@ struct ExpandedIslandView: View {
         let selectedID = viewModel.selectedItem?.id
 
         VStack(alignment: .leading, spacing: 10) {
+            CodexTaskStrip(viewModel: viewModel)
+                .frame(height: 50)
+                .zIndex(3)
+
             if !usageLimitSnapshots.isEmpty {
                 UsageLimitDetailStrip(snapshots: usageLimitSnapshots)
                     .zIndex(2)
@@ -465,6 +474,97 @@ struct ExpandedIslandView: View {
         align()
         DispatchQueue.main.async(execute: align)
     }
+}
+
+private struct CodexTaskStrip: View {
+    @ObservedObject var viewModel: PillViewModel
+
+    var body: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                UsageProviderLogo(provider: .codex, size: 16)
+
+                Text("Codex")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+            .frame(width: 58, alignment: .leading)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.12))
+                .frame(width: 1, height: 26)
+
+            if viewModel.activeCodexTasks.isEmpty {
+                HStack(spacing: 7) {
+                    if viewModel.isRefreshingCodexTasks {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white.opacity(0.62))
+                    }
+
+                    Text(viewModel.isRefreshingCodexTasks ? "Checking active tasks…" : "No active Codex tasks")
+                        .font(AssistFont.roundedFootnote(.medium))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ForEach(viewModel.activeCodexTasks.prefix(3)) { task in
+                    CodexTaskCard(task: task) {
+                        viewModel.openCodexTask(task)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct CodexTaskCard: View {
+    let task: CodexTask
+    let openAction: () -> Void
+
+    var body: some View {
+        HStack(spacing: 5) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Text(task.workspaceName)
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.48))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: openAction) {
+                HugeIcon(.arrowUpRight, size: 12, color: .white.opacity(isHovered ? 0.96 : 0.66))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        Color.white.opacity(isHovered ? 0.12 : 0),
+                        in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Open task in Codex")
+            .accessibilityLabel("Open \(task.title) in Codex")
+            .pointingHandCursor()
+            .onHover { isHovered = $0 }
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 4)
+        .frame(maxWidth: .infinity, minHeight: 34)
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    @State private var isHovered = false
 }
 
 private struct UsageLimitDetailStrip: View {
