@@ -457,7 +457,8 @@ struct ExpandedIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                 CodexTaskList(viewModel: viewModel)
-                    .frame(width: 190, maxHeight: .infinity)
+                    .frame(width: 190)
+                    .frame(maxHeight: .infinity)
                     .zIndex(3)
             }
         }
