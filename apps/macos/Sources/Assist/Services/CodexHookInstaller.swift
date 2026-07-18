@@ -1,0 +1,187 @@
+import Darwin
+import Foundation
+
+enum CodexHookInstallerError: LocalizedError {
+    case invalidHooksFile
+    case missingExecutable
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidHooksFile:
+            "The existing Codex hooks.json file is not a JSON object. Assist left it unchanged."
+        case .missingExecutable:
+            "Assist could not locate its executable for the Codex hook."
+        }
+    }
+}
+
+struct CodexHookInstaller {
+    private static let commandMarker = "--codex-hook"
+    private static let managedEvents = [
+        "SessionStart",
+        "UserPromptSubmit",
+        "PermissionRequest",
+        "Stop"
+    ]
+
+    private let fileManager: FileManager
+    private let codexHome: URL
+
+    init(
+        fileManager: FileManager = .default,
+        codexHome: URL? = nil
+    ) {
+        self.fileManager = fileManager
+        self.codexHome = codexHome ?? Self.defaultCodexHome()
+    }
+
+    var hooksURL: URL {
+        codexHome.appendingPathComponent("hooks.json")
+    }
+
+    func isInstalled() -> Bool {
+        guard let root = try? loadRoot() else { return false }
+        return Self.managedEvents.allSatisfy { event in
+            guard let groups = (root["hooks"] as? [String: Any])?[event] as? [[String: Any]] else {
+                return false
+            }
+
+            return groups.contains { group in
+                guard let handlers = group["hooks"] as? [[String: Any]] else { return false }
+                return handlers.contains(where: Self.isAssistHandler)
+            }
+        }
+    }
+
+    func containsAssistHandlers() -> Bool {
+        guard let root = try? loadRoot(),
+              let hooks = root["hooks"] as? [String: Any] else {
+            return false
+        }
+
+        return hooks.values.contains { value in
+            guard let groups = value as? [[String: Any]] else { return false }
+            return groups.contains { group in
+                guard let handlers = group["hooks"] as? [[String: Any]] else { return false }
+                return handlers.contains(where: Self.isAssistHandler)
+            }
+        }
+    }
+
+    func install(executableURL: URL?) throws {
+        guard let executableURL else {
+            throw CodexHookInstallerError.missingExecutable
+        }
+
+        var root = try loadRoot()
+        var hooks = root["hooks"] as? [String: Any] ?? [:]
+        let command = "\(Self.shellQuote(executableURL.path)) \(Self.commandMarker)"
+
+        for event in Self.managedEvents {
+            if let existing = hooks[event], !(existing is [[String: Any]]) {
+                throw CodexHookInstallerError.invalidHooksFile
+            }
+            let existingGroups = hooks[event] as? [[String: Any]] ?? []
+            var groups = Self.removingAssistHandlers(from: existingGroups)
+            var handler: [String: Any] = [
+                "type": "command",
+                "command": command,
+                "timeout": event == "PermissionRequest" ? 600 : 5
+            ]
+
+            if event == "PermissionRequest" {
+                handler["statusMessage"] = "Waiting for approval in Assist"
+            }
+
+            var group: [String: Any] = ["hooks": [handler]]
+            if event == "PermissionRequest" {
+                group["matcher"] = "*"
+            }
+            groups.append(group)
+            hooks[event] = groups
+        }
+
+        root["hooks"] = hooks
+        try write(root)
+    }
+
+    func uninstall() throws {
+        guard fileManager.fileExists(atPath: hooksURL.path) else { return }
+
+        var root = try loadRoot()
+        guard var hooks = root["hooks"] as? [String: Any] else { return }
+
+        for event in Array(hooks.keys) {
+            let value = hooks[event]
+            guard let groups = value as? [[String: Any]] else { continue }
+            hooks[event] = Self.removingAssistHandlers(from: groups)
+        }
+
+        root["hooks"] = hooks
+        try write(root)
+    }
+
+    private func loadRoot() throws -> [String: Any] {
+        guard fileManager.fileExists(atPath: hooksURL.path) else { return [:] }
+
+        let data = try Data(contentsOf: hooksURL)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw CodexHookInstallerError.invalidHooksFile
+        }
+        if let hooks = root["hooks"], !(hooks is [String: Any]) {
+            throw CodexHookInstallerError.invalidHooksFile
+        }
+        return root
+    }
+
+    private func write(_ root: [String: Any]) throws {
+        try fileManager.createDirectory(
+            at: codexHome,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let data = try JSONSerialization.data(
+            withJSONObject: root,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        )
+        try data.write(to: hooksURL, options: .atomic)
+        _ = chmod(hooksURL.path, mode_t(0o600))
+    }
+
+    private static func removingAssistHandlers(from groups: [[String: Any]]) -> [[String: Any]] {
+        groups.compactMap { group in
+            guard let handlers = group["hooks"] as? [[String: Any]] else {
+                return group
+            }
+
+            let remainingHandlers = handlers.filter { !isAssistHandler($0) }
+            guard !remainingHandlers.isEmpty else { return nil }
+
+            var updatedGroup = group
+            updatedGroup["hooks"] = remainingHandlers
+            return updatedGroup
+        }
+    }
+
+    private static func isAssistHandler(_ handler: [String: Any]) -> Bool {
+        guard let command = handler["command"] as? String else { return false }
+        return command.contains(commandMarker)
+    }
+
+    private static func defaultCodexHome() -> URL {
+        if let path = ProcessInfo.processInfo.environment["CODEX_HOME"],
+           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return URL(
+                fileURLWithPath: (path as NSString).expandingTildeInPath,
+                isDirectory: true
+            )
+        }
+
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".codex", isDirectory: true)
+    }
+
+    private static func shellQuote(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
+    }
+}

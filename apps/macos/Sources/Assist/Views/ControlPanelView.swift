@@ -101,7 +101,7 @@ struct ControlPanelView: View {
     private var detailView: some View {
         switch selectedPage {
         case .general:
-            GeneralSettingsPane(settings: settings)
+            GeneralSettingsPane(settings: settings, viewModel: viewModel)
         case .appearance:
             AppearanceSettingsPane(settings: settings)
         case .capture:
@@ -815,12 +815,31 @@ private struct SettingsActionButton: View {
 
 private struct GeneralSettingsPane: View {
     @ObservedObject var settings: PillSettings
+    @ObservedObject var viewModel: PillViewModel
 
     var body: some View {
         SettingsDetailPage(
             title: "General",
-            subtitle: "Choose which rate limits appear on the island."
+            subtitle: "Connect coding agents and choose which rate limits appear on the island."
         ) {
+            SettingsSection("Codex agents") {
+                VStack(alignment: .leading, spacing: 0) {
+                    SettingToggleRow(
+                        title: "Show activity and approvals",
+                        detail: "Routes Codex Mac app permission requests to the island.",
+                        isOn: $settings.codexAgentIntegrationEnabled
+                    )
+
+                    RowDivider()
+
+                    SettingValueRow(
+                        title: "Connection",
+                        value: settings.codexAgentIntegrationEnabled ? "Enabled" : "Disabled",
+                        detail: viewModel.codexIntegrationStatusText
+                    )
+                }
+            }
+
             SettingsSection("Rate limits") {
                 VStack(alignment: .leading, spacing: 0) {
                     SettingToggleRow(
@@ -1036,14 +1055,30 @@ private struct StorageMetrics {
 
 private struct SettingToggleRow: View {
     let title: String
+    let detail: String?
     @Binding var isOn: Bool
     @Environment(\.assistTheme) private var theme
 
+    init(title: String, detail: String? = nil, isOn: Binding<Bool>) {
+        self.title = title
+        self.detail = detail
+        _isOn = isOn
+    }
+
     var body: some View {
         HStack(spacing: 16) {
-            Text(title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(theme.foreground)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(theme.foreground)
+
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
 
             Spacer(minLength: 16)
 
@@ -1054,7 +1089,8 @@ private struct SettingToggleRow: View {
                 .controlSize(.small)
                 .pointingHandCursor()
         }
-        .frame(height: 42)
+        .padding(.horizontal, 14)
+        .frame(minHeight: detail == nil ? 42 : 56)
     }
 }
 

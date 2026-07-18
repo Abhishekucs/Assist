@@ -170,6 +170,22 @@ If capture or the global gesture does not work after granting permissions, quit 
 
 The app does not block behind a permission gateway. Capture is attempted directly, and failures are reported through status text plus the debug log.
 
+## Codex Agent Integration
+
+Assist can show Codex Mac app activity and route Codex permission requests to
+the island.
+
+1. Open Assist settings.
+2. Under **General > Codex agents**, enable **Show activity and approvals**.
+3. Review and trust the new Assist hook in Codex when Codex prompts you. Start
+   a new Codex task if an already-open task does not pick up the hook.
+
+Assist merges its handlers into `~/.codex/hooks.json` without replacing other
+hooks. Disabling the setting removes only Assist handlers. Hook events travel
+over a user-only Unix socket in Assist's Application Support directory. If
+Assist is not running or does not answer, the hook returns no decision and
+Codex continues with its normal approval prompt.
+
 ## License Activation
 
 Debug builds open without activation. Release builds show an activation window

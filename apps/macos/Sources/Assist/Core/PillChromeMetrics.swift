@@ -9,6 +9,7 @@ enum PillChromeMetrics {
     static let copyFeedbackWidthBoost: CGFloat = 120
     static let compactExpandedHeight: CGFloat = 210
     static let rateLimitExpandedMinHeight: CGFloat = 300
+    static let agentApprovalExpandedMinHeight: CGFloat = 250
 
     static func collapsedSize(settings: PillSettings) -> CGSize {
         settings.collapsedSize
@@ -31,10 +32,16 @@ enum PillChromeMetrics {
         settings.expandedSize
     }
 
-    static func expandedSize(settings: PillSettings, showingRateLimits: Bool) -> CGSize {
+    static func expandedSize(
+        settings: PillSettings,
+        showingRateLimits: Bool,
+        showingAgentApproval: Bool = false
+    ) -> CGSize {
         var size = settings.expandedSize
 
-        if showingRateLimits {
+        if showingAgentApproval {
+            size.height = max(size.height, agentApprovalExpandedMinHeight)
+        } else if showingRateLimits {
             size.height = max(size.height, rateLimitExpandedMinHeight)
         } else {
             size.height = min(size.height, compactExpandedHeight)

@@ -34,6 +34,10 @@ final class WindowManager {
         Self.isShowingRateLimits(settings: settings)
     }
 
+    private var isShowingCodexApproval: Bool {
+        pillViewModel.hasPendingCodexApproval
+    }
+
     init(pillViewModel: PillViewModel, settings: PillSettings) {
         self.pillViewModel = pillViewModel
         self.settings = settings
@@ -103,6 +107,29 @@ final class WindowManager {
         ])
     }
 
+    func presentCodexApproval() {
+        collapseWorkItem?.cancel()
+        contentRevealWorkItem?.cancel()
+        collapsedRevealWorkItem?.cancel()
+        pillViewModel.isCollapsedContentVisible = false
+        setPillFrame(display: true)
+        pillPanel.orderFrontRegardless()
+
+        withAnimation(Metrics.islandAnimation) {
+            pillViewModel.isExpanded = true
+        }
+        pillViewModel.isExpandedContentVisible = true
+    }
+
+    func codexApprovalDidResolve() {
+        setPillFrame(display: true)
+        guard !isShowingCodexApproval,
+              !isPointerHoveringPillChrome else {
+            return
+        }
+        setPillHovering(false)
+    }
+
     private func configurePillPanel() {
         pillPanel.isOpaque = false
         pillPanel.backgroundColor = .clear
@@ -132,7 +159,8 @@ final class WindowManager {
             let chromeSize = self.pillViewModel.isExpanded
                 ? PillChromeMetrics.expandedSize(
                     settings: self.settings,
-                    showingRateLimits: self.isShowingRateLimits
+                    showingRateLimits: self.isShowingRateLimits,
+                    showingAgentApproval: self.isShowingCodexApproval
                 )
                 : PillChromeMetrics.collapsedSize(
                     settings: self.settings,
@@ -166,7 +194,8 @@ final class WindowManager {
         let frame = Self.topCenterFrame(
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
-                showingRateLimits: isShowingRateLimits
+                showingRateLimits: isShowingRateLimits,
+                showingAgentApproval: isShowingCodexApproval
             ),
             on: screenForCurrentPill()
         )
@@ -178,7 +207,8 @@ final class WindowManager {
         let expectedFrame = Self.topCenterFrame(
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
-                showingRateLimits: isShowingRateLimits
+                showingRateLimits: isShowingRateLimits,
+                showingAgentApproval: isShowingCodexApproval
             ),
             on: screenForCurrentPill()
         )
@@ -193,7 +223,8 @@ final class WindowManager {
                 Self.topCenterFrame(
                     windowSize: PillChromeMetrics.expandedSize(
                         settings: self.settings,
-                        showingRateLimits: self.isShowingRateLimits
+                        showingRateLimits: self.isShowingRateLimits,
+                        showingAgentApproval: self.isShowingCodexApproval
                     ),
                     on: self.screenForCurrentPill()
                 ),
@@ -210,6 +241,15 @@ final class WindowManager {
         collapsedRevealWorkItem?.cancel()
 
         guard !isDraggingFromPill else { return }
+
+        if !hovering, isShowingCodexApproval {
+            pillViewModel.isCollapsedContentVisible = false
+            pillViewModel.isExpanded = true
+            pillViewModel.isExpandedContentVisible = true
+            setPillFrame(display: true)
+            pillPanel.orderFrontRegardless()
+            return
+        }
 
         if hovering {
             guard settings.openOnHover else { return }
@@ -367,7 +407,8 @@ final class WindowManager {
         let targetFrame = Self.topCenterFrame(
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
-                showingRateLimits: isShowingRateLimits
+                showingRateLimits: isShowingRateLimits,
+                showingAgentApproval: isShowingCodexApproval
             ),
             on: pointerScreen
         )

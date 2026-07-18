@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 @preconcurrency import ScreenCaptureKit
 
 @MainActor
@@ -9,12 +10,16 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private let pillViewModel: PillViewModel
     private let monitor = ControlGestureMonitor()
     private let clipboardMonitor = ClipboardTextMonitor()
+    private let codexAgentBridge = CodexAgentBridgeService()
+    private let codexHookInstaller = CodexHookInstaller()
 
     private var activeScreen: NSScreen?
     private var activeStroke: Stroke?
     private var isCapturing = false
     private var annotationSessionID: UUID?
     private var debugOverlayWorkItems: [DispatchWorkItem] = []
+    private var codexIntegrationSettingsCancellable: AnyCancellable?
+    private var isCodexBridgeRunning = false
 
     init(
         windowManager: WindowManager,
@@ -52,6 +57,39 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         pillViewModel.onWillShowHistory = { [weak self] in
             self?.syncHistoryFromStore()
         }
+        pillViewModel.onResolveCodexApproval = { [weak self] approvalID, decision in
+            self?.codexAgentBridge.resolve(approvalID, decision: decision)
+            self?.windowManager.codexApprovalDidResolve()
+        }
+
+        codexAgentBridge.onEvent = { [weak self] event in
+            Task { @MainActor [weak self] in
+                self?.handleCodexHookEvent(event)
+            }
+        }
+        codexAgentBridge.onApprovalExpired = { [weak self] approvalID in
+            Task { @MainActor [weak self] in
+                self?.pillViewModel.expireCodexApproval(approvalID)
+                self?.windowManager.codexApprovalDidResolve()
+            }
+        }
+        do {
+            try codexAgentBridge.start()
+            isCodexBridgeRunning = true
+        } catch {
+            isCodexBridgeRunning = false
+            pillViewModel.setCodexIntegrationStatus("Bridge unavailable: \(error.localizedDescription)")
+            DebugLogger.log("codex.bridge.start.error", errorFields(error))
+        }
+
+        codexIntegrationSettingsCancellable = pillViewModel.settings
+            .$codexAgentIntegrationEnabled
+            .removeDuplicates()
+            .sink { [weak self] isEnabled in
+                Task { @MainActor [weak self] in
+                    self?.configureCodexIntegration(isEnabled: isEnabled)
+                }
+            }
 
         syncHistoryFromStore()
         pillViewModel.clearCaptureIssue()
@@ -74,6 +112,50 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         monitor.stop()
         clipboardMonitor.stop()
         pillViewModel.stopUsageLimitUpdates()
+        codexIntegrationSettingsCancellable?.cancel()
+        codexIntegrationSettingsCancellable = nil
+        codexAgentBridge.stop()
+        isCodexBridgeRunning = false
+    }
+
+    private func handleCodexHookEvent(_ event: CodexHookEvent) {
+        guard pillViewModel.settings.codexAgentIntegrationEnabled else {
+            if let approvalID = event.approvalID {
+                codexAgentBridge.declineToDecide(approvalID)
+            }
+            return
+        }
+
+        pillViewModel.setCodexIntegrationStatus("Active with Codex")
+        pillViewModel.receiveCodexHookEvent(event)
+        if event.isPermissionRequest {
+            windowManager.presentCodexApproval()
+        }
+    }
+
+    private func configureCodexIntegration(isEnabled: Bool) {
+        do {
+            if isEnabled {
+                try codexHookInstaller.install(executableURL: Bundle.main.executableURL)
+                let status = isCodexBridgeRunning
+                    ? "Connected. Trust the Assist hook in Codex if prompted."
+                    : "Hook installed, but the local Assist bridge is unavailable."
+                pillViewModel.setCodexIntegrationStatus(status)
+                DebugLogger.log("codex.integration.enabled")
+            } else {
+                if codexHookInstaller.containsAssistHandlers() {
+                    try codexHookInstaller.uninstall()
+                }
+                codexAgentBridge.declineToDecideAll()
+                pillViewModel.clearCodexAgentState()
+                windowManager.codexApprovalDidResolve()
+                pillViewModel.setCodexIntegrationStatus("Not connected")
+                DebugLogger.log("codex.integration.disabled")
+            }
+        } catch {
+            pillViewModel.setCodexIntegrationStatus(error.localizedDescription)
+            DebugLogger.log("codex.integration.configure.error", errorFields(error))
+        }
     }
 
     func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String) {

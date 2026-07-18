@@ -1,5 +1,9 @@
 import AppKit
 
+if CommandLine.arguments.contains(CodexHookIPC.commandLineFlag) {
+    exit(CodexHookCommand.run())
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 

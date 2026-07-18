@@ -25,7 +25,8 @@ struct PillView: View {
     private var expandedSize: CGSize {
         PillChromeMetrics.expandedSize(
             settings: settings,
-            showingRateLimits: !visibleUsageLimitSnapshots.isEmpty
+            showingRateLimits: !visibleUsageLimitSnapshots.isEmpty,
+            showingAgentApproval: viewModel.hasPendingCodexApproval
         )
     }
 
@@ -157,7 +158,9 @@ private struct CollapsedIslandHeader: View {
             AssistLogo(size: 16)
                 .help(AppIdentity.name)
 
-            if let feedback = viewModel.copyFeedback {
+            if let approval = viewModel.primaryCodexApproval {
+                CodexApprovalCollapsedRow(approval: approval, viewModel: viewModel)
+            } else if let feedback = viewModel.copyFeedback {
                 CopyFeedbackRow(feedback: feedback)
                     .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
                     .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
@@ -166,6 +169,9 @@ private struct CollapsedIslandHeader: View {
                             .combined(with: .scale(scale: 0.96))
                             .animation(.easeOut(duration: 0.16))
                     )
+            } else if viewModel.settings.codexAgentIntegrationEnabled,
+                      let session = viewModel.displayedCodexSession {
+                CodexAgentCollapsedRow(session: session)
             } else if !usageLimitSnapshots.isEmpty {
                 UsageLimitCollapsedOverview(
                     snapshots: usageLimitSnapshots,
@@ -183,6 +189,78 @@ private struct CollapsedIslandHeader: View {
         .padding(.horizontal, 18)
         .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
         .animation(copyFeedbackContentAnimation, value: viewModel.isCopyFeedbackVisible)
+    }
+}
+
+private struct CodexApprovalCollapsedRow: View {
+    let approval: CodexApprovalRequest
+    @ObservedObject var viewModel: PillViewModel
+
+    var body: some View {
+        HStack(spacing: 7) {
+            UsageProviderLogo(provider: .codex, size: 14)
+
+            Text("Permission · \(approval.projectName)")
+                .font(AssistFont.roundedFootnote(.semibold))
+                .foregroundStyle(.white.opacity(0.92))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                viewModel.resolveCodexApproval(approval.id, decision: .deny)
+            } label: {
+                HugeIcon(.close, size: 9, color: .white.opacity(0.82))
+                    .frame(width: 21, height: 21)
+                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("Deny Codex request")
+            .accessibilityLabel("Deny Codex request")
+
+            Button {
+                viewModel.resolveCodexApproval(approval.id, decision: .allow)
+            } label: {
+                HugeIcon(.check, size: 10, color: .black.opacity(0.86))
+                    .frame(width: 21, height: 21)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("Allow Codex request")
+            .accessibilityLabel("Allow Codex request")
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct CodexAgentCollapsedRow: View {
+    let session: CodexAgentSession
+
+    var body: some View {
+        HStack(spacing: 7) {
+            UsageProviderLogo(provider: .codex, size: 14)
+
+            Text(session.projectName)
+                .font(AssistFont.roundedFootnote(.semibold))
+                .foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1)
+
+            Text("·")
+                .foregroundStyle(.white.opacity(0.38))
+
+            Text(session.activity.displayName)
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(session.activity == .completed ? Color.green.opacity(0.9) : .white.opacity(0.68))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            if session.activity == .working {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(.white.opacity(0.78))
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -369,82 +447,90 @@ struct ExpandedIslandView: View {
         let selectedID = viewModel.selectedItem?.id
 
         VStack(alignment: .leading, spacing: 10) {
-            if !usageLimitSnapshots.isEmpty {
-                UsageLimitDetailStrip(snapshots: usageLimitSnapshots)
-                    .zIndex(2)
-            }
+            if let approval = viewModel.primaryCodexApproval {
+                CodexApprovalPanel(
+                    approval: approval,
+                    queuedCount: viewModel.pendingCodexApprovals.count,
+                    viewModel: viewModel
+                )
+            } else {
+                if !usageLimitSnapshots.isEmpty {
+                    UsageLimitDetailStrip(snapshots: usageLimitSnapshots)
+                        .zIndex(2)
+                }
 
-            ExpandedIslandHeader(viewModel: viewModel)
-                .frame(height: 34)
-                .zIndex(1)
+                ExpandedIslandHeader(viewModel: viewModel)
+                    .frame(height: 34)
+                    .zIndex(1)
 
-            if let issue = viewModel.captureIssue {
-                CaptureIssuePanel(issue: issue, viewModel: viewModel)
-            } else if !historyItems.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 0) {
-                            Color.clear
-                                .frame(width: 0, height: 1)
-                                .id(Self.galleryLeadingAnchorID)
-                                .accessibilityHidden(true)
+                if let issue = viewModel.captureIssue {
+                    CaptureIssuePanel(issue: issue, viewModel: viewModel)
+                } else if !historyItems.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 0) {
+                                Color.clear
+                                    .frame(width: 0, height: 1)
+                                    .id(Self.galleryLeadingAnchorID)
+                                    .accessibilityHidden(true)
 
-                            LazyHStack(spacing: 12) {
-                                ForEach(historyItems) { item in
-                                    Group {
-                                        switch item {
-                                        case let .screenshot(capture):
-                                            CaptureGalleryCard(
-                                                item: capture,
-                                                thumbnail: viewModel.thumbnail(for: capture),
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyImageItem(capture)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
-                                            }
-                                        case let .text(textClip):
-                                            TextClipGalleryCard(
-                                                item: textClip,
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyTextItem(textClip)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
+                                LazyHStack(spacing: 12) {
+                                    ForEach(historyItems) { item in
+                                        Group {
+                                            switch item {
+                                            case let .screenshot(capture):
+                                                CaptureGalleryCard(
+                                                    item: capture,
+                                                    thumbnail: viewModel.thumbnail(for: capture),
+                                                    isSelected: item.id == selectedID,
+                                                    onDragChanged: onDragChanged
+                                                ) {
+                                                    viewModel.copyImageItem(capture)
+                                                } deleteAction: {
+                                                    viewModel.delete(item)
+                                                }
+                                            case let .text(textClip):
+                                                TextClipGalleryCard(
+                                                    item: textClip,
+                                                    isSelected: item.id == selectedID,
+                                                    onDragChanged: onDragChanged
+                                                ) {
+                                                    viewModel.copyTextItem(textClip)
+                                                } deleteAction: {
+                                                    viewModel.delete(item)
+                                                }
                                             }
                                         }
+                                        .id(item.id)
                                     }
-                                    .id(item.id)
                                 }
+                                .padding(.horizontal, Self.galleryClipInset)
                             }
-                            .padding(.horizontal, Self.galleryClipInset)
+                            .padding(.vertical, 1)
                         }
-                        .padding(.vertical, 1)
+                        .onAppear {
+                            alignGalleryToLeadingEdge(proxy)
+                        }
+                        .onChange(of: historyItems.first?.id) { _, firstItemID in
+                            guard firstItemID != nil else { return }
+                            alignGalleryToLeadingEdge(proxy)
+                        }
                     }
-                    .onAppear {
-                        alignGalleryToLeadingEdge(proxy)
-                    }
-                    .onChange(of: historyItems.first?.id) { _, firstItemID in
-                        guard firstItemID != nil else { return }
-                        alignGalleryToLeadingEdge(proxy)
-                    }
-                }
-            } else {
-                VStack(alignment: .center, spacing: 10) {
-                    Text("No items yet")
-                        .font(.headline)
+                } else {
+                    VStack(alignment: .center, spacing: 10) {
+                        Text("No items yet")
+                            .font(.headline)
 
-                    Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                    DebugActionsView(viewModel: viewModel)
+                        DebugActionsView(viewModel: viewModel)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .multilineTextAlignment(.center)
             }
         }
         .padding(.horizontal, 30)
@@ -464,6 +550,90 @@ struct ExpandedIslandView: View {
 
         align()
         DispatchQueue.main.async(execute: align)
+    }
+}
+
+private struct CodexApprovalPanel: View {
+    let approval: CodexApprovalRequest
+    let queuedCount: Int
+    @ObservedObject var viewModel: PillViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 9) {
+                UsageProviderLogo(provider: .codex, size: 18)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Codex needs permission")
+                        .font(AssistFont.roundedHeadline())
+                        .foregroundStyle(.white.opacity(0.94))
+
+                    Text("\(approval.projectName) · \(approval.toolDisplayName)")
+                        .font(AssistFont.roundedFootnote(.medium))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                if queuedCount > 1 {
+                    Text("\(queuedCount) queued")
+                        .font(AssistFont.roundedFootnote(.semibold))
+                        .foregroundStyle(.white.opacity(0.68))
+                        .padding(.horizontal, 9)
+                        .frame(height: 22)
+                        .background(Color.white.opacity(0.08), in: Capsule())
+                }
+            }
+
+            if let reason = approval.reason,
+               !reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(reason)
+                    .font(AssistFont.roundedFootnote(.medium))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(2)
+            }
+
+            ScrollView(.vertical, showsIndicators: true) {
+                Text(approval.commandPreview)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.86))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(11)
+            }
+            .frame(maxWidth: .infinity, minHeight: 58, maxHeight: 88)
+            .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            HStack(spacing: 10) {
+                Spacer()
+
+                Button("Deny") {
+                    viewModel.resolveCodexApproval(approval.id, decision: .deny)
+                }
+                .buttonStyle(.plain)
+                .font(AssistFont.roundedFootnote(.semibold))
+                .foregroundStyle(.white.opacity(0.88))
+                .padding(.horizontal, 15)
+                .frame(height: 32)
+                .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .keyboardShortcut(.escape, modifiers: [])
+
+                Button("Allow") {
+                    viewModel.resolveCodexApproval(approval.id, decision: .allow)
+                }
+                .buttonStyle(.plain)
+                .font(AssistFont.roundedFootnote(.bold))
+                .foregroundStyle(.black.opacity(0.88))
+                .padding(.horizontal, 17)
+                .frame(height: 32)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .keyboardShortcut(.return, modifiers: [])
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Codex permission request for \(approval.projectName)")
     }
 }
 

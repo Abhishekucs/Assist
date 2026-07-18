@@ -23,12 +23,16 @@ final class PillViewModel: ObservableObject {
     @Published var updateStatusText: String?
     @Published private(set) var usageLimitSnapshots: [UsageLimitProvider: UsageLimitSnapshot] = PillViewModel.emptyUsageLimitSnapshots()
     @Published private(set) var isRefreshingUsageLimits = false
+    @Published private(set) var codexAgentSessions: [String: CodexAgentSession] = [:]
+    @Published private(set) var pendingCodexApprovals: [CodexApprovalRequest] = []
+    @Published private(set) var codexIntegrationStatusText = "Not connected"
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
     private var copyFeedbackClearWorkItem: DispatchWorkItem?
     private let updateService = AppUpdateService()
     private var usageLimitRefreshTask: Task<Void, Never>?
     private var usageLimitOnDemandTask: Task<Void, Never>?
+    private var codexSessionDismissWorkItems: [String: DispatchWorkItem] = [:]
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
     private static let usageLimitRefreshIntervalNanoseconds: UInt64 = 180_000_000_000
@@ -39,6 +43,7 @@ final class PillViewModel: ObservableObject {
     var onWillWritePasteboard: (() -> Void)?
     var onDeleteHistoryItem: ((ClipboardHistoryItem) -> Void)?
     var onWillShowHistory: (() -> Void)?
+    var onResolveCodexApproval: ((UUID, CodexApprovalDecision) -> Void)?
 
     init(settings: PillSettings) {
         self.settings = settings
@@ -85,6 +90,129 @@ final class PillViewModel: ObservableObject {
             uniqueKeysWithValues: snapshots.map { ($0.provider, $0) }
         )
         isRefreshingUsageLimits = false
+    }
+
+    func receiveCodexHookEvent(_ event: CodexHookEvent) {
+        codexSessionDismissWorkItems[event.sessionID]?.cancel()
+        codexSessionDismissWorkItems.removeValue(forKey: event.sessionID)
+
+        let activity: CodexAgentActivity
+        switch event.name {
+        case "SessionStart":
+            activity = .idle
+        case "UserPromptSubmit":
+            activity = .working
+        case "PermissionRequest":
+            activity = .waitingForApproval
+        case "Stop":
+            activity = .completed
+        default:
+            activity = codexAgentSessions[event.sessionID]?.activity ?? .working
+        }
+
+        codexAgentSessions[event.sessionID] = CodexAgentSession(
+            id: event.sessionID,
+            cwd: event.cwd,
+            model: event.model,
+            turnID: event.turnID,
+            activity: activity,
+            updatedAt: Date()
+        )
+
+        if event.isPermissionRequest,
+           let approvalID = event.approvalID,
+           let toolName = event.toolName {
+            let request = CodexApprovalRequest(
+                id: approvalID,
+                sessionID: event.sessionID,
+                turnID: event.turnID,
+                cwd: event.cwd,
+                model: event.model,
+                toolName: toolName,
+                commandPreview: event.commandPreview ?? "Codex requested additional permission.",
+                reason: event.reason,
+                receivedAt: Date()
+            )
+            pendingCodexApprovals.removeAll { $0.id == request.id }
+            pendingCodexApprovals.append(request)
+        }
+
+        if event.name == "Stop" {
+            scheduleCodexSessionDismissal(event.sessionID)
+        }
+    }
+
+    func resolveCodexApproval(_ approvalID: UUID, decision: CodexApprovalDecision) {
+        guard let request = pendingCodexApprovals.first(where: { $0.id == approvalID }) else {
+            return
+        }
+
+        pendingCodexApprovals.removeAll { $0.id == approvalID }
+        if !pendingCodexApprovals.contains(where: { $0.sessionID == request.sessionID }),
+           var session = codexAgentSessions[request.sessionID] {
+            session.activity = .working
+            session.updatedAt = Date()
+            codexAgentSessions[request.sessionID] = session
+        }
+        onResolveCodexApproval?(approvalID, decision)
+    }
+
+    func expireCodexApproval(_ approvalID: UUID) {
+        guard let request = pendingCodexApprovals.first(where: { $0.id == approvalID }) else {
+            return
+        }
+
+        pendingCodexApprovals.removeAll { $0.id == approvalID }
+        if !pendingCodexApprovals.contains(where: { $0.sessionID == request.sessionID }),
+           var session = codexAgentSessions[request.sessionID] {
+            session.activity = .working
+            session.updatedAt = Date()
+            codexAgentSessions[request.sessionID] = session
+        }
+    }
+
+    func setCodexIntegrationStatus(_ text: String) {
+        codexIntegrationStatusText = text
+    }
+
+    func clearCodexAgentState() {
+        codexSessionDismissWorkItems.values.forEach { $0.cancel() }
+        codexSessionDismissWorkItems.removeAll()
+        pendingCodexApprovals.removeAll()
+        codexAgentSessions.removeAll()
+    }
+
+    var primaryCodexApproval: CodexApprovalRequest? {
+        pendingCodexApprovals.sorted { $0.receivedAt < $1.receivedAt }.first
+    }
+
+    var displayedCodexSession: CodexAgentSession? {
+        if let approval = primaryCodexApproval,
+           let session = codexAgentSessions[approval.sessionID] {
+            return session
+        }
+
+        return codexAgentSessions.values
+            .filter { $0.activity != .idle }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .first
+    }
+
+    var hasPendingCodexApproval: Bool {
+        primaryCodexApproval != nil
+    }
+
+    private func scheduleCodexSessionDismissal(_ sessionID: String) {
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.codexAgentSessions[sessionID]?.activity == .completed else {
+                return
+            }
+            self.codexAgentSessions.removeValue(forKey: sessionID)
+            self.codexSessionDismissWorkItems.removeValue(forKey: sessionID)
+        }
+        codexSessionDismissWorkItems[sessionID] = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: workItem)
     }
 
     func showCopyFeedback(badge: String, preview: String) {
