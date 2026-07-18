@@ -180,11 +180,21 @@ final class CodexAgentBridgeService: @unchecked Sendable {
             turnID: object["turn_id"] as? String,
             cwd: cwd,
             model: object["model"] as? String,
+            taskSummary: Self.taskSummary(from: object["prompt"] as? String),
             toolName: toolName,
             commandPreview: commandPreview,
             reason: reason,
             approvalID: name == "PermissionRequest" ? UUID() : nil
         )
+    }
+
+    private static func taskSummary(from prompt: String?) -> String? {
+        guard let prompt else { return nil }
+        let collapsed = prompt
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        guard !collapsed.isEmpty else { return nil }
+        return String(collapsed.prefix(120))
     }
 
     private static func commandPreview(toolInput: [String: Any]?) -> String? {

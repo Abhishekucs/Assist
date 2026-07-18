@@ -173,7 +173,8 @@ The app does not block behind a permission gateway. Capture is attempted directl
 ## Codex Agent Integration
 
 Assist can show Codex Mac app activity and route Codex permission requests to
-the island.
+the island. Hovering the island shows up to three active tasks in an
+urgency-sorted vertical stack, including each task's prompt summary and state.
 
 1. Open Assist settings.
 2. Under **General > Codex agents**, enable **Show activity and approvals**.

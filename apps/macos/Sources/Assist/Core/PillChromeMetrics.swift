@@ -10,6 +10,8 @@ enum PillChromeMetrics {
     static let compactExpandedHeight: CGFloat = 210
     static let rateLimitExpandedMinHeight: CGFloat = 300
     static let agentApprovalExpandedMinHeight: CGFloat = 250
+    static let agentTasksExpandedBaseHeight: CGFloat = 280
+    static let agentTaskRowHeightBoost: CGFloat = 40
 
     static func collapsedSize(settings: PillSettings) -> CGSize {
         settings.collapsedSize
@@ -35,14 +37,20 @@ enum PillChromeMetrics {
     static func expandedSize(
         settings: PillSettings,
         showingRateLimits: Bool,
-        showingAgentApproval: Bool = false
+        showingAgentApproval: Bool = false,
+        agentTaskCount: Int = 0
     ) -> CGSize {
         var size = settings.expandedSize
 
-        if showingAgentApproval {
-            size.height = max(size.height, agentApprovalExpandedMinHeight)
+        let visibleTaskCount = min(max(agentTaskCount, 0), 3)
+        if visibleTaskCount > 0 {
+            let taskHeight = agentTasksExpandedBaseHeight
+                + CGFloat(visibleTaskCount - 1) * agentTaskRowHeightBoost
+            size.height = max(size.height, min(taskHeight, PillSettings.Defaults.expandedHeightRange.upperBound))
         } else if showingRateLimits {
             size.height = max(size.height, rateLimitExpandedMinHeight)
+        } else if showingAgentApproval {
+            size.height = max(size.height, agentApprovalExpandedMinHeight)
         } else {
             size.height = min(size.height, compactExpandedHeight)
         }

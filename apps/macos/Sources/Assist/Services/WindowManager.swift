@@ -38,6 +38,10 @@ final class WindowManager {
         pillViewModel.hasPendingCodexApproval
     }
 
+    private var visibleCodexTaskCount: Int {
+        pillViewModel.visibleCodexTaskSessions.count
+    }
+
     init(pillViewModel: PillViewModel, settings: PillSettings) {
         self.pillViewModel = pillViewModel
         self.settings = settings
@@ -160,7 +164,8 @@ final class WindowManager {
                 ? PillChromeMetrics.expandedSize(
                     settings: self.settings,
                     showingRateLimits: self.isShowingRateLimits,
-                    showingAgentApproval: self.isShowingCodexApproval
+                    showingAgentApproval: self.isShowingCodexApproval,
+                    agentTaskCount: self.visibleCodexTaskCount
                 )
                 : PillChromeMetrics.collapsedSize(
                     settings: self.settings,
@@ -195,7 +200,8 @@ final class WindowManager {
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingCodexApproval
+                showingAgentApproval: isShowingCodexApproval,
+                agentTaskCount: visibleCodexTaskCount
             ),
             on: screenForCurrentPill()
         )
@@ -208,7 +214,8 @@ final class WindowManager {
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingCodexApproval
+                showingAgentApproval: isShowingCodexApproval,
+                agentTaskCount: visibleCodexTaskCount
             ),
             on: screenForCurrentPill()
         )
@@ -224,7 +231,8 @@ final class WindowManager {
                     windowSize: PillChromeMetrics.expandedSize(
                         settings: self.settings,
                         showingRateLimits: self.isShowingRateLimits,
-                        showingAgentApproval: self.isShowingCodexApproval
+                        showingAgentApproval: self.isShowingCodexApproval,
+                        agentTaskCount: self.visibleCodexTaskCount
                     ),
                     on: self.screenForCurrentPill()
                 ),
@@ -408,7 +416,8 @@ final class WindowManager {
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingCodexApproval
+                showingAgentApproval: isShowingCodexApproval,
+                agentTaskCount: visibleCodexTaskCount
             ),
             on: pointerScreen
         )

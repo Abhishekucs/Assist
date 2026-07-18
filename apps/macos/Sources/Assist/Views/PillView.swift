@@ -26,7 +26,8 @@ struct PillView: View {
         PillChromeMetrics.expandedSize(
             settings: settings,
             showingRateLimits: !visibleUsageLimitSnapshots.isEmpty,
-            showingAgentApproval: viewModel.hasPendingCodexApproval
+            showingAgentApproval: viewModel.hasPendingCodexApproval,
+            agentTaskCount: viewModel.visibleCodexTaskSessions.count
         )
     }
 
@@ -445,8 +446,16 @@ struct ExpandedIslandView: View {
     var body: some View {
         let historyItems = Array(viewModel.historyItems.prefix(24))
         let selectedID = viewModel.selectedItem?.id
+        let codexTasks = viewModel.visibleCodexTaskSessions
 
         VStack(alignment: .leading, spacing: 10) {
+            if !codexTasks.isEmpty {
+                CodexTaskStack(
+                    sessions: codexTasks,
+                    hiddenCount: viewModel.hiddenCodexTaskCount
+                )
+            }
+
             if let approval = viewModel.primaryCodexApproval {
                 CodexApprovalPanel(
                     approval: approval,
@@ -454,7 +463,7 @@ struct ExpandedIslandView: View {
                     viewModel: viewModel
                 )
             } else {
-                if !usageLimitSnapshots.isEmpty {
+                if codexTasks.isEmpty, !usageLimitSnapshots.isEmpty {
                     UsageLimitDetailStrip(snapshots: usageLimitSnapshots)
                         .zIndex(2)
                 }
@@ -553,26 +562,140 @@ struct ExpandedIslandView: View {
     }
 }
 
+private struct CodexTaskStack: View {
+    let sessions: [CodexAgentSession]
+    let hiddenCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("Codex tasks")
+                    .font(AssistFont.roundedFootnote(.semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+
+                Spacer(minLength: 8)
+
+                if hiddenCount > 0 {
+                    Text("+\(hiddenCount) more")
+                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.58))
+                }
+            }
+
+            VStack(spacing: 5) {
+                ForEach(sessions) { session in
+                    CodexTaskRow(session: session)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Active Codex tasks")
+    }
+}
+
+private struct CodexTaskRow: View {
+    let session: CodexAgentSession
+
+    private var accentColor: Color {
+        switch session.activity {
+        case .waitingForApproval:
+            Color(red: 1, green: 0.68, blue: 0.22)
+        case .working:
+            Color.white.opacity(0.82)
+        case .completed:
+            Color(red: 0.28, green: 0.82, blue: 0.5)
+        case .idle:
+            Color.white.opacity(0.34)
+        }
+    }
+
+    private var detailText: String {
+        session.taskSummary ?? session.model ?? "Codex task"
+    }
+
+    var body: some View {
+        HStack(spacing: 9) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(accentColor)
+                .frame(width: 3, height: 23)
+
+            UsageProviderLogo(provider: .codex, size: 14)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(session.projectName)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.91))
+                    .lineLimit(1)
+
+                Text(detailText)
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.48))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            CodexTaskStatus(activity: session.activity, color: accentColor)
+        }
+        .padding(.horizontal, 9)
+        .frame(height: 38)
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(session.projectName), \(session.activity.displayName), \(detailText)")
+    }
+}
+
+private struct CodexTaskStatus: View {
+    let activity: CodexAgentActivity
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if activity == .working {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(color)
+            } else if activity == .completed {
+                HugeIcon(.check, size: 9, color: color)
+            } else {
+                Circle()
+                    .fill(color)
+                    .frame(width: 6, height: 6)
+            }
+
+            Text(statusText)
+                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(color)
+        }
+        .fixedSize()
+    }
+
+    private var statusText: String {
+        switch activity {
+        case .waitingForApproval:
+            "Approval"
+        case .working:
+            "Working"
+        case .completed:
+            "Done"
+        case .idle:
+            "Ready"
+        }
+    }
+}
+
 private struct CodexApprovalPanel: View {
     let approval: CodexApprovalRequest
     let queuedCount: Int
     @ObservedObject var viewModel: PillViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 9) {
-                UsageProviderLogo(provider: .codex, size: 18)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Codex needs permission")
-                        .font(AssistFont.roundedHeadline())
-                        .foregroundStyle(.white.opacity(0.94))
-
-                    Text("\(approval.projectName) · \(approval.toolDisplayName)")
-                        .font(AssistFont.roundedFootnote(.medium))
-                        .foregroundStyle(.white.opacity(0.58))
-                        .lineLimit(1)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text("Permission request")
+                    .font(AssistFont.roundedFootnote(.semibold))
+                    .foregroundStyle(.white.opacity(0.78))
 
                 Spacer(minLength: 8)
 
@@ -602,7 +725,7 @@ private struct CodexApprovalPanel: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(11)
             }
-            .frame(maxWidth: .infinity, minHeight: 58, maxHeight: 88)
+            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 64)
             .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             HStack(spacing: 10) {
@@ -615,7 +738,7 @@ private struct CodexApprovalPanel: View {
                 .font(AssistFont.roundedFootnote(.semibold))
                 .foregroundStyle(.white.opacity(0.88))
                 .padding(.horizontal, 15)
-                .frame(height: 32)
+                .frame(height: 30)
                 .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .keyboardShortcut(.escape, modifiers: [])
 
@@ -626,7 +749,7 @@ private struct CodexApprovalPanel: View {
                 .font(AssistFont.roundedFootnote(.bold))
                 .foregroundStyle(.black.opacity(0.88))
                 .padding(.horizontal, 17)
-                .frame(height: 32)
+                .frame(height: 30)
                 .background(Color.white, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .keyboardShortcut(.return, modifiers: [])
             }

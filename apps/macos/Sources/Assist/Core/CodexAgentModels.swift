@@ -18,6 +18,19 @@ enum CodexAgentActivity: String, Sendable {
             "Completed"
         }
     }
+
+    var taskSortPriority: Int {
+        switch self {
+        case .waitingForApproval:
+            0
+        case .working:
+            1
+        case .completed:
+            2
+        case .idle:
+            3
+        }
+    }
 }
 
 struct CodexAgentSession: Identifiable, Equatable, Sendable {
@@ -25,6 +38,7 @@ struct CodexAgentSession: Identifiable, Equatable, Sendable {
     var cwd: String
     var model: String?
     var turnID: String?
+    var taskSummary: String?
     var activity: CodexAgentActivity
     var updatedAt: Date
 
@@ -73,6 +87,7 @@ struct CodexHookEvent: Sendable {
     let turnID: String?
     let cwd: String
     let model: String?
+    let taskSummary: String?
     let toolName: String?
     let commandPreview: String?
     let reason: String?

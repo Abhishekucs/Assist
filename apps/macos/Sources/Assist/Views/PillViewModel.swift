@@ -115,6 +115,7 @@ final class PillViewModel: ObservableObject {
             cwd: event.cwd,
             model: event.model,
             turnID: event.turnID,
+            taskSummary: event.taskSummary ?? codexAgentSessions[event.sessionID]?.taskSummary,
             activity: activity,
             updatedAt: Date()
         )
@@ -187,15 +188,26 @@ final class PillViewModel: ObservableObject {
     }
 
     var displayedCodexSession: CodexAgentSession? {
-        if let approval = primaryCodexApproval,
-           let session = codexAgentSessions[approval.sessionID] {
-            return session
-        }
+        visibleCodexTaskSessions.first
+    }
 
-        return codexAgentSessions.values
+    var activeCodexTaskSessions: [CodexAgentSession] {
+        codexAgentSessions.values
             .filter { $0.activity != .idle }
-            .sorted { $0.updatedAt > $1.updatedAt }
-            .first
+            .sorted { lhs, rhs in
+                if lhs.activity.taskSortPriority != rhs.activity.taskSortPriority {
+                    return lhs.activity.taskSortPriority < rhs.activity.taskSortPriority
+                }
+                return lhs.updatedAt > rhs.updatedAt
+            }
+    }
+
+    var visibleCodexTaskSessions: [CodexAgentSession] {
+        Array(activeCodexTaskSessions.prefix(3))
+    }
+
+    var hiddenCodexTaskCount: Int {
+        max(0, activeCodexTaskSessions.count - visibleCodexTaskSessions.count)
     }
 
     var hasPendingCodexApproval: Bool {
