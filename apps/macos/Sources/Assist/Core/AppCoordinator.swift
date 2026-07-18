@@ -61,6 +61,9 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             self?.codexAgentBridge.resolve(approvalID, decision: decision)
             self?.windowManager.codexApprovalDidResolve()
         }
+        pillViewModel.onCodexAgentStateChange = { [weak self] in
+            self?.windowManager.codexAgentStateDidChange()
+        }
 
         codexAgentBridge.onEvent = { [weak self] event in
             Task { @MainActor [weak self] in

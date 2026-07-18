@@ -134,6 +134,10 @@ final class WindowManager {
         setPillHovering(false)
     }
 
+    func codexAgentStateDidChange() {
+        setPillFrame(display: true)
+    }
+
     private func configurePillPanel() {
         pillPanel.isOpaque = false
         pillPanel.backgroundColor = .clear

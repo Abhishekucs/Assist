@@ -4,6 +4,7 @@ import Foundation
 enum CodexHookIPC {
     static let commandLineFlag = "--codex-hook"
     static let maximumPayloadBytes = 1_048_576
+    private static let frameHeaderByteCount = 4
 
     static var socketURL: URL {
         FileManager.default
@@ -55,9 +56,38 @@ enum CodexHookIPC {
         return nil
     }
 
+    static func readFrame(from descriptor: Int32) -> Data? {
+        guard let header = readExactly(frameHeaderByteCount, from: descriptor) else {
+            return nil
+        }
+
+        let payloadLength = header.reduce(UInt32(0)) { partialResult, byte in
+            (partialResult << 8) | UInt32(byte)
+        }
+        guard payloadLength <= maximumPayloadBytes else { return nil }
+
+        return readExactly(Int(payloadLength), from: descriptor)
+    }
+
+    @discardableResult
+    static func writeFrame(_ data: Data, to descriptor: Int32) -> Bool {
+        guard data.count <= maximumPayloadBytes else { return false }
+
+        let payloadLength = UInt32(data.count)
+        let header = Data([
+            UInt8((payloadLength >> 24) & 0xff),
+            UInt8((payloadLength >> 16) & 0xff),
+            UInt8((payloadLength >> 8) & 0xff),
+            UInt8(payloadLength & 0xff)
+        ])
+        return writeAll(header, to: descriptor) && writeAll(data, to: descriptor)
+    }
+
     @discardableResult
     static func writeAll(_ data: Data, to descriptor: Int32) -> Bool {
-        data.withUnsafeBytes { rawBuffer in
+        guard suppressSIGPIPE(on: descriptor) else { return false }
+
+        return data.withUnsafeBytes { rawBuffer in
             guard let baseAddress = rawBuffer.baseAddress else { return true }
             var written = 0
 
@@ -76,6 +106,38 @@ enum CodexHookIPC {
 
             return true
         }
+    }
+
+    private static func readExactly(_ byteCount: Int, from descriptor: Int32) -> Data? {
+        guard byteCount >= 0 else { return nil }
+        guard byteCount > 0 else { return Data() }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: min(8_192, byteCount))
+
+        while data.count < byteCount {
+            let requestedByteCount = min(buffer.count, byteCount - data.count)
+            let count = Darwin.read(descriptor, &buffer, requestedByteCount)
+            if count == 0 { return nil }
+            if count < 0 {
+                if errno == EINTR { continue }
+                return nil
+            }
+            data.append(buffer, count: count)
+        }
+
+        return data
+    }
+
+    private static func suppressSIGPIPE(on descriptor: Int32) -> Bool {
+        var enabled: Int32 = 1
+        return setsockopt(
+            descriptor,
+            SOL_SOCKET,
+            SO_NOSIGPIPE,
+            &enabled,
+            socklen_t(MemoryLayout.size(ofValue: enabled))
+        ) == 0
     }
 }
 
@@ -98,8 +160,7 @@ enum CodexHookCommand {
         }
         guard connected == 0 else { return 0 }
 
-        guard CodexHookIPC.writeAll(payload, to: descriptor) else { return 0 }
-        _ = Darwin.shutdown(descriptor, SHUT_WR)
+        guard CodexHookIPC.writeFrame(payload, to: descriptor) else { return 0 }
 
         guard let response = CodexHookIPC.readAll(from: descriptor),
               !response.isEmpty else {

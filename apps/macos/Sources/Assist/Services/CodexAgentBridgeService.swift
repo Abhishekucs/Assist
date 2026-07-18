@@ -117,6 +117,10 @@ final class CodexAgentBridgeService: @unchecked Sendable {
                 Darwin.close(clientDescriptor)
                 continue
             }
+            guard Self.makeBlocking(clientDescriptor) else {
+                Darwin.close(clientDescriptor)
+                continue
+            }
 
             clientQueue.async { [weak self] in
                 self?.handleClient(clientDescriptor)
@@ -125,7 +129,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
     }
 
     private func handleClient(_ descriptor: Int32) {
-        guard let payload = CodexHookIPC.readAll(from: descriptor),
+        guard let payload = CodexHookIPC.readFrame(from: descriptor),
               let parsedEvent = Self.parseEvent(payload) else {
             Darwin.close(descriptor)
             return
@@ -141,6 +145,10 @@ final class CodexAgentBridgeService: @unchecked Sendable {
         let channel = CodexApprovalChannel(descriptor: descriptor)
         stateLock.withLock {
             approvalChannels[approvalID] = channel
+        }
+        channel.startMonitoringDisconnect(on: listenerQueue) { [weak self, weak channel] in
+            guard let channel else { return }
+            self?.expireApproval(approvalID, channel: channel)
         }
         onEvent?(parsedEvent)
 
@@ -178,6 +186,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
             name: name,
             sessionID: sessionID,
             turnID: object["turn_id"] as? String,
+            source: object["source"] as? String,
             cwd: cwd,
             model: object["model"] as? String,
             taskSummary: Self.taskSummary(from: object["prompt"] as? String),
@@ -225,20 +234,60 @@ final class CodexAgentBridgeService: @unchecked Sendable {
         }
         return effectiveUserID == geteuid()
     }
+
+    private static func makeBlocking(_ descriptor: Int32) -> Bool {
+        let flags = fcntl(descriptor, F_GETFL)
+        guard flags >= 0 else { return false }
+        return fcntl(descriptor, F_SETFL, flags & ~O_NONBLOCK) == 0
+    }
 }
 
 private final class CodexApprovalChannel: @unchecked Sendable {
     private let lock = NSLock()
     private var descriptor: Int32
+    private var disconnectSource: DispatchSourceRead?
 
     init(descriptor: Int32) {
         self.descriptor = descriptor
     }
 
+    func startMonitoringDisconnect(
+        on queue: DispatchQueue,
+        handler: @escaping @Sendable () -> Void
+    ) {
+        lock.withLock {
+            guard descriptor >= 0, disconnectSource == nil else { return }
+
+            let monitoredDescriptor = descriptor
+            let source = DispatchSource.makeReadSource(
+                fileDescriptor: monitoredDescriptor,
+                queue: queue
+            )
+            source.setEventHandler {
+                var byte: UInt8 = 0
+                let count = Darwin.recv(monitoredDescriptor, &byte, 1, MSG_PEEK | MSG_DONTWAIT)
+                if count >= 0 || ![EAGAIN, EWOULDBLOCK, EINTR].contains(errno) {
+                    handler()
+                }
+            }
+            source.setCancelHandler {
+                Darwin.close(monitoredDescriptor)
+            }
+            disconnectSource = source
+            source.resume()
+        }
+    }
+
     func resolve(_ decision: CodexApprovalDecision) {
-        let descriptor = takeDescriptor()
+        let (descriptor, disconnectSource) = takeResources()
         guard descriptor >= 0 else { return }
-        defer { Darwin.close(descriptor) }
+        defer {
+            if let disconnectSource {
+                disconnectSource.cancel()
+            } else {
+                Darwin.close(descriptor)
+            }
+        }
 
         let decisionObject: [String: Any]
         switch decision {
@@ -262,17 +311,23 @@ private final class CodexApprovalChannel: @unchecked Sendable {
     }
 
     func closeWithoutDecision() {
-        let descriptor = takeDescriptor()
-        if descriptor >= 0 {
+        let (descriptor, disconnectSource) = takeResources()
+        guard descriptor >= 0 else { return }
+
+        if let disconnectSource {
+            disconnectSource.cancel()
+        } else {
             Darwin.close(descriptor)
         }
     }
 
-    private func takeDescriptor() -> Int32 {
+    private func takeResources() -> (Int32, DispatchSourceRead?) {
         lock.withLock {
-            let current = descriptor
+            let currentDescriptor = descriptor
+            let currentSource = disconnectSource
             descriptor = -1
-            return current
+            disconnectSource = nil
+            return (currentDescriptor, currentSource)
         }
     }
 }

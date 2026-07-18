@@ -44,6 +44,7 @@ final class PillViewModel: ObservableObject {
     var onDeleteHistoryItem: ((ClipboardHistoryItem) -> Void)?
     var onWillShowHistory: (() -> Void)?
     var onResolveCodexApproval: ((UUID, CodexApprovalDecision) -> Void)?
+    var onCodexAgentStateChange: (() -> Void)?
 
     init(settings: PillSettings) {
         self.settings = settings
@@ -95,11 +96,12 @@ final class PillViewModel: ObservableObject {
     func receiveCodexHookEvent(_ event: CodexHookEvent) {
         codexSessionDismissWorkItems[event.sessionID]?.cancel()
         codexSessionDismissWorkItems.removeValue(forKey: event.sessionID)
+        let existingSession = codexAgentSessions[event.sessionID]
 
         let activity: CodexAgentActivity
         switch event.name {
         case "SessionStart":
-            activity = .idle
+            activity = event.source == "compact" ? existingSession?.activity ?? .idle : .idle
         case "UserPromptSubmit":
             activity = .working
         case "PermissionRequest":
@@ -114,8 +116,8 @@ final class PillViewModel: ObservableObject {
             id: event.sessionID,
             cwd: event.cwd,
             model: event.model,
-            turnID: event.turnID,
-            taskSummary: event.taskSummary ?? codexAgentSessions[event.sessionID]?.taskSummary,
+            turnID: event.turnID ?? existingSession?.turnID,
+            taskSummary: event.taskSummary ?? existingSession?.taskSummary,
             activity: activity,
             updatedAt: Date()
         )
@@ -141,6 +143,7 @@ final class PillViewModel: ObservableObject {
         if event.name == "Stop" {
             scheduleCodexSessionDismissal(event.sessionID)
         }
+        onCodexAgentStateChange?()
     }
 
     func resolveCodexApproval(_ approvalID: UUID, decision: CodexApprovalDecision) {
@@ -155,6 +158,7 @@ final class PillViewModel: ObservableObject {
             session.updatedAt = Date()
             codexAgentSessions[request.sessionID] = session
         }
+        onCodexAgentStateChange?()
         onResolveCodexApproval?(approvalID, decision)
     }
 
@@ -170,6 +174,7 @@ final class PillViewModel: ObservableObject {
             session.updatedAt = Date()
             codexAgentSessions[request.sessionID] = session
         }
+        onCodexAgentStateChange?()
     }
 
     func setCodexIntegrationStatus(_ text: String) {
@@ -181,6 +186,7 @@ final class PillViewModel: ObservableObject {
         codexSessionDismissWorkItems.removeAll()
         pendingCodexApprovals.removeAll()
         codexAgentSessions.removeAll()
+        onCodexAgentStateChange?()
     }
 
     var primaryCodexApproval: CodexApprovalRequest? {
@@ -222,6 +228,7 @@ final class PillViewModel: ObservableObject {
             }
             self.codexAgentSessions.removeValue(forKey: sessionID)
             self.codexSessionDismissWorkItems.removeValue(forKey: sessionID)
+            self.onCodexAgentStateChange?()
         }
         codexSessionDismissWorkItems[sessionID] = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: workItem)

@@ -85,6 +85,7 @@ struct CodexHookEvent: Sendable {
     let name: String
     let sessionID: String
     let turnID: String?
+    let source: String?
     let cwd: String
     let model: String?
     let taskSummary: String?
