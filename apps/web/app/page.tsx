@@ -155,9 +155,9 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="pricing-price" aria-label="$15">
+          <div className="pricing-price" aria-label="$12">
             <span>$</span>
-            <strong>15</strong>
+            <strong>12</strong>
           </div>
 
           <div className="pricing-offer">
