@@ -28,7 +28,7 @@ struct PillView: View {
             settings: settings,
             showingRateLimits: !visibleUsageLimitSnapshots.isEmpty,
             showingAgentApproval: viewModel.hasPendingCodexApproval,
-            agentTaskCount: viewModel.visibleCodexTaskSessions.count
+            agentTaskCount: viewModel.activeCodexTaskSessions.count
         )
     }
 

@@ -16,7 +16,7 @@ final class PillSettings: ObservableObject {
         static let collapsedWidthRange: ClosedRange<CGFloat> = 180...360
         static let collapsedHeightRange: ClosedRange<CGFloat> = 26...42
         static let expandedWidthRange: ClosedRange<CGFloat> = 440...760
-        static let expandedHeightRange: ClosedRange<CGFloat> = 210...360
+        static let expandedHeightRange: ClosedRange<CGFloat> = 210...400
         static let collapsedTopCornerRadius: CGFloat = 6
         static let collapsedBottomCornerRadius: CGFloat = 14
         static let expandedTopCornerRadius: CGFloat = 19

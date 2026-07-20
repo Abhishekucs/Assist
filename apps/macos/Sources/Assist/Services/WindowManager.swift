@@ -38,8 +38,8 @@ final class WindowManager {
         pillViewModel.hasPendingCodexApproval
     }
 
-    private var visibleCodexTaskCount: Int {
-        pillViewModel.visibleCodexTaskSessions.count
+    private var codexTaskCount: Int {
+        pillViewModel.activeCodexTaskSessions.count
     }
 
     init(pillViewModel: PillViewModel, settings: PillSettings) {
@@ -169,7 +169,7 @@ final class WindowManager {
                     settings: self.settings,
                     showingRateLimits: self.isShowingRateLimits,
                     showingAgentApproval: self.isShowingCodexApproval,
-                    agentTaskCount: self.visibleCodexTaskCount
+                    agentTaskCount: self.codexTaskCount
                 )
                 : PillChromeMetrics.collapsedSize(
                     settings: self.settings,
@@ -206,7 +206,7 @@ final class WindowManager {
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
                 showingAgentApproval: isShowingCodexApproval,
-                agentTaskCount: visibleCodexTaskCount
+                agentTaskCount: codexTaskCount
             ),
             on: screenForCurrentPill()
         )
@@ -220,7 +220,7 @@ final class WindowManager {
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
                 showingAgentApproval: isShowingCodexApproval,
-                agentTaskCount: visibleCodexTaskCount
+                agentTaskCount: codexTaskCount
             ),
             on: screenForCurrentPill()
         )
@@ -237,7 +237,7 @@ final class WindowManager {
                         settings: self.settings,
                         showingRateLimits: self.isShowingRateLimits,
                         showingAgentApproval: self.isShowingCodexApproval,
-                        agentTaskCount: self.visibleCodexTaskCount
+                        agentTaskCount: self.codexTaskCount
                     ),
                     on: self.screenForCurrentPill()
                 ),
@@ -422,7 +422,7 @@ final class WindowManager {
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
                 showingAgentApproval: isShowingCodexApproval,
-                agentTaskCount: visibleCodexTaskCount
+                agentTaskCount: codexTaskCount
             ),
             on: pointerScreen
         )

@@ -33,10 +33,12 @@ final class PillViewModel: ObservableObject {
     private var usageLimitRefreshTask: Task<Void, Never>?
     private var usageLimitOnDemandTask: Task<Void, Never>?
     private var codexSessionDismissWorkItems: [String: DispatchWorkItem] = [:]
+    private var codexSessionStaleWorkItems: [String: DispatchWorkItem] = [:]
     private var invalidatedCodexApprovalIDs: [UUID: CodexApprovalInvalidationReason] = [:]
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
     private static let usageLimitRefreshIntervalNanoseconds: UInt64 = 180_000_000_000
+    private static let codexWorkingSessionStaleInterval: TimeInterval = 2 * 60 * 60
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -98,6 +100,8 @@ final class PillViewModel: ObservableObject {
     func receiveCodexHookEvent(_ event: CodexHookEvent) -> Bool {
         codexSessionDismissWorkItems[event.sessionID]?.cancel()
         codexSessionDismissWorkItems.removeValue(forKey: event.sessionID)
+        codexSessionStaleWorkItems[event.sessionID]?.cancel()
+        codexSessionStaleWorkItems.removeValue(forKey: event.sessionID)
         let existingSession = codexAgentSessions[event.sessionID]
         let priorInvalidation = event.approvalID.flatMap {
             invalidatedCodexApprovalIDs.removeValue(forKey: $0)
@@ -152,6 +156,8 @@ final class PillViewModel: ObservableObject {
 
         if event.name == "Stop" {
             scheduleCodexSessionDismissal(event.sessionID)
+        } else {
+            scheduleCodexSessionStaleExpiryIfNeeded(event.sessionID)
         }
         onCodexAgentStateChange?()
         return didQueueApproval
@@ -168,6 +174,7 @@ final class PillViewModel: ObservableObject {
             session.activity = .working
             session.updatedAt = Date()
             codexAgentSessions[request.sessionID] = session
+            scheduleCodexSessionStaleExpiryIfNeeded(request.sessionID)
         }
         onCodexAgentStateChange?()
         onResolveCodexApproval?(approvalID, decision)
@@ -194,6 +201,8 @@ final class PillViewModel: ObservableObject {
     func clearCodexAgentState() {
         codexSessionDismissWorkItems.values.forEach { $0.cancel() }
         codexSessionDismissWorkItems.removeAll()
+        codexSessionStaleWorkItems.values.forEach { $0.cancel() }
+        codexSessionStaleWorkItems.removeAll()
         pendingCodexApprovals.removeAll()
         codexAgentSessions.removeAll()
         invalidatedCodexApprovalIDs.removeAll()
@@ -242,10 +251,44 @@ final class PillViewModel: ObservableObject {
 
         codexSessionDismissWorkItems[sessionID]?.cancel()
         codexSessionDismissWorkItems.removeValue(forKey: sessionID)
+        codexSessionStaleWorkItems[sessionID]?.cancel()
+        codexSessionStaleWorkItems.removeValue(forKey: sessionID)
         codexAgentSessions.removeValue(forKey: sessionID)
     }
 
+    private func scheduleCodexSessionStaleExpiryIfNeeded(_ sessionID: String) {
+        codexSessionStaleWorkItems[sessionID]?.cancel()
+        codexSessionStaleWorkItems.removeValue(forKey: sessionID)
+
+        guard let session = codexAgentSessions[sessionID],
+              session.activity == .working else {
+            return
+        }
+
+        let expectedUpdate = session.updatedAt
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  let currentSession = self.codexAgentSessions[sessionID],
+                  currentSession.activity == .working,
+                  currentSession.updatedAt == expectedUpdate,
+                  !self.pendingCodexApprovals.contains(where: { $0.sessionID == sessionID }) else {
+                return
+            }
+
+            self.codexAgentSessions.removeValue(forKey: sessionID)
+            self.codexSessionStaleWorkItems.removeValue(forKey: sessionID)
+            self.onCodexAgentStateChange?()
+        }
+        codexSessionStaleWorkItems[sessionID] = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.codexWorkingSessionStaleInterval,
+            execute: workItem
+        )
+    }
+
     private func scheduleCodexSessionDismissal(_ sessionID: String) {
+        codexSessionStaleWorkItems[sessionID]?.cancel()
+        codexSessionStaleWorkItems.removeValue(forKey: sessionID)
         let workItem = DispatchWorkItem { [weak self] in
             guard let self,
                   self.codexAgentSessions[sessionID]?.activity == .completed else {

@@ -11,8 +11,14 @@ enum PillChromeMetrics {
     static let compactExpandedHeight: CGFloat = 210
     static let rateLimitExpandedHeight: CGFloat = 234
     static let agentApprovalExpandedMinHeight: CGFloat = 250
-    static let agentTasksExpandedBaseHeight: CGFloat = 280
-    static let agentTaskRowHeightBoost: CGFloat = 40
+    private static let expandedVerticalPadding: CGFloat = 20
+    private static let expandedSectionSpacing: CGFloat = 10
+    private static let usageRailHeight: CGFloat = 26
+    private static let taskRowHeight: CGFloat = 38
+    private static let taskRowSpacing: CGFloat = 5
+    private static let hiddenTaskLabelHeight: CGFloat = 12
+    private static let historyHeaderHeight: CGFloat = 24
+    private static let historyGalleryHeight: CGFloat = 144
 
     static func collapsedSize(settings: PillSettings) -> CGSize {
         settings.collapsedSize
@@ -50,13 +56,34 @@ enum PillChromeMetrics {
     ) -> CGSize {
         var size = settings.expandedSize
 
-        let visibleTaskCount = min(max(agentTaskCount, 0), 3)
+        let taskCount = max(agentTaskCount, 0)
+        let visibleTaskCount = min(taskCount, 3)
         if visibleTaskCount > 0 {
-            let taskHeight = agentTasksExpandedBaseHeight
-                + CGFloat(visibleTaskCount - 1) * agentTaskRowHeightBoost
-            size.height = max(size.height, min(taskHeight, PillSettings.Defaults.expandedHeightRange.upperBound))
+            let taskStackHeight = CGFloat(visibleTaskCount) * taskRowHeight
+                + CGFloat(visibleTaskCount - 1) * taskRowSpacing
+                + (taskCount > visibleTaskCount ? taskRowSpacing + hiddenTaskLabelHeight : 0)
+            let usageHeight = showingRateLimits
+                ? usageRailHeight + expandedSectionSpacing
+                : 0
+            let contentHeight = expandedVerticalPadding
+                + usageHeight
+                + taskStackHeight
+                + expandedSectionSpacing
+                + historyHeaderHeight
+                + expandedSectionSpacing
+                + historyGalleryHeight
+            size.height = min(
+                max(
+                    contentHeight,
+                    showingAgentApproval ? agentApprovalExpandedMinHeight : 0
+                ),
+                PillSettings.Defaults.expandedHeightRange.upperBound
+            )
         } else if showingRateLimits {
-            size.height = rateLimitExpandedHeight
+            size.height = max(
+                rateLimitExpandedHeight,
+                showingAgentApproval ? agentApprovalExpandedMinHeight : 0
+            )
         } else if showingAgentApproval {
             size.height = max(size.height, agentApprovalExpandedMinHeight)
         } else {

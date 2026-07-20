@@ -17,6 +17,7 @@ enum CodexHookInstallerError: LocalizedError {
 
 struct CodexHookInstaller {
     private static let commandMarker = "--codex-hook"
+    private static let ownerMarkerPrefix = "--assist-hook-owner="
     private static let managedEvents = [
         "SessionStart",
         "UserPromptSubmit",
@@ -26,13 +27,19 @@ struct CodexHookInstaller {
 
     private let fileManager: FileManager
     private let codexHome: URL
+    private let ownerIdentifier: String
+    private let legacyExecutablePath: String?
 
     init(
         fileManager: FileManager = .default,
-        codexHome: URL? = nil
+        codexHome: URL? = nil,
+        ownerIdentifier: String = AppIdentity.bundleIdentifier,
+        executableURL: URL? = Bundle.main.executableURL
     ) {
         self.fileManager = fileManager
         self.codexHome = codexHome ?? Self.defaultCodexHome()
+        self.ownerIdentifier = ownerIdentifier
+        legacyExecutablePath = executableURL?.standardizedFileURL.path
     }
 
     var hooksURL: URL {
@@ -48,7 +55,7 @@ struct CodexHookInstaller {
 
             return groups.contains { group in
                 guard let handlers = group["hooks"] as? [[String: Any]] else { return false }
-                return handlers.contains(where: Self.isAssistHandler)
+                return handlers.contains(where: isOwnedAssistHandler)
             }
         }
     }
@@ -63,7 +70,9 @@ struct CodexHookInstaller {
             guard let groups = value as? [[String: Any]] else { return false }
             return groups.contains { group in
                 guard let handlers = group["hooks"] as? [[String: Any]] else { return false }
-                return handlers.contains(where: Self.isAssistHandler)
+                return handlers.contains { handler in
+                    isOwnedAssistHandler(handler) || isLegacyAssistHandler(handler)
+                }
             }
         }
     }
@@ -75,14 +84,18 @@ struct CodexHookInstaller {
 
         var root = try loadRoot()
         var hooks = root["hooks"] as? [String: Any] ?? [:]
-        let command = "\(Self.shellQuote(executableURL.path)) \(Self.commandMarker)"
+        let executablePath = executableURL.standardizedFileURL.path
+        let command = "\(Self.shellQuote(executablePath)) \(Self.commandMarker) \(ownerMarker)"
 
         for event in Self.managedEvents {
             if let existing = hooks[event], !(existing is [[String: Any]]) {
                 throw CodexHookInstallerError.invalidHooksFile
             }
             let existingGroups = hooks[event] as? [[String: Any]] ?? []
-            var groups = Self.removingAssistHandlers(from: existingGroups)
+            var groups = removingOwnedAssistHandlers(
+                from: existingGroups,
+                legacyExecutablePath: executablePath
+            )
             var handler: [String: Any] = [
                 "type": "command",
                 "command": command,
@@ -114,7 +127,7 @@ struct CodexHookInstaller {
         for event in Array(hooks.keys) {
             let value = hooks[event]
             guard let groups = value as? [[String: Any]] else { continue }
-            hooks[event] = Self.removingAssistHandlers(from: groups)
+            hooks[event] = removingOwnedAssistHandlers(from: groups)
         }
 
         root["hooks"] = hooks
@@ -167,13 +180,26 @@ struct CodexHookInstaller {
         return destinationURL.standardizedFileURL.resolvingSymlinksInPath()
     }
 
-    private static func removingAssistHandlers(from groups: [[String: Any]]) -> [[String: Any]] {
+    private var ownerMarker: String {
+        "\(Self.ownerMarkerPrefix)\(ownerIdentifier)"
+    }
+
+    private func removingOwnedAssistHandlers(
+        from groups: [[String: Any]],
+        legacyExecutablePath: String? = nil
+    ) -> [[String: Any]] {
         groups.compactMap { group in
             guard let handlers = group["hooks"] as? [[String: Any]] else {
                 return group
             }
 
-            let remainingHandlers = handlers.filter { !isAssistHandler($0) }
+            let remainingHandlers = handlers.filter { handler in
+                !isOwnedAssistHandler(handler)
+                    && !isLegacyAssistHandler(
+                        handler,
+                        executablePath: legacyExecutablePath ?? self.legacyExecutablePath
+                    )
+            }
             guard !remainingHandlers.isEmpty else { return nil }
 
             var updatedGroup = group
@@ -182,9 +208,22 @@ struct CodexHookInstaller {
         }
     }
 
-    private static func isAssistHandler(_ handler: [String: Any]) -> Bool {
+    private func isOwnedAssistHandler(_ handler: [String: Any]) -> Bool {
         guard let command = handler["command"] as? String else { return false }
-        return command.contains(commandMarker)
+        return command.split(whereSeparator: \.isWhitespace).contains(Substring(ownerMarker))
+    }
+
+    private func isLegacyAssistHandler(
+        _ handler: [String: Any],
+        executablePath: String? = nil
+    ) -> Bool {
+        guard let executablePath = executablePath ?? legacyExecutablePath,
+              let command = handler["command"] as? String,
+              command.contains(Self.commandMarker),
+              !command.contains(Self.ownerMarkerPrefix) else {
+            return false
+        }
+        return command.contains(executablePath)
     }
 
     private static func defaultCodexHome() -> URL {
