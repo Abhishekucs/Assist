@@ -18,6 +18,10 @@ enum CodexHookInstallerError: LocalizedError {
 struct CodexHookInstaller {
     private static let commandMarker = "--codex-hook"
     private static let ownerMarkerPrefix = "--assist-hook-owner="
+    private static let standardLegacyExecutablePaths = [
+        "/Applications/Assist.app/Contents/MacOS/Assist",
+        "/Applications/Assist Dev.app/Contents/MacOS/Assist"
+    ]
     private static let managedEvents = [
         "SessionStart",
         "UserPromptSubmit",
@@ -92,7 +96,7 @@ struct CodexHookInstaller {
                 throw CodexHookInstallerError.invalidHooksFile
             }
             let existingGroups = hooks[event] as? [[String: Any]] ?? []
-            var groups = removingOwnedAssistHandlers(
+            var groups = removingAllAssistHandlers(
                 from: existingGroups,
                 legacyExecutablePath: executablePath
             )
@@ -208,9 +212,46 @@ struct CodexHookInstaller {
         }
     }
 
+    private func removingAllAssistHandlers(
+        from groups: [[String: Any]],
+        legacyExecutablePath: String
+    ) -> [[String: Any]] {
+        let legacyExecutablePaths = Set(
+            Self.standardLegacyExecutablePaths + [legacyExecutablePath]
+        )
+
+        return groups.compactMap { group in
+            guard let handlers = group["hooks"] as? [[String: Any]] else {
+                return group
+            }
+
+            let remainingHandlers = handlers.filter { handler in
+                guard !isAnyOwnedAssistHandler(handler) else { return false }
+                return !legacyExecutablePaths.contains { executablePath in
+                    isLegacyAssistHandler(handler, executablePath: executablePath)
+                }
+            }
+            guard !remainingHandlers.isEmpty else { return nil }
+
+            var updatedGroup = group
+            updatedGroup["hooks"] = remainingHandlers
+            return updatedGroup
+        }
+    }
+
     private func isOwnedAssistHandler(_ handler: [String: Any]) -> Bool {
         guard let command = handler["command"] as? String else { return false }
         return command.split(whereSeparator: \.isWhitespace).contains(Substring(ownerMarker))
+    }
+
+    private func isAnyOwnedAssistHandler(_ handler: [String: Any]) -> Bool {
+        guard let command = handler["command"] as? String,
+              command.contains(Self.commandMarker) else {
+            return false
+        }
+        return command.split(whereSeparator: \.isWhitespace).contains { argument in
+            argument.hasPrefix(Self.ownerMarkerPrefix)
+        }
     }
 
     private func isLegacyAssistHandler(

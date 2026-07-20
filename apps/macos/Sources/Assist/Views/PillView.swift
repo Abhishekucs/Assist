@@ -918,10 +918,6 @@ private struct UsageRailProvider: View {
         .padding(.horizontal, isCollapsed ? 5 : 8)
         .frame(height: isCollapsed ? 20 : 26)
         .background(Color.white.opacity(isCollapsed ? 0.055 : 0.065), in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(Color.white.opacity(0.055), lineWidth: 0.75)
-        }
         .fixedSize()
         .help("\(snapshot.provider.displayName): 5-hour \(snapshot.fiveHour.accessibilityText); 7-day \(snapshot.sevenDay.accessibilityText)")
     }
