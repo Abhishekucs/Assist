@@ -505,7 +505,7 @@ struct ExpandedIslandView: View {
                 )
             } else {
                 ExpandedIslandHeader(viewModel: viewModel)
-                    .frame(height: 34)
+                    .frame(height: 24)
                     .zIndex(1)
 
                 if let issue = viewModel.captureIssue {
@@ -552,6 +552,7 @@ struct ExpandedIslandView: View {
                                 .padding(.horizontal, Self.galleryClipInset)
                             }
                             .padding(.vertical, 1)
+                            .frame(maxHeight: .infinity, alignment: .top)
                         }
                         .onAppear {
                             alignGalleryToLeadingEdge(proxy)
@@ -636,7 +637,7 @@ private struct CodingAgentTaskRow: View {
     var body: some View {
         HStack(spacing: 9) {
             if session.activity == .working {
-                PixelClaudeCodeMascot(size: 22)
+                AnimatedCodexMark(size: 22)
                     .frame(width: 24, height: 24)
                     .accessibilityHidden(true)
             } else {
@@ -676,63 +677,70 @@ private struct CodingAgentTaskRow: View {
     }
 }
 
-private struct PixelClaudeCodeMascot: View {
+private struct AnimatedCodexMark: View {
     let size: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.14, paused: reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: 0.16, paused: reduceMotion)) { context in
             let frame = reduceMotion
                 ? 0
-                : Int(context.date.timeIntervalSinceReferenceDate / 0.14) % 4
+                : Int(context.date.timeIntervalSinceReferenceDate / 0.16) % 4
 
-            Canvas { canvas, canvasSize in
-                let pixels = Self.pixels(for: frame)
-                let columns = pixels.first?.count ?? 1
-                let rows = pixels.count
-                let pixelSize = min(
-                    canvasSize.width / CGFloat(columns),
-                    canvasSize.height / CGFloat(rows)
-                )
-                let origin = CGPoint(
-                    x: (canvasSize.width - CGFloat(columns) * pixelSize) / 2,
-                    y: (canvasSize.height - CGFloat(rows) * pixelSize) / 2
-                )
+            ZStack {
+                Canvas { canvas, canvasSize in
+                    let pixelSize = max(1.5, size / 12)
 
-                for (rowIndex, row) in pixels.enumerated() {
-                    for (columnIndex, pixel) in row.enumerated() where pixel == "#" {
+                    for pixel in Self.sparkPixels(for: frame) {
                         let rect = CGRect(
-                            x: origin.x + CGFloat(columnIndex) * pixelSize,
-                            y: origin.y + CGFloat(rowIndex) * pixelSize,
-                            width: ceil(pixelSize),
-                            height: ceil(pixelSize)
+                            x: pixel.x * canvasSize.width - pixelSize / 2,
+                            y: pixel.y * canvasSize.height - pixelSize / 2,
+                            width: pixelSize,
+                            height: pixelSize
                         )
-                        canvas.fill(
-                            Path(rect),
-                            with: .color(Color(red: 0.85, green: 0.47, blue: 0.34))
-                        )
+                        canvas.fill(Path(rect), with: .color(pixel.color))
                     }
                 }
+
+                UsageProviderLogo(provider: .codex, size: size - 4)
+                    .scaleEffect(reduceMotion ? 1 : (frame == 1 ? 1.06 : 1))
+                    .offset(y: reduceMotion ? 0 : (frame == 2 ? -1 : 0))
             }
-            .offset(y: reduceMotion ? 0 : (frame == 1 || frame == 2 ? -1 : 0))
         }
         .frame(width: size, height: size)
-        .help("Claude Code mascot · working")
+        .help("Codex · working")
     }
 
-    private static func pixels(for frame: Int) -> [[Character]] {
-        let legs = frame.isMultiple(of: 2)
-            ? ["..##....##..", ".##......##."]
-            : [".##......##.", "..##....##.."]
-        return ([
-            "...######...",
-            "..########..",
-            "###.####.###",
-            "..########..",
-            "...######...",
-            "...#....#..."
-        ] + legs).map(Array.init)
+    private static func sparkPixels(for frame: Int) -> [CodexSparkPixel] {
+        switch frame {
+        case 1:
+            [
+                CodexSparkPixel(x: 0.12, y: 0.42, color: UsageLimitPalette.codexHighlight),
+                CodexSparkPixel(x: 0.82, y: 0.10, color: UsageLimitPalette.codexPrimary)
+            ]
+        case 2:
+            [
+                CodexSparkPixel(x: 0.06, y: 0.64, color: UsageLimitPalette.codexPrimary),
+                CodexSparkPixel(x: 0.92, y: 0.34, color: UsageLimitPalette.codexDeep)
+            ]
+        case 3:
+            [
+                CodexSparkPixel(x: 0.20, y: 0.88, color: UsageLimitPalette.codexDeep),
+                CodexSparkPixel(x: 0.88, y: 0.72, color: UsageLimitPalette.codexHighlight)
+            ]
+        default:
+            [
+                CodexSparkPixel(x: 0.18, y: 0.18, color: UsageLimitPalette.codexHighlight),
+                CodexSparkPixel(x: 0.84, y: 0.54, color: UsageLimitPalette.codexPrimary)
+            ]
+        }
     }
+}
+
+private struct CodexSparkPixel {
+    let x: CGFloat
+    let y: CGFloat
+    let color: Color
 }
 
 private struct AgentNameTag: View {
@@ -985,12 +993,16 @@ private struct ExpandedIslandHeader: View {
 }
 
 private enum UsageLimitPalette {
+    static let codexHighlight = Color(red: 177.0 / 255.0, green: 167.0 / 255.0, blue: 1)
+    static let codexPrimary = Color(red: 122.0 / 255.0, green: 157.0 / 255.0, blue: 1)
+    static let codexDeep = Color(red: 57.0 / 255.0, green: 65.0 / 255.0, blue: 1)
+
     static func color(for provider: UsageLimitProvider) -> Color {
         switch provider {
         case .claudeCode:
             Color(red: 0.96, green: 0.47, blue: 0.22)
         case .codex:
-            Color(red: 0.29, green: 0.55, blue: 1.0)
+            codexPrimary
         }
     }
 }
@@ -1000,7 +1012,7 @@ private func agentActivityColor(_ activity: CodexAgentActivity) -> Color {
     case .waitingForApproval:
         Color(red: 1, green: 0.68, blue: 0.22)
     case .working:
-        Color(red: 0.29, green: 0.55, blue: 1.0)
+        UsageLimitPalette.codexPrimary
     case .completed:
         Color(red: 0.28, green: 0.82, blue: 0.5)
     case .idle:
