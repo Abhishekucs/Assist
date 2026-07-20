@@ -258,7 +258,7 @@ private struct CollapsedAgentIndicator: View {
             if session.activity == .working {
                 ProgressView()
                     .controlSize(.mini)
-                    .tint(.white.opacity(0.76))
+                    .tint(UsageLimitPalette.color(for: .codex))
             } else {
                 Circle()
                     .fill(agentActivityColor(session.activity))
@@ -635,9 +635,16 @@ private struct CodingAgentTaskRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(accentColor)
-                .frame(width: 3, height: 23)
+            if session.activity == .working {
+                PixelClaudeCodeMascot(size: 22)
+                    .frame(width: 24, height: 24)
+                    .accessibilityHidden(true)
+            } else {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(accentColor)
+                    .frame(width: 3, height: 23)
+                    .frame(width: 24)
+            }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(session.projectName)
@@ -669,6 +676,65 @@ private struct CodingAgentTaskRow: View {
     }
 }
 
+private struct PixelClaudeCodeMascot: View {
+    let size: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.14, paused: reduceMotion)) { context in
+            let frame = reduceMotion
+                ? 0
+                : Int(context.date.timeIntervalSinceReferenceDate / 0.14) % 4
+
+            Canvas { canvas, canvasSize in
+                let pixels = Self.pixels(for: frame)
+                let columns = pixels.first?.count ?? 1
+                let rows = pixels.count
+                let pixelSize = min(
+                    canvasSize.width / CGFloat(columns),
+                    canvasSize.height / CGFloat(rows)
+                )
+                let origin = CGPoint(
+                    x: (canvasSize.width - CGFloat(columns) * pixelSize) / 2,
+                    y: (canvasSize.height - CGFloat(rows) * pixelSize) / 2
+                )
+
+                for (rowIndex, row) in pixels.enumerated() {
+                    for (columnIndex, pixel) in row.enumerated() where pixel == "#" {
+                        let rect = CGRect(
+                            x: origin.x + CGFloat(columnIndex) * pixelSize,
+                            y: origin.y + CGFloat(rowIndex) * pixelSize,
+                            width: ceil(pixelSize),
+                            height: ceil(pixelSize)
+                        )
+                        canvas.fill(
+                            Path(rect),
+                            with: .color(Color(red: 0.85, green: 0.47, blue: 0.34))
+                        )
+                    }
+                }
+            }
+            .offset(y: reduceMotion ? 0 : (frame == 1 || frame == 2 ? -1 : 0))
+        }
+        .frame(width: size, height: size)
+        .help("Claude Code mascot · working")
+    }
+
+    private static func pixels(for frame: Int) -> [[Character]] {
+        let legs = frame.isMultiple(of: 2)
+            ? ["..##....##..", ".##......##."]
+            : [".##......##.", "..##....##.."]
+        return ([
+            "...######...",
+            "..########..",
+            "###.####.###",
+            "..########..",
+            "...######...",
+            "...#....#..."
+        ] + legs).map(Array.init)
+    }
+}
+
 private struct AgentNameTag: View {
     let name: String
     let color: Color
@@ -696,13 +762,9 @@ private struct CodexTaskStatus: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            if activity == .working {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(color)
-            } else if activity == .completed {
+            if activity == .completed {
                 HugeIcon(.check, size: 9, color: color)
-            } else {
+            } else if activity != .working {
                 Circle()
                     .fill(color)
                     .frame(width: 6, height: 6)
@@ -851,13 +913,13 @@ private struct UsageRailProvider: View {
                 )
             }
 
-            UsageRailMetric(title: "5h", window: snapshot.fiveHour, showsReset: !isCollapsed)
+            UsageRailMetric(title: "5h", window: snapshot.fiveHour)
 
             Rectangle()
                 .fill(Color.white.opacity(0.16))
                 .frame(width: 1, height: isCollapsed ? 10 : 13)
 
-            UsageRailMetric(title: "7d", window: snapshot.sevenDay, showsReset: !isCollapsed)
+            UsageRailMetric(title: "7d", window: snapshot.sevenDay)
         }
         .padding(.horizontal, isCollapsed ? 5 : 8)
         .frame(height: isCollapsed ? 20 : 26)
@@ -874,24 +936,17 @@ private struct UsageRailProvider: View {
 private struct UsageRailMetric: View {
     let title: String
     let window: UsageLimitWindow
-    let showsReset: Bool
 
     var body: some View {
-        HStack(spacing: showsReset ? 4 : 2) {
+        HStack(spacing: 2) {
             Text(title)
                 .foregroundStyle(.white.opacity(0.48))
 
             Text(window.percentageText)
                 .foregroundStyle(.white.opacity(window.isAvailable ? 0.9 : 0.38))
                 .monospacedDigit()
-
-            if showsReset {
-                Text(window.resetText)
-                    .foregroundStyle(.white.opacity(window.isAvailable ? 0.46 : 0.32))
-                    .lineLimit(1)
-            }
         }
-        .font(.system(size: showsReset ? 9.5 : 8.5, weight: .semibold, design: .rounded))
+        .font(.system(size: 8.5, weight: .semibold, design: .rounded))
         .fixedSize()
         .accessibilityLabel("\(title) \(window.accessibilityText)")
     }
@@ -935,7 +990,7 @@ private enum UsageLimitPalette {
         case .claudeCode:
             Color(red: 0.96, green: 0.47, blue: 0.22)
         case .codex:
-            Color(red: 0.28, green: 0.78, blue: 0.62)
+            Color(red: 0.29, green: 0.55, blue: 1.0)
         }
     }
 }
@@ -945,7 +1000,7 @@ private func agentActivityColor(_ activity: CodexAgentActivity) -> Color {
     case .waitingForApproval:
         Color(red: 1, green: 0.68, blue: 0.22)
     case .working:
-        Color.white.opacity(0.82)
+        Color(red: 0.29, green: 0.55, blue: 1.0)
     case .completed:
         Color(red: 0.28, green: 0.82, blue: 0.5)
     case .idle:
@@ -960,31 +1015,6 @@ private extension UsageLimitWindow {
         }
 
         return "\(Int(usedPercentage.rounded()))%"
-    }
-
-    var resetText: String {
-        guard isAvailable else {
-            return "Unavailable"
-        }
-
-        guard let resetAt else {
-            return "No reset"
-        }
-
-        let remaining = resetAt.timeIntervalSinceNow
-        guard remaining > 0 else {
-            return "Reset due"
-        }
-
-        if remaining < 60 * 60 {
-            return "\(Int(ceil(remaining / 60)))m"
-        }
-
-        if remaining < 24 * 60 * 60 {
-            return "\(Int(ceil(remaining / 3_600)))h"
-        }
-
-        return UsageLimitResetFormatter.string(from: resetAt)
     }
 
     var accessibilityText: String {
