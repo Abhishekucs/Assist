@@ -751,10 +751,6 @@ private struct AgentNameTag: View {
             .padding(.horizontal, compact ? 6 : 8)
             .frame(height: compact ? 17 : 20)
             .background(color.opacity(0.14), in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke(color.opacity(0.2), lineWidth: 0.75)
-            }
             .fixedSize()
     }
 }
