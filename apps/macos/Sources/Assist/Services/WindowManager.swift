@@ -173,7 +173,8 @@ final class WindowManager {
                 )
                 : PillChromeMetrics.collapsedSize(
                     settings: self.settings,
-                    showingCopyFeedback: self.pillViewModel.copyFeedback != nil
+                    showingCopyFeedback: self.pillViewModel.copyFeedback != nil,
+                    showingAgentActivity: self.pillViewModel.displayedCodexSession != nil
                 )
             let bounds = hostingView.bounds
 

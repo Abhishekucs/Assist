@@ -174,7 +174,9 @@ The app does not block behind a permission gateway. Capture is attempted directl
 
 Assist can show Codex Mac app activity and route Codex permission requests to
 the island. Hovering the island shows up to three active tasks in an
-urgency-sorted vertical stack, including each task's prompt summary and state.
+urgency-sorted vertical stack, including each task's prompt summary, state, and
+provider tag. Enabled 5-hour and 7-day usage windows stay pinned to the
+top-left of both the collapsed and expanded island while agents are running.
 
 1. Open Assist settings.
 2. Under **General > Codex agents**, enable **Show activity and approvals**.

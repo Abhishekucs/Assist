@@ -18,7 +18,8 @@ struct PillView: View {
     private var collapsedSize: CGSize {
         PillChromeMetrics.collapsedSize(
             settings: settings,
-            showingCopyFeedback: viewModel.copyFeedback != nil
+            showingCopyFeedback: viewModel.copyFeedback != nil,
+            showingAgentActivity: viewModel.displayedCodexSession != nil
         )
     }
 
@@ -156,40 +157,116 @@ private struct CollapsedIslandHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            AssistLogo(size: 16)
-                .help(AppIdentity.name)
-
-            if let approval = viewModel.primaryCodexApproval {
-                CodexApprovalCollapsedRow(approval: approval, viewModel: viewModel)
-            } else if let feedback = viewModel.copyFeedback {
-                CopyFeedbackRow(feedback: feedback)
-                    .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
-                    .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
-                    .transition(
-                        .opacity
-                            .combined(with: .scale(scale: 0.96))
-                            .animation(.easeOut(duration: 0.16))
-                    )
-            } else if viewModel.settings.codexAgentIntegrationEnabled,
-                      let session = viewModel.displayedCodexSession {
-                CodexAgentCollapsedRow(session: session)
-            } else if !usageLimitSnapshots.isEmpty {
-                UsageLimitCollapsedOverview(
+            if !usageLimitSnapshots.isEmpty {
+                PersistentUsageRail(
                     snapshots: usageLimitSnapshots,
-                    isRefreshing: viewModel.isRefreshingUsageLimits
+                    isRefreshing: viewModel.isRefreshingUsageLimits,
+                    presentation: .collapsed
                 )
+
+                Spacer(minLength: 0)
+
+                if let approval = viewModel.primaryCodexApproval {
+                    CodexApprovalCollapsedActions(approval: approval, viewModel: viewModel)
+                } else if let feedback = viewModel.copyFeedback {
+                    Text(feedback.badge)
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.black.opacity(0.88))
+                        .padding(.horizontal, 8)
+                        .frame(height: 19)
+                        .background(Color.white, in: Capsule())
+                        .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
+                } else if viewModel.settings.codexAgentIntegrationEnabled,
+                          let session = viewModel.displayedCodexSession {
+                    CollapsedAgentIndicator(session: session)
+                }
+
+                AssistLogo(size: 14)
+                    .help(AppIdentity.name)
             } else {
-                Text(viewModel.statusText)
-                    .font(AssistFont.roundedFootnote(.medium))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.86)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                AssistLogo(size: 16)
+                    .help(AppIdentity.name)
+
+                if let approval = viewModel.primaryCodexApproval {
+                    CodexApprovalCollapsedRow(approval: approval, viewModel: viewModel)
+                } else if let feedback = viewModel.copyFeedback {
+                    CopyFeedbackRow(feedback: feedback)
+                        .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
+                        .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
+                        .transition(
+                            .opacity
+                                .combined(with: .scale(scale: 0.96))
+                                .animation(.easeOut(duration: 0.16))
+                        )
+                } else if viewModel.settings.codexAgentIntegrationEnabled,
+                          let session = viewModel.displayedCodexSession {
+                    CodexAgentCollapsedRow(session: session)
+                } else {
+                    Text(viewModel.statusText)
+                        .font(AssistFont.roundedFootnote(.medium))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.86)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
         .padding(.horizontal, 18)
         .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
         .animation(copyFeedbackContentAnimation, value: viewModel.isCopyFeedbackVisible)
+    }
+}
+
+private struct CodexApprovalCollapsedActions: View {
+    let approval: CodexApprovalRequest
+    @ObservedObject var viewModel: PillViewModel
+
+    var body: some View {
+        HStack(spacing: 5) {
+            AgentNameTag(name: "Codex", color: UsageLimitPalette.color(for: .codex), compact: true)
+
+            Button {
+                viewModel.resolveCodexApproval(approval.id, decision: .deny)
+            } label: {
+                HugeIcon(.close, size: 8, color: .white.opacity(0.84))
+                    .frame(width: 19, height: 19)
+                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("Deny Codex request")
+
+            Button {
+                viewModel.resolveCodexApproval(approval.id, decision: .allow)
+            } label: {
+                HugeIcon(.check, size: 9, color: .black.opacity(0.86))
+                    .frame(width: 19, height: 19)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("Allow Codex request")
+        }
+    }
+}
+
+private struct CollapsedAgentIndicator: View {
+    let session: CodexAgentSession
+
+    var body: some View {
+        HStack(spacing: 5) {
+            AgentNameTag(name: "Codex", color: UsageLimitPalette.color(for: .codex), compact: true)
+
+            if session.activity == .working {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(.white.opacity(0.76))
+            } else {
+                Circle()
+                    .fill(agentActivityColor(session.activity))
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .help("Codex · \(session.projectName) · \(session.activity.displayName)")
+        .accessibilityLabel("Codex, \(session.projectName), \(session.activity.displayName)")
     }
 }
 
@@ -262,51 +339,6 @@ private struct CodexAgentCollapsedRow: View {
             }
         }
         .frame(maxWidth: .infinity)
-    }
-}
-
-private struct UsageLimitCollapsedOverview: View {
-    let snapshots: [UsageLimitSnapshot]
-    let isRefreshing: Bool
-
-    var body: some View {
-        HStack(spacing: 7) {
-            ForEach(snapshots) { snapshot in
-                UsageLimitCompactChip(snapshot: snapshot)
-            }
-
-            if isRefreshing {
-                Circle()
-                    .fill(.white.opacity(0.42))
-                    .frame(width: 4, height: 4)
-                    .transition(.opacity)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct UsageLimitCompactChip: View {
-    let snapshot: UsageLimitSnapshot
-
-    var body: some View {
-        HStack(spacing: 5) {
-            UsageProviderLogo(provider: snapshot.provider, size: 14)
-
-            Text(snapshot.provider.compactName)
-                .foregroundStyle(.white.opacity(0.78))
-
-            Text(snapshot.fiveHour.percentageText)
-                .foregroundStyle(.white.opacity(snapshot.fiveHour.isAvailable ? 0.94 : 0.48))
-        }
-        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-        .lineLimit(1)
-        .minimumScaleFactor(0.82)
-        .padding(.horizontal, 8)
-        .frame(height: 20)
-        .background(Color.white.opacity(0.08), in: Capsule())
-        .help("\(snapshot.provider.displayName) 5-hour usage")
-        .accessibilityLabel("\(snapshot.provider.displayName) 5-hour usage \(snapshot.fiveHour.accessibilityText)")
     }
 }
 
@@ -449,8 +481,17 @@ struct ExpandedIslandView: View {
         let codexTasks = viewModel.visibleCodexTaskSessions
 
         VStack(alignment: .leading, spacing: 10) {
+            if !usageLimitSnapshots.isEmpty {
+                PersistentUsageRail(
+                    snapshots: usageLimitSnapshots,
+                    isRefreshing: viewModel.isRefreshingUsageLimits,
+                    presentation: .expanded
+                )
+                .zIndex(2)
+            }
+
             if !codexTasks.isEmpty {
-                CodexTaskStack(
+                CodingAgentTaskStack(
                     sessions: codexTasks,
                     hiddenCount: viewModel.hiddenCodexTaskCount
                 )
@@ -463,11 +504,6 @@ struct ExpandedIslandView: View {
                     viewModel: viewModel
                 )
             } else {
-                if codexTasks.isEmpty, !usageLimitSnapshots.isEmpty {
-                    UsageLimitDetailStrip(snapshots: usageLimitSnapshots)
-                        .zIndex(2)
-                }
-
                 ExpandedIslandHeader(viewModel: viewModel)
                     .frame(height: 34)
                     .zIndex(1)
@@ -562,52 +598,35 @@ struct ExpandedIslandView: View {
     }
 }
 
-private struct CodexTaskStack: View {
+private struct CodingAgentTaskStack: View {
     let sessions: [CodexAgentSession]
     let hiddenCount: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text("Codex tasks")
-                    .font(AssistFont.roundedFootnote(.semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-
-                Spacer(minLength: 8)
-
-                if hiddenCount > 0 {
-                    Text("+\(hiddenCount) more")
-                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.58))
-                }
+        VStack(spacing: 5) {
+            ForEach(sessions) { session in
+                CodingAgentTaskRow(session: session)
             }
 
-            VStack(spacing: 5) {
-                ForEach(sessions) { session in
-                    CodexTaskRow(session: session)
-                }
+            if hiddenCount > 0 {
+                Text("+\(hiddenCount) more running")
+                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Active Codex tasks")
+        .accessibilityLabel("Active coding agent tasks")
     }
 }
 
-private struct CodexTaskRow: View {
+private struct CodingAgentTaskRow: View {
     let session: CodexAgentSession
 
     private var accentColor: Color {
-        switch session.activity {
-        case .waitingForApproval:
-            Color(red: 1, green: 0.68, blue: 0.22)
-        case .working:
-            Color.white.opacity(0.82)
-        case .completed:
-            Color(red: 0.28, green: 0.82, blue: 0.5)
-        case .idle:
-            Color.white.opacity(0.34)
-        }
+        agentActivityColor(session.activity)
     }
 
     private var detailText: String {
@@ -619,8 +638,6 @@ private struct CodexTaskRow: View {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accentColor)
                 .frame(width: 3, height: 23)
-
-            UsageProviderLogo(provider: .codex, size: 14)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(session.projectName)
@@ -636,6 +653,12 @@ private struct CodexTaskRow: View {
 
             Spacer(minLength: 8)
 
+            AgentNameTag(
+                name: "Codex",
+                color: UsageLimitPalette.color(for: .codex),
+                compact: false
+            )
+
             CodexTaskStatus(activity: session.activity, color: accentColor)
         }
         .padding(.horizontal, 9)
@@ -643,6 +666,27 @@ private struct CodexTaskRow: View {
         .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(session.projectName), \(session.activity.displayName), \(detailText)")
+    }
+}
+
+private struct AgentNameTag: View {
+    let name: String
+    let color: Color
+    let compact: Bool
+
+    var body: some View {
+        Text(name)
+            .font(.system(size: compact ? 8.5 : 9.5, weight: .bold, design: .rounded))
+            .foregroundStyle(color.opacity(0.96))
+            .lineLimit(1)
+            .padding(.horizontal, compact ? 6 : 8)
+            .frame(height: compact ? 17 : 20)
+            .background(color.opacity(0.14), in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(color.opacity(0.2), lineWidth: 0.75)
+            }
+            .fixedSize()
     }
 }
 
@@ -760,102 +804,96 @@ private struct CodexApprovalPanel: View {
     }
 }
 
-private struct UsageLimitDetailStrip: View {
+private enum UsageRailPresentation: Equatable {
+    case collapsed
+    case expanded
+}
+
+private struct PersistentUsageRail: View {
     let snapshots: [UsageLimitSnapshot]
+    let isRefreshing: Bool
+    let presentation: UsageRailPresentation
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: presentation == .collapsed ? 4 : 7) {
             ForEach(snapshots) { snapshot in
-                UsageLimitProviderPanel(snapshot: snapshot)
+                UsageRailProvider(snapshot: snapshot, presentation: presentation)
+            }
+
+            if isRefreshing {
+                Circle()
+                    .fill(.white.opacity(0.42))
+                    .frame(width: 4, height: 4)
+                    .transition(.opacity)
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: presentation == .expanded ? .infinity : nil, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Coding agent usage limits")
     }
 }
 
-private struct UsageLimitProviderPanel: View {
+private struct UsageRailProvider: View {
     let snapshot: UsageLimitSnapshot
+    let presentation: UsageRailPresentation
+
+    private var isCollapsed: Bool { presentation == .collapsed }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 6) {
-                UsageProviderLogo(provider: snapshot.provider, size: 16)
-
-                Text(snapshot.provider.displayName)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-
-                Spacer(minLength: 0)
+        HStack(spacing: isCollapsed ? 4 : 7) {
+            if isCollapsed {
+                UsageProviderLogo(provider: snapshot.provider, size: 11)
+            } else {
+                AgentNameTag(
+                    name: snapshot.provider.displayName,
+                    color: UsageLimitPalette.color(for: snapshot.provider),
+                    compact: false
+                )
             }
 
-            UsageLimitWindowRow(
-                title: "5h",
-                window: snapshot.fiveHour,
-                color: UsageLimitPalette.color(for: snapshot.provider)
-            )
+            UsageRailMetric(title: "5h", window: snapshot.fiveHour, showsReset: !isCollapsed)
 
-            UsageLimitWindowRow(
-                title: "7d",
-                window: snapshot.sevenDay,
-                color: UsageLimitPalette.color(for: snapshot.provider)
-            )
+            Rectangle()
+                .fill(Color.white.opacity(0.16))
+                .frame(width: 1, height: isCollapsed ? 10 : 13)
+
+            UsageRailMetric(title: "7d", window: snapshot.sevenDay, showsReset: !isCollapsed)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-        .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .accessibilityElement(children: .combine)
+        .padding(.horizontal, isCollapsed ? 5 : 8)
+        .frame(height: isCollapsed ? 20 : 26)
+        .background(Color.white.opacity(isCollapsed ? 0.055 : 0.065), in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(Color.white.opacity(0.055), lineWidth: 0.75)
+        }
+        .fixedSize()
+        .help("\(snapshot.provider.displayName): 5-hour \(snapshot.fiveHour.accessibilityText); 7-day \(snapshot.sevenDay.accessibilityText)")
     }
 }
 
-private struct UsageLimitWindowRow: View {
+private struct UsageRailMetric: View {
     let title: String
     let window: UsageLimitWindow
-    let color: Color
+    let showsReset: Bool
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: showsReset ? 4 : 2) {
             Text(title)
-                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.72))
-                .frame(width: 18, alignment: .leading)
-
-            UsageLimitProgressBar(window: window, color: color)
-                .frame(height: 5)
+                .foregroundStyle(.white.opacity(0.48))
 
             Text(window.percentageText)
-                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(window.isAvailable ? 0.9 : 0.44))
+                .foregroundStyle(.white.opacity(window.isAvailable ? 0.9 : 0.38))
                 .monospacedDigit()
-                .frame(width: 32, alignment: .trailing)
 
-            Text(window.resetText)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(window.isAvailable ? 0.56 : 0.42))
-                .lineLimit(1)
-                .frame(width: 62, alignment: .trailing)
-        }
-        .accessibilityLabel("\(title) \(window.accessibilityText)")
-    }
-}
-
-private struct UsageLimitProgressBar: View {
-    let window: UsageLimitWindow
-    let color: Color
-
-    var body: some View {
-        GeometryReader { proxy in
-            let progress = min(max((window.usedPercentage ?? 0) / 100, 0), 1)
-
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.white.opacity(0.12))
-
-                Capsule()
-                    .fill(color.opacity(window.isAvailable ? 0.92 : 0))
-                    .frame(width: proxy.size.width * progress)
+            if showsReset {
+                Text(window.resetText)
+                    .foregroundStyle(.white.opacity(window.isAvailable ? 0.46 : 0.32))
+                    .lineLimit(1)
             }
         }
+        .font(.system(size: showsReset ? 9.5 : 8.5, weight: .semibold, design: .rounded))
+        .fixedSize()
+        .accessibilityLabel("\(title) \(window.accessibilityText)")
     }
 }
 
@@ -899,6 +937,19 @@ private enum UsageLimitPalette {
         case .codex:
             Color(red: 0.28, green: 0.78, blue: 0.62)
         }
+    }
+}
+
+private func agentActivityColor(_ activity: CodexAgentActivity) -> Color {
+    switch activity {
+    case .waitingForApproval:
+        Color(red: 1, green: 0.68, blue: 0.22)
+    case .working:
+        Color.white.opacity(0.82)
+    case .completed:
+        Color(red: 0.28, green: 0.82, blue: 0.5)
+    case .idle:
+        Color.white.opacity(0.34)
     }
 }
 
