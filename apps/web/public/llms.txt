@@ -1,0 +1,16 @@
+# Assist
+
+> Assist is a native macOS app for screenshots, annotations, and clipboard history. It keeps recent captures and copied text in a notch-style shelf so you can drag them into any app. Local-first: captures stay on your Mac.
+
+Key facts:
+
+- Platform: macOS 14 (Sonoma) or later
+- Price: $12 one-time purchase (early access), no subscription
+- License: one device per license, lifetime access with 1.x updates included
+- Storage: local-first; screenshots and copied text stay on your Mac, no cloud upload required
+- Capture: Control + Option for full screen screenshots; hold Option to draw annotations before capture
+- Reuse: drag recent screenshots, annotations, and copied text from the notch shelf into documents, chats, and design tools
+
+## Pages
+
+- [Home](https://assistapp.dev/): product overview, feature tour, pricing, and FAQ

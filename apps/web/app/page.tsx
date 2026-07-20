@@ -3,6 +3,108 @@ import FeatureVideo from "./FeatureVideo";
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
+const siteUrl = "https://assistapp.dev";
+
+const faqItems = [
+  {
+    question: "What is Assist?",
+    answer:
+      "Assist is a native macOS capture tool that keeps screenshots, annotations, and copied text close to your workflow through a notch-style shelf."
+  },
+  {
+    question: "Where is my captured context stored?",
+    answer:
+      "Assist is designed to be local-first, so your screenshots and copied items stay on your Mac unless you choose to share or export them."
+  },
+  {
+    question: "Does Assist upload my screenshots?",
+    answer:
+      "No automatic upload is required for the core workflow. Capture, annotate, and reuse items from your Mac without sending your history to a cloud service."
+  },
+  {
+    question: "What can I capture?",
+    answer:
+      "You can capture full screen screenshots with Control + Option, create annotated screenshots by holding Option, and save copied text for reuse."
+  },
+  {
+    question: "Can I drag captures into other apps?",
+    answer:
+      "Yes. The notch shelf is built so recent captures can be dragged straight into documents, chats, design tools, and developer workflows."
+  },
+  {
+    question: "Which versions of macOS does Assist support?",
+    answer: "Assist requires macOS 14 (Sonoma) or later."
+  },
+  {
+    question: "How many Macs can I use Assist on?",
+    answer:
+      "An early access license covers one device. Your license key activates Assist on a single Mac."
+  },
+  {
+    question: "Is Assist a subscription?",
+    answer:
+      "No. The pricing model is a one-time license for macOS, with lifetime access to the included feature set and future 1.x updates."
+  }
+];
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#app`,
+      name: "Assist",
+      operatingSystem: "macOS 14 or later",
+      applicationCategory: "UtilitiesApplication",
+      description:
+        "Assist is a native macOS app for screenshots, annotations, and clipboard history. Capture, annotate, and reuse screenshots and copied text from a notch-style shelf.",
+      url: siteUrl,
+      image: `${siteUrl}/og-image.png`,
+      offers: {
+        "@type": "Offer",
+        price: "12",
+        priceCurrency: "USD",
+        category: "one-time purchase",
+        availability: "https://schema.org/InStock"
+      },
+      featureList: [
+        "Full screen screenshot capture",
+        "Option-hold annotation",
+        "Notch-style capture shelf",
+        "Drag and drop from notch",
+        "Copied text and screenshot history",
+        "Local-first storage"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: "Assist",
+      url: siteUrl,
+      logo: `${siteUrl}/assist-icon.png`
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      name: "Assist",
+      url: siteUrl,
+      publisher: { "@id": `${siteUrl}/#organization` }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": `${siteUrl}/#faq`,
+      mainEntity: faqItems.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.answer
+        }
+      }))
+    }
+  ]
+};
+
 const featureVideos = {
   dragDrop:
     "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/Assist%20Demos.mp4",
@@ -15,6 +117,10 @@ const featureVideos = {
 export default function Home() {
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <header className="site-header" aria-label="Site header">
         <nav className="header-pill" aria-label="Primary navigation">
           <a className="brand" href="#top" aria-label="Assist home">
@@ -184,7 +290,8 @@ export default function Home() {
 
           <p className="pricing-note">
             Prices are in USD. Early access licenses include all current
-            Assist features and future 1.x updates.
+            Assist features and future 1.x updates. Requires macOS 14 or
+            later.
           </p>
         </div>
       </section>
@@ -200,76 +307,15 @@ export default function Home() {
         </div>
 
         <div className="faq-list">
-          <details className="faq-item" open>
-            <summary>
-              <span>What is Assist?</span>
-              <span className="faq-icon" aria-hidden="true" />
-            </summary>
-            <p>
-              Assist is a native macOS capture tool that keeps screenshots,
-              annotations, and copied text close to your workflow through a
-              notch-style shelf.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Where is my captured context stored?</span>
-              <span className="faq-icon" aria-hidden="true" />
-            </summary>
-            <p>
-              Assist is designed to be local-first, so your screenshots and
-              copied items stay on your Mac unless you choose to share or export
-              them.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Does Assist upload my screenshots?</span>
-              <span className="faq-icon" aria-hidden="true" />
-            </summary>
-            <p>
-              No automatic upload is required for the core workflow. Capture,
-              annotate, and reuse items from your Mac without sending your
-              history to a cloud service.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>What can I capture?</span>
-              <span className="faq-icon" aria-hidden="true" />
-            </summary>
-            <p>
-              You can capture full screen screenshots with Control + Option,
-              create annotated screenshots by holding Option, and save copied
-              text for reuse.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Can I drag captures into other apps?</span>
-              <span className="faq-icon" aria-hidden="true" />
-            </summary>
-            <p>
-              Yes. The notch shelf is built so recent captures can be dragged
-              straight into documents, chats, design tools, and developer
-              workflows.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Is Assist a subscription?</span>
-              <span className="faq-icon" aria-hidden="true" />
-            </summary>
-            <p>
-              No. The pricing model is a one-time license for macOS, with
-              lifetime access to the included feature set.
-            </p>
-          </details>
+          {faqItems.map((item, index) => (
+            <details className="faq-item" key={item.question} open={index === 0}>
+              <summary>
+                <span>{item.question}</span>
+                <span className="faq-icon" aria-hidden="true" />
+              </summary>
+              <p>{item.answer}</p>
+            </details>
+          ))}
         </div>
       </section>
 
