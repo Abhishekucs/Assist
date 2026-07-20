@@ -159,8 +159,16 @@ enum CodingAgentHookCommand {
         guard !payload.isEmpty,
               payload.count <= CodingAgentHookIPC.maximumPayloadBytes,
               var event = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
-              event["hook_event_name"] is String else {
+              let eventName = event["hook_event_name"] as? String else {
             return 0
+        }
+
+        let requiresEmptyJSONResponse = provider == .codex && eventName == "Stop"
+        var wroteBridgeResponse = false
+        defer {
+            if requiresEmptyJSONResponse && !wroteBridgeResponse {
+                FileHandle.standardOutput.write(Data("{}\n".utf8))
+            }
         }
 
         event["_assist_provider"] = provider.rawValue
@@ -191,6 +199,7 @@ enum CodingAgentHookCommand {
         }
 
         FileHandle.standardOutput.write(response)
+        wroteBridgeResponse = true
         if response.last != 0x0A {
             FileHandle.standardOutput.write(Data([0x0A]))
         }
