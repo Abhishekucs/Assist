@@ -12,7 +12,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private let clipboardMonitor = ClipboardTextMonitor()
     private let codingAgentBridge = CodingAgentBridgeService()
     private let codexHookInstaller = CodexHookInstaller()
-    private let claudeCodeHookInstaller = ClaudeCodeHookInstaller()
+    private var claudeCodeHookInstaller: ClaudeCodeHookInstaller?
 
     private var activeScreen: NSScreen?
     private var activeStroke: Stroke?
@@ -86,12 +86,20 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             DebugLogger.log("agents.bridge.start.error", errorFields(error))
         }
 
-        codingAgentIntegrationSettingsCancellable = pillViewModel.settings
-            .$codingAgentIntegrationEnabled
-            .removeDuplicates()
-            .sink { [weak self] isEnabled in
+        codingAgentIntegrationSettingsCancellable = Publishers.CombineLatest(
+            pillViewModel.settings.$codingAgentIntegrationEnabled,
+            pillViewModel.settings.$claudeCodeConfigDirectory
+        )
+            .removeDuplicates { previous, current in
+                previous.0 == current.0 && previous.1 == current.1
+            }
+            .sink { [weak self] integrationSettings in
+                let (isEnabled, claudeCodeConfigDirectory) = integrationSettings
                 Task { @MainActor [weak self] in
-                    self?.configureCodingAgentIntegration(isEnabled: isEnabled)
+                    self?.configureCodingAgentIntegration(
+                        isEnabled: isEnabled,
+                        claudeCodeConfigDirectory: claudeCodeConfigDirectory
+                    )
                 }
             }
 
@@ -139,13 +147,31 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
     }
 
-    private func configureCodingAgentIntegration(isEnabled: Bool) {
+    private func configureCodingAgentIntegration(
+        isEnabled: Bool,
+        claudeCodeConfigDirectory: String
+    ) {
+        let nextClaudeCodeHookInstaller = ClaudeCodeHookInstaller(
+            claudeHome: CodingAgentConfiguration.claudeHome(
+                configuredDirectory: claudeCodeConfigDirectory
+            )
+        )
+        pillViewModel.refreshUsageLimitsSoon()
+
         do {
+            if let claudeCodeHookInstaller,
+               claudeCodeHookInstaller.settingsURL.standardizedFileURL
+                != nextClaudeCodeHookInstaller.settingsURL.standardizedFileURL,
+               claudeCodeHookInstaller.containsAssistHandlers() {
+                try claudeCodeHookInstaller.uninstall()
+            }
+            claudeCodeHookInstaller = nextClaudeCodeHookInstaller
+
             if isEnabled {
                 try codexHookInstaller.install(executableURL: Bundle.main.executableURL)
-                try claudeCodeHookInstaller.install(executableURL: Bundle.main.executableURL)
+                try nextClaudeCodeHookInstaller.install(executableURL: Bundle.main.executableURL)
                 let status = isCodingAgentBridgeRunning
-                    ? "Connected to Codex and Claude Code. Trust new hooks if prompted."
+                    ? "Connected to Codex and Claude Code. Claude settings: \(nextClaudeCodeHookInstaller.settingsURL.path)"
                     : "Hooks installed, but the local Assist bridge is unavailable."
                 pillViewModel.setCodingAgentIntegrationStatus(status)
                 DebugLogger.log("agents.integration.enabled")
@@ -153,8 +179,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 if codexHookInstaller.containsAssistHandlers() {
                     try codexHookInstaller.uninstall()
                 }
-                if claudeCodeHookInstaller.containsAssistHandlers() {
-                    try claudeCodeHookInstaller.uninstall()
+                if nextClaudeCodeHookInstaller.containsAssistHandlers() {
+                    try nextClaudeCodeHookInstaller.uninstall()
                 }
                 codingAgentBridge.declineToDecideAll()
                 pillViewModel.clearCodingAgentState()

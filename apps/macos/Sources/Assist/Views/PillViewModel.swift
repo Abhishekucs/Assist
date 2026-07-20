@@ -89,8 +89,16 @@ final class PillViewModel: ObservableObject {
     private func refreshUsageLimits() async {
         guard !isRefreshingUsageLimits else { return }
 
+        let claudeCodeConfigDirectory = settings.claudeCodeConfigDirectory
         isRefreshingUsageLimits = true
-        let snapshots = await UsageLimitService.loadSnapshots()
+        let snapshots = await UsageLimitService.loadSnapshots(
+            claudeCodeConfigDirectory: claudeCodeConfigDirectory
+        )
+        guard settings.claudeCodeConfigDirectory == claudeCodeConfigDirectory else {
+            isRefreshingUsageLimits = false
+            refreshUsageLimitsSoon()
+            return
+        }
         usageLimitSnapshots = Dictionary(
             uniqueKeysWithValues: snapshots.map { ($0.provider, $0) }
         )

@@ -832,6 +832,12 @@ private struct GeneralSettingsPane: View {
 
                     RowDivider()
 
+                    ClaudeConfigDirectoryRow(
+                        directory: $settings.claudeCodeConfigDirectory
+                    )
+
+                    RowDivider()
+
                     SettingValueRow(
                         title: "Connection",
                         value: settings.codingAgentIntegrationEnabled ? "Enabled" : "Disabled",
@@ -855,6 +861,66 @@ private struct GeneralSettingsPane: View {
                     )
                 }
             }
+        }
+    }
+}
+
+private struct ClaudeConfigDirectoryRow: View {
+    @Binding var directory: String
+    @State private var draftDirectory: String
+    @FocusState private var isFieldFocused: Bool
+    @Environment(\.assistTheme) private var theme
+
+    init(directory: Binding<String>) {
+        _directory = directory
+        _draftDirectory = State(initialValue: directory.wrappedValue)
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Claude config directory")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(theme.foreground)
+
+                Text("Use the same directory as CLAUDE_CONFIG_DIR. Leave blank for ~/.claude.")
+                    .font(.caption)
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            TextField("~/.claude", text: $draftDirectory)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 220)
+                .focused($isFieldFocused)
+                .onSubmit(commitDirectory)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 64)
+        .onChange(of: isFieldFocused) { _, isFocused in
+            if !isFocused {
+                commitDirectory()
+            }
+        }
+        .onChange(of: directory) { _, newDirectory in
+            if !isFieldFocused {
+                draftDirectory = newDirectory
+            }
+        }
+        .onDisappear(perform: commitDirectory)
+    }
+
+    private func commitDirectory() {
+        let trimmedDirectory = draftDirectory
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if draftDirectory != trimmedDirectory {
+            draftDirectory = trimmedDirectory
+        }
+        if directory != trimmedDirectory {
+            directory = trimmedDirectory
         }
     }
 }

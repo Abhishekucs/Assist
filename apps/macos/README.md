@@ -186,11 +186,14 @@ Working rows use the pixel Claude Code mascot in each provider's accent color.
 
 1. Open Assist settings.
 2. Under **General > Coding agents**, enable **Show activity and approvals**.
-3. Review and trust the new Assist hook if Codex prompts you. Start a new Codex
+3. If Claude Code uses `CLAUDE_CONFIG_DIR`, enter that same directory in the
+   **Claude config directory** field.
+4. Review and trust the new Assist hook if Codex prompts you. Start a new Codex
    or Claude Code task if an already-open task does not pick up the hook.
 
-Assist merges its handlers into `~/.codex/hooks.json` and
-`~/.claude/settings.json` without replacing other hooks. Disabling the setting
+Assist merges its handlers into `~/.codex/hooks.json` and the selected Claude
+Code `settings.json` (defaulting to `~/.claude/settings.json`) without replacing
+other hooks. Disabling the setting
 removes only Assist handlers. Hook events travel over a user-only Unix socket
 in Assist's Application Support directory. If Assist is not running or does
 not answer, the hook returns no decision and the coding agent continues with

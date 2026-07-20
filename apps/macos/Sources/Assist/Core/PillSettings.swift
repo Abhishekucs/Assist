@@ -57,6 +57,9 @@ final class PillSettings: ObservableObject {
     @Published var codingAgentIntegrationEnabled: Bool {
         didSet { defaults.set(codingAgentIntegrationEnabled, forKey: Keys.codingAgentIntegrationEnabled) }
     }
+    @Published var claudeCodeConfigDirectory: String {
+        didSet { defaults.set(claudeCodeConfigDirectory, forKey: Keys.claudeCodeConfigDirectory) }
+    }
     @Published var downloadUpdatesAutomatically: Bool {
         didSet { defaults.set(downloadUpdatesAutomatically, forKey: Keys.downloadUpdatesAutomatically) }
     }
@@ -107,6 +110,14 @@ final class PillSettings: ObservableObject {
            defaults.object(forKey: Keys.legacyCodexAgentIntegrationEnabled) != nil {
             defaults.set(resolvedCodingAgentIntegrationEnabled, forKey: Keys.codingAgentIntegrationEnabled)
         }
+        let resolvedClaudeCodeConfigDirectory = defaults.string(forKey: Keys.claudeCodeConfigDirectory)
+            ?? ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"]
+            ?? ""
+        claudeCodeConfigDirectory = resolvedClaudeCodeConfigDirectory
+        if defaults.object(forKey: Keys.claudeCodeConfigDirectory) == nil,
+           !resolvedClaudeCodeConfigDirectory.isEmpty {
+            defaults.set(resolvedClaudeCodeConfigDirectory, forKey: Keys.claudeCodeConfigDirectory)
+        }
         downloadUpdatesAutomatically = Self.bool(for: Keys.downloadUpdatesAutomatically, default: true, defaults: defaults)
         appAppearance = Self.appearance(for: Keys.appAppearance, default: .system, defaults: defaults)
     }
@@ -155,6 +166,7 @@ private enum Keys {
     static let showCodexRateLimit = "rateLimits.showCodex"
     static let codingAgentIntegrationEnabled = "agents.coding.enabled"
     static let legacyCodexAgentIntegrationEnabled = "agents.codex.enabled"
+    static let claudeCodeConfigDirectory = "agents.claude.configDirectory"
     static let downloadUpdatesAutomatically = "updates.downloadAutomatically"
     static let appAppearance = "app.appearance"
 }
