@@ -24,6 +24,11 @@ These rules apply to this repository. Follow them when adding or changing code.
 
 ## Visual Design
 
+- Never assume or invent colors or a design system. Before choosing colors,
+  typography, spacing, corner radii, component styles, or other visual tokens,
+  inspect the existing product and any user-provided reference. If the intended
+  direction is still ambiguous, ask the user instead of supplying a default
+  palette or design system.
 - Respect Apple platform conventions: restrained surfaces, clear hierarchy, compact controls, and native-feeling motion.
 - Do not add unnecessary borders. Use borders only when they clarify grouping, focus, selection, or separation.
 - Prefer spacing, background contrast, and typography before adding outlines.
