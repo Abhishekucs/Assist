@@ -911,15 +911,10 @@ private struct UsageRailProvider: View {
 
     var body: some View {
         HStack(spacing: isCollapsed ? 4 : 7) {
-            if isCollapsed {
-                UsageProviderLogo(provider: snapshot.provider, size: 11)
-            } else {
-                AgentNameTag(
-                    name: snapshot.provider.displayName,
-                    color: UsageLimitPalette.color(for: snapshot.provider),
-                    compact: false
-                )
-            }
+            UsageProviderLogo(
+                provider: snapshot.provider,
+                size: isCollapsed ? 11 : 15
+            )
 
             UsageRailMetric(title: "5h", window: snapshot.fiveHour)
 
