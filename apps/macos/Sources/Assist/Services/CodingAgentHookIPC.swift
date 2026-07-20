@@ -1,8 +1,10 @@
 import Darwin
 import Foundation
 
-enum CodexHookIPC {
-    static let commandLineFlag = "--codex-hook"
+enum CodingAgentHookIPC {
+    static let codexCommandLineFlag = "--codex-hook"
+    static let claudeCodeCommandLineFlag = "--claude-code-hook"
+    static let versionArgumentPrefix = "--assist-agent-version="
     static let maximumPayloadBytes = 1_048_576
     private static let frameHeaderByteCount = 4
 
@@ -10,7 +12,7 @@ enum CodexHookIPC {
         FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(AppIdentity.supportDirectoryName, isDirectory: true)
-            .appendingPathComponent("codex-agent.sock")
+            .appendingPathComponent("coding-agent.sock")
     }
 
     static func withSocketAddress<T>(
@@ -141,13 +143,34 @@ enum CodexHookIPC {
     }
 }
 
-enum CodexHookCommand {
-    static func run() -> Int32 {
+enum CodingAgentHookCommand {
+    static func provider(in arguments: [String]) -> UsageLimitProvider? {
+        if arguments.contains(CodingAgentHookIPC.codexCommandLineFlag) {
+            return .codex
+        }
+        if arguments.contains(CodingAgentHookIPC.claudeCodeCommandLineFlag) {
+            return .claudeCode
+        }
+        return nil
+    }
+
+    static func run(provider: UsageLimitProvider, arguments: [String]) -> Int32 {
         let payload = FileHandle.standardInput.readDataToEndOfFile()
         guard !payload.isEmpty,
-              payload.count <= CodexHookIPC.maximumPayloadBytes,
-              let event = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              payload.count <= CodingAgentHookIPC.maximumPayloadBytes,
+              var event = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
               event["hook_event_name"] is String else {
+            return 0
+        }
+
+        event["_assist_provider"] = provider.rawValue
+        if let version = arguments
+            .first(where: { $0.hasPrefix(CodingAgentHookIPC.versionArgumentPrefix) })?
+            .dropFirst(CodingAgentHookIPC.versionArgumentPrefix.count),
+           !version.isEmpty {
+            event["_assist_agent_version"] = String(version)
+        }
+        guard let bridgedPayload = try? JSONSerialization.data(withJSONObject: event) else {
             return 0
         }
 
@@ -155,14 +178,14 @@ enum CodexHookCommand {
         guard descriptor >= 0 else { return 0 }
         defer { Darwin.close(descriptor) }
 
-        let connected = CodexHookIPC.withSocketAddress(path: CodexHookIPC.socketURL.path) {
+        let connected = CodingAgentHookIPC.withSocketAddress(path: CodingAgentHookIPC.socketURL.path) {
             Darwin.connect(descriptor, $0, $1)
         }
         guard connected == 0 else { return 0 }
 
-        guard CodexHookIPC.writeFrame(payload, to: descriptor) else { return 0 }
+        guard CodingAgentHookIPC.writeFrame(bridgedPayload, to: descriptor) else { return 0 }
 
-        guard let response = CodexHookIPC.readAll(from: descriptor),
+        guard let response = CodingAgentHookIPC.readAll(from: descriptor),
               !response.isEmpty else {
             return 0
         }

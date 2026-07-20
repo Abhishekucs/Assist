@@ -170,26 +170,31 @@ If capture or the global gesture does not work after granting permissions, quit 
 
 The app does not block behind a permission gateway. Capture is attempted directly, and failures are reported through status text plus the debug log.
 
-## Codex Agent Integration
+## Coding Agent Integration
 
-Assist can show Codex Mac app activity and route Codex permission requests to
-the island. Hovering the island shows up to three active tasks in an
-urgency-sorted vertical stack, including each task's prompt summary, state, and
+Assist can show Codex and terminal Claude Code activity and route their
+permission requests to the island. Questions from Codex `request_user_input`,
+Claude Code `AskUserQuestion`, and Claude Code elicitation notifications expand
+the island and stay visible as a **Needs answer** task until the interaction
+finishes. Claude Code rows also show the detected CLI version.
+
+Hovering the island shows up to three active tasks in an urgency-sorted
+vertical stack, including each task's prompt or question summary, state, and
 provider tag. Enabled 5-hour and 7-day usage windows stay pinned to the
 top-left of both the collapsed and expanded island while agents are running.
-Working rows replace the static state rail with the animated pixel Claude Code
-mascot recolored in the Codex blue palette.
+Working rows use the pixel Claude Code mascot in each provider's accent color.
 
 1. Open Assist settings.
-2. Under **General > Codex agents**, enable **Show activity and approvals**.
-3. Review and trust the new Assist hook in Codex when Codex prompts you. Start
-   a new Codex task if an already-open task does not pick up the hook.
+2. Under **General > Coding agents**, enable **Show activity and approvals**.
+3. Review and trust the new Assist hook if Codex prompts you. Start a new Codex
+   or Claude Code task if an already-open task does not pick up the hook.
 
-Assist merges its handlers into `~/.codex/hooks.json` without replacing other
-hooks. Disabling the setting removes only Assist handlers. Hook events travel
-over a user-only Unix socket in Assist's Application Support directory. If
-Assist is not running or does not answer, the hook returns no decision and
-Codex continues with its normal approval prompt.
+Assist merges its handlers into `~/.codex/hooks.json` and
+`~/.claude/settings.json` without replacing other hooks. Disabling the setting
+removes only Assist handlers. Hook events travel over a user-only Unix socket
+in Assist's Application Support directory. If Assist is not running or does
+not answer, the hook returns no decision and the coding agent continues with
+its normal prompt.
 
 ## License Activation
 

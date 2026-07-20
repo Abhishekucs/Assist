@@ -1,26 +1,26 @@
 import Darwin
 import Foundation
 
-final class CodexAgentBridgeService: @unchecked Sendable {
+final class CodingAgentBridgeService: @unchecked Sendable {
     private static let approvalTimeout: TimeInterval = 600
 
-    private let listenerQueue = DispatchQueue(label: "com.thinkingsoundlab.assist.codex-listener")
+    private let listenerQueue = DispatchQueue(label: "com.thinkingsoundlab.assist.agent-listener")
     private let clientQueue = DispatchQueue(
-        label: "com.thinkingsoundlab.assist.codex-clients",
+        label: "com.thinkingsoundlab.assist.agent-clients",
         attributes: .concurrent
     )
     private let stateLock = NSLock()
     private var listenerDescriptor: Int32 = -1
     private var acceptSource: DispatchSourceRead?
-    private var approvalChannels: [UUID: CodexApprovalChannel] = [:]
+    private var approvalChannels: [UUID: CodingAgentApprovalChannel] = [:]
 
-    var onEvent: (@Sendable (CodexHookEvent) -> Void)?
-    var onApprovalInvalidated: (@Sendable (UUID, CodexApprovalInvalidationReason) -> Void)?
+    var onEvent: (@Sendable (CodingAgentHookEvent) -> Void)?
+    var onApprovalInvalidated: (@Sendable (UUID, CodingAgentApprovalInvalidationReason) -> Void)?
 
     func start() throws {
         guard listenerDescriptor < 0 else { return }
 
-        let socketURL = CodexHookIPC.socketURL
+        let socketURL = CodingAgentHookIPC.socketURL
         try FileManager.default.createDirectory(
             at: socketURL.deletingLastPathComponent(),
             withIntermediateDirectories: true,
@@ -34,7 +34,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
             throw POSIXError(.ENOTSOCK)
         }
 
-        let didBind = CodexHookIPC.withSocketAddress(path: socketURL.path) {
+        let didBind = CodingAgentHookIPC.withSocketAddress(path: socketURL.path) {
             Darwin.bind(descriptor, $0, $1)
         }
         guard didBind == 0 else {
@@ -72,7 +72,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
             Darwin.close(listenerDescriptor)
             listenerDescriptor = -1
         }
-        _ = Darwin.unlink(CodexHookIPC.socketURL.path)
+        _ = Darwin.unlink(CodingAgentHookIPC.socketURL.path)
 
         let channels = stateLock.withLock {
             let values = Array(approvalChannels.values)
@@ -82,7 +82,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
         channels.forEach { $0.closeWithoutDecision() }
     }
 
-    func resolve(_ approvalID: UUID, decision: CodexApprovalDecision) {
+    func resolve(_ approvalID: UUID, decision: CodingAgentApprovalDecision) {
         let channel = stateLock.withLock {
             approvalChannels.removeValue(forKey: approvalID)
         }
@@ -129,7 +129,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
     }
 
     private func handleClient(_ descriptor: Int32) {
-        guard let payload = CodexHookIPC.readFrame(from: descriptor),
+        guard let payload = CodingAgentHookIPC.readFrame(from: descriptor),
               let parsedEvent = Self.parseEvent(payload) else {
             Darwin.close(descriptor)
             return
@@ -142,7 +142,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
             return
         }
 
-        let channel = CodexApprovalChannel(descriptor: descriptor)
+        let channel = CodingAgentApprovalChannel(descriptor: descriptor)
         stateLock.withLock {
             approvalChannels[approvalID] = channel
         }
@@ -159,8 +159,8 @@ final class CodexAgentBridgeService: @unchecked Sendable {
 
     private func invalidateApproval(
         _ approvalID: UUID,
-        channel: CodexApprovalChannel,
-        reason: CodexApprovalInvalidationReason
+        channel: CodingAgentApprovalChannel,
+        reason: CodingAgentApprovalInvalidationReason
     ) {
         let invalidated = stateLock.withLock {
             guard approvalChannels[approvalID] === channel else { return false }
@@ -173,8 +173,10 @@ final class CodexAgentBridgeService: @unchecked Sendable {
         onApprovalInvalidated?(approvalID, reason)
     }
 
-    private static func parseEvent(_ data: Data) -> CodexHookEvent? {
+    private static func parseEvent(_ data: Data) -> CodingAgentHookEvent? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providerRawValue = object["_assist_provider"] as? String,
+              let provider = UsageLimitProvider(rawValue: providerRawValue),
               let name = object["hook_event_name"] as? String,
               let sessionID = object["session_id"] as? String,
               let cwd = object["cwd"] as? String else {
@@ -185,20 +187,45 @@ final class CodexAgentBridgeService: @unchecked Sendable {
         let toolName = object["tool_name"] as? String
         let reason = toolInput?["description"] as? String
         let commandPreview = Self.commandPreview(toolInput: toolInput)
+        let notificationType = object["notification_type"] as? String
+        let questionPrompt = Self.questionPrompt(
+            toolInput: toolInput,
+            notificationMessage: object["message"] as? String
+        )
 
-        return CodexHookEvent(
+        return CodingAgentHookEvent(
+            provider: provider,
             name: name,
             sessionID: sessionID,
             turnID: object["turn_id"] as? String,
             source: object["source"] as? String,
             cwd: cwd,
             model: object["model"] as? String,
+            version: object["_assist_agent_version"] as? String,
             taskSummary: Self.taskSummary(from: object["prompt"] as? String),
+            questionPrompt: questionPrompt,
+            notificationType: notificationType,
             toolName: toolName,
             commandPreview: commandPreview,
             reason: reason,
             approvalID: name == "PermissionRequest" ? UUID() : nil
         )
+    }
+
+    private static func questionPrompt(
+        toolInput: [String: Any]?,
+        notificationMessage: String?
+    ) -> String? {
+        if let questions = toolInput?["questions"] as? [[String: Any]] {
+            let text = questions.compactMap { $0["question"] as? String }
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " · ")
+            if !text.isEmpty {
+                return String(text.prefix(240))
+            }
+        }
+        return taskSummary(from: notificationMessage)
     }
 
     private static func taskSummary(from prompt: String?) -> String? {
@@ -246,7 +273,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
     }
 }
 
-private final class CodexApprovalChannel: @unchecked Sendable {
+private final class CodingAgentApprovalChannel: @unchecked Sendable {
     private let lock = NSLock()
     private var descriptor: Int32
     private var disconnectSource: DispatchSourceRead?
@@ -282,7 +309,7 @@ private final class CodexApprovalChannel: @unchecked Sendable {
         }
     }
 
-    func resolve(_ decision: CodexApprovalDecision) {
+    func resolve(_ decision: CodingAgentApprovalDecision) {
         let (descriptor, disconnectSource) = takeResources()
         guard descriptor >= 0 else { return }
         defer {
@@ -311,7 +338,7 @@ private final class CodexApprovalChannel: @unchecked Sendable {
             ]
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: response) else { return }
-        _ = CodexHookIPC.writeAll(data, to: descriptor)
+        _ = CodingAgentHookIPC.writeAll(data, to: descriptor)
     }
 
     func closeWithoutDecision() {

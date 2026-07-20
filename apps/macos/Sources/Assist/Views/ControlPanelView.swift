@@ -822,20 +822,20 @@ private struct GeneralSettingsPane: View {
             title: "General",
             subtitle: "Connect coding agents and choose which rate limits appear on the island."
         ) {
-            SettingsSection("Codex agents") {
+            SettingsSection("Coding agents") {
                 VStack(alignment: .leading, spacing: 0) {
                     SettingToggleRow(
                         title: "Show activity and approvals",
-                        detail: "Routes Codex Mac app permission requests to the island.",
-                        isOn: $settings.codexAgentIntegrationEnabled
+                        detail: "Connects Codex and terminal Claude Code sessions to the island.",
+                        isOn: $settings.codingAgentIntegrationEnabled
                     )
 
                     RowDivider()
 
                     SettingValueRow(
                         title: "Connection",
-                        value: settings.codexAgentIntegrationEnabled ? "Enabled" : "Disabled",
-                        detail: viewModel.codexIntegrationStatusText
+                        value: settings.codingAgentIntegrationEnabled ? "Enabled" : "Disabled",
+                        detail: viewModel.codingAgentIntegrationStatusText
                     )
                 }
             }

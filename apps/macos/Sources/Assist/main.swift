@@ -1,7 +1,7 @@
 import AppKit
 
-if CommandLine.arguments.contains(CodexHookIPC.commandLineFlag) {
-    exit(CodexHookCommand.run())
+if let provider = CodingAgentHookCommand.provider(in: CommandLine.arguments) {
+    exit(CodingAgentHookCommand.run(provider: provider, arguments: CommandLine.arguments))
 }
 
 let app = NSApplication.shared

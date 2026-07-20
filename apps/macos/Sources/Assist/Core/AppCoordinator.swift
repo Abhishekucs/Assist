@@ -10,16 +10,17 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private let pillViewModel: PillViewModel
     private let monitor = ControlGestureMonitor()
     private let clipboardMonitor = ClipboardTextMonitor()
-    private let codexAgentBridge = CodexAgentBridgeService()
+    private let codingAgentBridge = CodingAgentBridgeService()
     private let codexHookInstaller = CodexHookInstaller()
+    private let claudeCodeHookInstaller = ClaudeCodeHookInstaller()
 
     private var activeScreen: NSScreen?
     private var activeStroke: Stroke?
     private var isCapturing = false
     private var annotationSessionID: UUID?
     private var debugOverlayWorkItems: [DispatchWorkItem] = []
-    private var codexIntegrationSettingsCancellable: AnyCancellable?
-    private var isCodexBridgeRunning = false
+    private var codingAgentIntegrationSettingsCancellable: AnyCancellable?
+    private var isCodingAgentBridgeRunning = false
 
     init(
         windowManager: WindowManager,
@@ -57,40 +58,40 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         pillViewModel.onWillShowHistory = { [weak self] in
             self?.syncHistoryFromStore()
         }
-        pillViewModel.onResolveCodexApproval = { [weak self] approvalID, decision in
-            self?.codexAgentBridge.resolve(approvalID, decision: decision)
-            self?.windowManager.codexApprovalDidResolve()
+        pillViewModel.onResolveAgentApproval = { [weak self] approvalID, decision in
+            self?.codingAgentBridge.resolve(approvalID, decision: decision)
+            self?.windowManager.agentInteractionDidResolve()
         }
-        pillViewModel.onCodexAgentStateChange = { [weak self] in
-            self?.windowManager.codexAgentStateDidChange()
+        pillViewModel.onCodingAgentStateChange = { [weak self] in
+            self?.windowManager.codingAgentStateDidChange()
         }
 
-        codexAgentBridge.onEvent = { [weak self] event in
+        codingAgentBridge.onEvent = { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.handleCodexHookEvent(event)
+                self?.handleCodingAgentHookEvent(event)
             }
         }
-        codexAgentBridge.onApprovalInvalidated = { [weak self] approvalID, reason in
+        codingAgentBridge.onApprovalInvalidated = { [weak self] approvalID, reason in
             Task { @MainActor [weak self] in
-                self?.pillViewModel.invalidateCodexApproval(approvalID, reason: reason)
-                self?.windowManager.codexApprovalDidResolve()
+                self?.pillViewModel.invalidateAgentApproval(approvalID, reason: reason)
+                self?.windowManager.agentInteractionDidResolve()
             }
         }
         do {
-            try codexAgentBridge.start()
-            isCodexBridgeRunning = true
+            try codingAgentBridge.start()
+            isCodingAgentBridgeRunning = true
         } catch {
-            isCodexBridgeRunning = false
-            pillViewModel.setCodexIntegrationStatus("Bridge unavailable: \(error.localizedDescription)")
-            DebugLogger.log("codex.bridge.start.error", errorFields(error))
+            isCodingAgentBridgeRunning = false
+            pillViewModel.setCodingAgentIntegrationStatus("Bridge unavailable: \(error.localizedDescription)")
+            DebugLogger.log("agents.bridge.start.error", errorFields(error))
         }
 
-        codexIntegrationSettingsCancellable = pillViewModel.settings
-            .$codexAgentIntegrationEnabled
+        codingAgentIntegrationSettingsCancellable = pillViewModel.settings
+            .$codingAgentIntegrationEnabled
             .removeDuplicates()
             .sink { [weak self] isEnabled in
                 Task { @MainActor [weak self] in
-                    self?.configureCodexIntegration(isEnabled: isEnabled)
+                    self?.configureCodingAgentIntegration(isEnabled: isEnabled)
                 }
             }
 
@@ -115,49 +116,55 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         monitor.stop()
         clipboardMonitor.stop()
         pillViewModel.stopUsageLimitUpdates()
-        codexIntegrationSettingsCancellable?.cancel()
-        codexIntegrationSettingsCancellable = nil
-        codexAgentBridge.stop()
-        isCodexBridgeRunning = false
+        codingAgentIntegrationSettingsCancellable?.cancel()
+        codingAgentIntegrationSettingsCancellable = nil
+        codingAgentBridge.stop()
+        isCodingAgentBridgeRunning = false
     }
 
-    private func handleCodexHookEvent(_ event: CodexHookEvent) {
-        guard pillViewModel.settings.codexAgentIntegrationEnabled else {
+    private func handleCodingAgentHookEvent(_ event: CodingAgentHookEvent) {
+        guard pillViewModel.settings.codingAgentIntegrationEnabled else {
             if let approvalID = event.approvalID {
-                codexAgentBridge.declineToDecide(approvalID)
+                codingAgentBridge.declineToDecide(approvalID)
             }
             return
         }
 
-        pillViewModel.setCodexIntegrationStatus("Active with Codex")
-        let shouldPresentApproval = pillViewModel.receiveCodexHookEvent(event)
-        if shouldPresentApproval {
-            windowManager.presentCodexApproval()
+        pillViewModel.setCodingAgentIntegrationStatus("Active with Codex and Claude Code")
+        let shouldPresentInteraction = pillViewModel.receiveCodingAgentHookEvent(event)
+        if shouldPresentInteraction {
+            windowManager.presentCodingAgentInteraction()
+        } else {
+            windowManager.agentInteractionDidResolve()
         }
     }
 
-    private func configureCodexIntegration(isEnabled: Bool) {
+    private func configureCodingAgentIntegration(isEnabled: Bool) {
         do {
             if isEnabled {
                 try codexHookInstaller.install(executableURL: Bundle.main.executableURL)
-                let status = isCodexBridgeRunning
-                    ? "Connected. Trust the Assist hook in Codex if prompted."
-                    : "Hook installed, but the local Assist bridge is unavailable."
-                pillViewModel.setCodexIntegrationStatus(status)
-                DebugLogger.log("codex.integration.enabled")
+                try claudeCodeHookInstaller.install(executableURL: Bundle.main.executableURL)
+                let status = isCodingAgentBridgeRunning
+                    ? "Connected to Codex and Claude Code. Trust new hooks if prompted."
+                    : "Hooks installed, but the local Assist bridge is unavailable."
+                pillViewModel.setCodingAgentIntegrationStatus(status)
+                DebugLogger.log("agents.integration.enabled")
             } else {
                 if codexHookInstaller.containsAssistHandlers() {
                     try codexHookInstaller.uninstall()
                 }
-                codexAgentBridge.declineToDecideAll()
-                pillViewModel.clearCodexAgentState()
-                windowManager.codexApprovalDidResolve()
-                pillViewModel.setCodexIntegrationStatus("Not connected")
-                DebugLogger.log("codex.integration.disabled")
+                if claudeCodeHookInstaller.containsAssistHandlers() {
+                    try claudeCodeHookInstaller.uninstall()
+                }
+                codingAgentBridge.declineToDecideAll()
+                pillViewModel.clearCodingAgentState()
+                windowManager.agentInteractionDidResolve()
+                pillViewModel.setCodingAgentIntegrationStatus("Not connected")
+                DebugLogger.log("agents.integration.disabled")
             }
         } catch {
-            pillViewModel.setCodexIntegrationStatus(error.localizedDescription)
-            DebugLogger.log("codex.integration.configure.error", errorFields(error))
+            pillViewModel.setCodingAgentIntegrationStatus(error.localizedDescription)
+            DebugLogger.log("agents.integration.configure.error", errorFields(error))
         }
     }
 

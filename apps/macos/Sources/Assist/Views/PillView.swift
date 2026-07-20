@@ -19,7 +19,7 @@ struct PillView: View {
         PillChromeMetrics.collapsedSize(
             settings: settings,
             showingCopyFeedback: viewModel.copyFeedback != nil,
-            showingAgentActivity: viewModel.displayedCodexSession != nil
+            showingAgentActivity: viewModel.displayedCodingAgentSession != nil
         )
     }
 
@@ -27,8 +27,8 @@ struct PillView: View {
         PillChromeMetrics.expandedSize(
             settings: settings,
             showingRateLimits: !visibleUsageLimitSnapshots.isEmpty,
-            showingAgentApproval: viewModel.hasPendingCodexApproval,
-            agentTaskCount: viewModel.activeCodexTaskSessions.count
+            showingAgentApproval: viewModel.hasPendingAgentApproval,
+            agentTaskCount: viewModel.activeCodingAgentTaskSessions.count
         )
     }
 
@@ -166,8 +166,8 @@ private struct CollapsedIslandHeader: View {
 
                 Spacer(minLength: 0)
 
-                if let approval = viewModel.primaryCodexApproval {
-                    CodexApprovalCollapsedActions(approval: approval, viewModel: viewModel)
+                if let approval = viewModel.primaryAgentApproval {
+                    AgentApprovalCollapsedActions(approval: approval, viewModel: viewModel)
                 } else if let feedback = viewModel.copyFeedback {
                     Text(feedback.badge)
                         .font(.system(size: 9.5, weight: .bold, design: .rounded))
@@ -176,8 +176,8 @@ private struct CollapsedIslandHeader: View {
                         .frame(height: 19)
                         .background(Color.white, in: Capsule())
                         .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
-                } else if viewModel.settings.codexAgentIntegrationEnabled,
-                          let session = viewModel.displayedCodexSession {
+                } else if viewModel.settings.codingAgentIntegrationEnabled,
+                          let session = viewModel.displayedCodingAgentSession {
                     CollapsedAgentIndicator(session: session)
                 }
 
@@ -187,8 +187,8 @@ private struct CollapsedIslandHeader: View {
                 AssistLogo(size: 16)
                     .help(AppIdentity.name)
 
-                if let approval = viewModel.primaryCodexApproval {
-                    CodexApprovalCollapsedRow(approval: approval, viewModel: viewModel)
+                if let approval = viewModel.primaryAgentApproval {
+                    AgentApprovalCollapsedRow(approval: approval, viewModel: viewModel)
                 } else if let feedback = viewModel.copyFeedback {
                     CopyFeedbackRow(feedback: feedback)
                         .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
@@ -198,9 +198,9 @@ private struct CollapsedIslandHeader: View {
                                 .combined(with: .scale(scale: 0.96))
                                 .animation(.easeOut(duration: 0.16))
                         )
-                } else if viewModel.settings.codexAgentIntegrationEnabled,
-                          let session = viewModel.displayedCodexSession {
-                    CodexAgentCollapsedRow(session: session)
+                } else if viewModel.settings.codingAgentIntegrationEnabled,
+                          let session = viewModel.displayedCodingAgentSession {
+                    CodingAgentCollapsedRow(session: session)
                 } else {
                     Text(viewModel.statusText)
                         .font(AssistFont.roundedFootnote(.medium))
@@ -217,66 +217,81 @@ private struct CollapsedIslandHeader: View {
     }
 }
 
-private struct CodexApprovalCollapsedActions: View {
-    let approval: CodexApprovalRequest
+private struct AgentApprovalCollapsedActions: View {
+    let approval: CodingAgentApprovalRequest
     @ObservedObject var viewModel: PillViewModel
 
     var body: some View {
         HStack(spacing: 5) {
-            AgentNameTag(name: "Codex", color: UsageLimitPalette.color(for: .codex), compact: true)
+            AgentNameTag(
+                name: approval.provider.displayName,
+                color: UsageLimitPalette.color(for: approval.provider),
+                compact: true
+            )
 
             Button {
-                viewModel.resolveCodexApproval(approval.id, decision: .deny)
+                viewModel.resolveAgentApproval(approval.id, decision: .deny)
             } label: {
                 HugeIcon(.close, size: 8, color: .white.opacity(0.84))
                     .frame(width: 19, height: 19)
                     .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help("Deny Codex request")
+            .help("Deny \(approval.provider.displayName) request")
 
             Button {
-                viewModel.resolveCodexApproval(approval.id, decision: .allow)
+                viewModel.resolveAgentApproval(approval.id, decision: .allow)
             } label: {
                 HugeIcon(.check, size: 9, color: .black.opacity(0.86))
                     .frame(width: 19, height: 19)
                     .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help("Allow Codex request")
+            .help("Allow \(approval.provider.displayName) request")
         }
     }
 }
 
 private struct CollapsedAgentIndicator: View {
-    let session: CodexAgentSession
+    let session: CodingAgentSession
 
     var body: some View {
         HStack(spacing: 5) {
-            AgentNameTag(name: "Codex", color: UsageLimitPalette.color(for: .codex), compact: true)
+            AgentNameTag(
+                name: session.provider.displayName,
+                color: UsageLimitPalette.color(for: session.provider),
+                compact: true
+            )
+
+            if let version = session.version {
+                Text("v\(version)")
+                    .font(.system(size: 8, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.42))
+                    .fixedSize()
+            }
 
             if session.activity == .working {
                 ProgressView()
                     .controlSize(.mini)
-                    .tint(UsageLimitPalette.color(for: .codex))
+                    .tint(UsageLimitPalette.color(for: session.provider))
             } else {
                 Circle()
-                    .fill(agentActivityColor(session.activity))
+                    .fill(agentActivityColor(session.activity, provider: session.provider))
                     .frame(width: 6, height: 6)
             }
         }
-        .help("Codex · \(session.projectName) · \(session.activity.displayName)")
-        .accessibilityLabel("Codex, \(session.projectName), \(session.activity.displayName)")
+        .help("\(session.provider.displayName) · \(session.projectName) · \(session.activity.displayName)")
+        .accessibilityLabel("\(session.provider.displayName), \(session.projectName), \(session.activity.displayName)")
     }
 }
 
-private struct CodexApprovalCollapsedRow: View {
-    let approval: CodexApprovalRequest
+private struct AgentApprovalCollapsedRow: View {
+    let approval: CodingAgentApprovalRequest
     @ObservedObject var viewModel: PillViewModel
 
     var body: some View {
         HStack(spacing: 7) {
-            UsageProviderLogo(provider: .codex, size: 14)
+            UsageProviderLogo(provider: approval.provider, size: 14)
 
             Text("Permission · \(approval.projectName)")
                 .font(AssistFont.roundedFootnote(.semibold))
@@ -285,37 +300,37 @@ private struct CodexApprovalCollapsedRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
-                viewModel.resolveCodexApproval(approval.id, decision: .deny)
+                viewModel.resolveAgentApproval(approval.id, decision: .deny)
             } label: {
                 HugeIcon(.close, size: 9, color: .white.opacity(0.82))
                     .frame(width: 21, height: 21)
                     .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help("Deny Codex request")
-            .accessibilityLabel("Deny Codex request")
+            .help("Deny \(approval.provider.displayName) request")
+            .accessibilityLabel("Deny \(approval.provider.displayName) request")
 
             Button {
-                viewModel.resolveCodexApproval(approval.id, decision: .allow)
+                viewModel.resolveAgentApproval(approval.id, decision: .allow)
             } label: {
                 HugeIcon(.check, size: 10, color: .black.opacity(0.86))
                     .frame(width: 21, height: 21)
                     .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help("Allow Codex request")
-            .accessibilityLabel("Allow Codex request")
+            .help("Allow \(approval.provider.displayName) request")
+            .accessibilityLabel("Allow \(approval.provider.displayName) request")
         }
         .frame(maxWidth: .infinity)
     }
 }
 
-private struct CodexAgentCollapsedRow: View {
-    let session: CodexAgentSession
+private struct CodingAgentCollapsedRow: View {
+    let session: CodingAgentSession
 
     var body: some View {
         HStack(spacing: 7) {
-            UsageProviderLogo(provider: .codex, size: 14)
+            UsageProviderLogo(provider: session.provider, size: 14)
 
             Text(session.projectName)
                 .font(AssistFont.roundedFootnote(.semibold))
@@ -329,6 +344,13 @@ private struct CodexAgentCollapsedRow: View {
                 .font(AssistFont.roundedFootnote(.medium))
                 .foregroundStyle(session.activity == .completed ? Color.green.opacity(0.9) : .white.opacity(0.68))
                 .lineLimit(1)
+
+            if let version = session.version {
+                Text("· v\(version)")
+                    .font(AssistFont.roundedFootnote(.medium))
+                    .foregroundStyle(.white.opacity(0.42))
+                    .lineLimit(1)
+            }
 
             Spacer(minLength: 0)
 
@@ -479,7 +501,7 @@ struct ExpandedIslandView: View {
     var body: some View {
         let historyItems = Array(viewModel.historyItems.prefix(24))
         let selectedID = viewModel.selectedItem?.id
-        let codexTasks = viewModel.visibleCodexTaskSessions
+        let codingAgentTasks = viewModel.visibleCodingAgentTaskSessions
 
         VStack(alignment: .leading, spacing: 10) {
             if !usageLimitSnapshots.isEmpty {
@@ -491,17 +513,17 @@ struct ExpandedIslandView: View {
                 .zIndex(2)
             }
 
-            if !codexTasks.isEmpty {
+            if !codingAgentTasks.isEmpty {
                 CodingAgentTaskStack(
-                    sessions: codexTasks,
-                    hiddenCount: viewModel.hiddenCodexTaskCount
+                    sessions: codingAgentTasks,
+                    hiddenCount: viewModel.hiddenCodingAgentTaskCount
                 )
             }
 
-            if let approval = viewModel.primaryCodexApproval {
-                CodexApprovalPanel(
+            if let approval = viewModel.primaryAgentApproval {
+                AgentApprovalPanel(
                     approval: approval,
-                    queuedCount: viewModel.pendingCodexApprovals.count,
+                    queuedCount: viewModel.pendingAgentApprovals.count,
                     viewModel: viewModel
                 )
             } else {
@@ -601,7 +623,7 @@ struct ExpandedIslandView: View {
 }
 
 private struct CodingAgentTaskStack: View {
-    let sessions: [CodexAgentSession]
+    let sessions: [CodingAgentSession]
     let hiddenCount: Int
 
     var body: some View {
@@ -625,14 +647,18 @@ private struct CodingAgentTaskStack: View {
 }
 
 private struct CodingAgentTaskRow: View {
-    let session: CodexAgentSession
+    let session: CodingAgentSession
 
     private var accentColor: Color {
-        agentActivityColor(session.activity)
+        agentActivityColor(session.activity, provider: session.provider)
     }
 
     private var detailText: String {
-        session.taskSummary ?? session.model ?? "Codex task"
+        session.questionPrompt
+            ?? session.taskSummary
+            ?? session.model
+            ?? session.version.map { "\(session.provider.displayName) v\($0)" }
+            ?? "\(session.provider.displayName) task"
     }
 
     var body: some View {
@@ -640,7 +666,7 @@ private struct CodingAgentTaskRow: View {
             if session.activity == .working {
                 PixelClaudeCodeMascot(
                     size: 22,
-                    color: UsageLimitPalette.codexPrimary
+                    color: UsageLimitPalette.color(for: session.provider)
                 )
                     .frame(width: 24, height: 24)
                     .accessibilityHidden(true)
@@ -666,18 +692,26 @@ private struct CodingAgentTaskRow: View {
             Spacer(minLength: 8)
 
             AgentNameTag(
-                name: "Codex",
-                color: UsageLimitPalette.color(for: .codex),
+                name: session.provider.displayName,
+                color: UsageLimitPalette.color(for: session.provider),
                 compact: false
             )
 
-            CodexTaskStatus(activity: session.activity, color: accentColor)
+            if let version = session.version {
+                Text("v\(version)")
+                    .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.42))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+
+            CodingAgentTaskStatus(activity: session.activity, color: accentColor)
         }
         .padding(.horizontal, 9)
         .frame(height: 38)
         .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(session.projectName), \(session.activity.displayName), \(detailText)")
+        .accessibilityLabel("\(session.provider.displayName), \(session.projectName), \(session.activity.displayName), \(detailText)")
     }
 }
 
@@ -720,7 +754,7 @@ private struct PixelClaudeCodeMascot: View {
             .offset(y: reduceMotion ? 0 : (frame == 1 || frame == 2 ? -1 : 0))
         }
         .frame(width: size, height: size)
-        .help("Claude Code mascot in Codex blue · working")
+        .help("Coding agent working")
     }
 
     private static func pixels(for frame: Int) -> [[Character]] {
@@ -755,8 +789,8 @@ private struct AgentNameTag: View {
     }
 }
 
-private struct CodexTaskStatus: View {
-    let activity: CodexAgentActivity
+private struct CodingAgentTaskStatus: View {
+    let activity: CodingAgentActivity
     let color: Color
 
     var body: some View {
@@ -780,6 +814,8 @@ private struct CodexTaskStatus: View {
         switch activity {
         case .waitingForApproval:
             "Approval"
+        case .waitingForInput:
+            "Answer"
         case .working:
             "Working"
         case .completed:
@@ -790,15 +826,15 @@ private struct CodexTaskStatus: View {
     }
 }
 
-private struct CodexApprovalPanel: View {
-    let approval: CodexApprovalRequest
+private struct AgentApprovalPanel: View {
+    let approval: CodingAgentApprovalRequest
     let queuedCount: Int
     @ObservedObject var viewModel: PillViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text("Permission request")
+                Text("\(approval.provider.displayName) permission request")
                     .font(AssistFont.roundedFootnote(.semibold))
                     .foregroundStyle(.white.opacity(0.78))
 
@@ -837,7 +873,7 @@ private struct CodexApprovalPanel: View {
                 Spacer()
 
                 Button("Deny") {
-                    viewModel.resolveCodexApproval(approval.id, decision: .deny)
+                    viewModel.resolveAgentApproval(approval.id, decision: .deny)
                 }
                 .buttonStyle(.plain)
                 .font(AssistFont.roundedFootnote(.semibold))
@@ -848,7 +884,7 @@ private struct CodexApprovalPanel: View {
                 .keyboardShortcut(.escape, modifiers: [])
 
                 Button("Allow") {
-                    viewModel.resolveCodexApproval(approval.id, decision: .allow)
+                    viewModel.resolveAgentApproval(approval.id, decision: .allow)
                 }
                 .buttonStyle(.plain)
                 .font(AssistFont.roundedFootnote(.bold))
@@ -861,7 +897,7 @@ private struct CodexApprovalPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Codex permission request for \(approval.projectName)")
+        .accessibilityLabel("\(approval.provider.displayName) permission request for \(approval.projectName)")
     }
 }
 
@@ -987,12 +1023,17 @@ private enum UsageLimitPalette {
     }
 }
 
-private func agentActivityColor(_ activity: CodexAgentActivity) -> Color {
+private func agentActivityColor(
+    _ activity: CodingAgentActivity,
+    provider: UsageLimitProvider
+) -> Color {
     switch activity {
     case .waitingForApproval:
         Color(red: 1, green: 0.68, blue: 0.22)
+    case .waitingForInput:
+        Color(red: 0.78, green: 0.62, blue: 1)
     case .working:
-        UsageLimitPalette.codexPrimary
+        UsageLimitPalette.color(for: provider)
     case .completed:
         Color(red: 0.28, green: 0.82, blue: 0.5)
     case .idle:

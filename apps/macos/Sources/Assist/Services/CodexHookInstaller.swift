@@ -25,6 +25,8 @@ struct CodexHookInstaller {
     private static let managedEvents = [
         "SessionStart",
         "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
         "PermissionRequest",
         "Stop"
     ]
@@ -113,6 +115,8 @@ struct CodexHookInstaller {
             var group: [String: Any] = ["hooks": [handler]]
             if event == "PermissionRequest" {
                 group["matcher"] = "*"
+            } else if event == "PreToolUse" || event == "PostToolUse" {
+                group["matcher"] = "request_user_input"
             }
             groups.append(group)
             hooks[event] = groups

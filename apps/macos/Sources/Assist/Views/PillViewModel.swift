@@ -23,22 +23,23 @@ final class PillViewModel: ObservableObject {
     @Published var updateStatusText: String?
     @Published private(set) var usageLimitSnapshots: [UsageLimitProvider: UsageLimitSnapshot] = PillViewModel.emptyUsageLimitSnapshots()
     @Published private(set) var isRefreshingUsageLimits = false
-    @Published private(set) var codexAgentSessions: [String: CodexAgentSession] = [:]
-    @Published private(set) var pendingCodexApprovals: [CodexApprovalRequest] = []
-    @Published private(set) var codexIntegrationStatusText = "Not connected"
+    @Published private(set) var codingAgentSessions: [String: CodingAgentSession] = [:]
+    @Published private(set) var pendingAgentApprovals: [CodingAgentApprovalRequest] = []
+    @Published private(set) var codingAgentIntegrationStatusText = "Not connected"
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
     private var copyFeedbackClearWorkItem: DispatchWorkItem?
     private let updateService = AppUpdateService()
     private var usageLimitRefreshTask: Task<Void, Never>?
     private var usageLimitOnDemandTask: Task<Void, Never>?
-    private var codexSessionDismissWorkItems: [String: DispatchWorkItem] = [:]
-    private var codexSessionStaleWorkItems: [String: DispatchWorkItem] = [:]
-    private var invalidatedCodexApprovalIDs: [UUID: CodexApprovalInvalidationReason] = [:]
+    private var agentSessionDismissWorkItems: [String: DispatchWorkItem] = [:]
+    private var agentSessionStaleWorkItems: [String: DispatchWorkItem] = [:]
+    private var invalidatedAgentApprovalIDs: [UUID: CodingAgentApprovalInvalidationReason] = [:]
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
     private static let usageLimitRefreshIntervalNanoseconds: UInt64 = 180_000_000_000
-    private static let codexWorkingSessionStaleInterval: TimeInterval = 2 * 60 * 60
+    private static let activeAgentSessionStaleInterval: TimeInterval = 2 * 60 * 60
+    private static let readyAgentSessionStaleInterval: TimeInterval = 12 * 60 * 60
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -46,8 +47,8 @@ final class PillViewModel: ObservableObject {
     var onWillWritePasteboard: (() -> Void)?
     var onDeleteHistoryItem: ((ClipboardHistoryItem) -> Void)?
     var onWillShowHistory: (() -> Void)?
-    var onResolveCodexApproval: ((UUID, CodexApprovalDecision) -> Void)?
-    var onCodexAgentStateChange: (() -> Void)?
+    var onResolveAgentApproval: ((UUID, CodingAgentApprovalDecision) -> Void)?
+    var onCodingAgentStateChange: (() -> Void)?
 
     init(settings: PillSettings) {
         self.settings = settings
@@ -97,36 +98,55 @@ final class PillViewModel: ObservableObject {
     }
 
     @discardableResult
-    func receiveCodexHookEvent(_ event: CodexHookEvent) -> Bool {
-        codexSessionDismissWorkItems[event.sessionID]?.cancel()
-        codexSessionDismissWorkItems.removeValue(forKey: event.sessionID)
-        codexSessionStaleWorkItems[event.sessionID]?.cancel()
-        codexSessionStaleWorkItems.removeValue(forKey: event.sessionID)
-        let existingSession = codexAgentSessions[event.sessionID]
+    func receiveCodingAgentHookEvent(_ event: CodingAgentHookEvent) -> Bool {
+        let sessionKey = event.sessionKey
+        agentSessionDismissWorkItems[sessionKey]?.cancel()
+        agentSessionDismissWorkItems.removeValue(forKey: sessionKey)
+        agentSessionStaleWorkItems[sessionKey]?.cancel()
+        agentSessionStaleWorkItems.removeValue(forKey: sessionKey)
+        let existingSession = codingAgentSessions[sessionKey]
         let priorInvalidation = event.approvalID.flatMap {
-            invalidatedCodexApprovalIDs.removeValue(forKey: $0)
+            invalidatedAgentApprovalIDs.removeValue(forKey: $0)
         }
 
-        let activity: CodexAgentActivity
-        switch event.name {
-        case "SessionStart":
-            activity = event.source == "compact" ? existingSession?.activity ?? .idle : .idle
-        case "UserPromptSubmit":
+        let activity: CodingAgentActivity
+        if event.startsQuestion {
+            activity = .waitingForInput
+        } else if event.finishesQuestion {
             activity = .working
-        case "PermissionRequest":
-            activity = .waitingForApproval
-        case "Stop":
-            activity = .completed
-        default:
-            activity = codexAgentSessions[event.sessionID]?.activity ?? .working
+        } else {
+            switch event.name {
+            case "SessionStart":
+                activity = event.source == "compact" ? existingSession?.activity ?? .idle : .idle
+            case "UserPromptSubmit":
+                activity = .working
+            case "PermissionRequest":
+                activity = .waitingForApproval
+            case "Stop", "StopFailure", "SessionEnd":
+                activity = .completed
+            default:
+                activity = existingSession?.activity ?? .working
+            }
         }
 
-        codexAgentSessions[event.sessionID] = CodexAgentSession(
-            id: event.sessionID,
+        let questionPrompt: String?
+        if event.startsQuestion {
+            questionPrompt = event.questionPrompt ?? "\(event.provider.displayName) needs your input."
+        } else if event.finishesQuestion || event.name == "UserPromptSubmit" {
+            questionPrompt = nil
+        } else {
+            questionPrompt = existingSession?.questionPrompt
+        }
+
+        codingAgentSessions[sessionKey] = CodingAgentSession(
+            provider: event.provider,
+            sessionID: event.sessionID,
             cwd: event.cwd,
-            model: event.model,
+            model: event.model ?? existingSession?.model,
+            version: event.version ?? existingSession?.version,
             turnID: event.turnID ?? existingSession?.turnID,
             taskSummary: event.taskSummary ?? existingSession?.taskSummary,
+            questionPrompt: questionPrompt,
             activity: activity,
             updatedAt: Date()
         )
@@ -136,90 +156,90 @@ final class PillViewModel: ObservableObject {
            event.isPermissionRequest,
            let approvalID = event.approvalID,
            let toolName = event.toolName {
-            let request = CodexApprovalRequest(
+            let request = CodingAgentApprovalRequest(
                 id: approvalID,
+                provider: event.provider,
                 sessionID: event.sessionID,
                 turnID: event.turnID,
                 cwd: event.cwd,
                 model: event.model,
                 toolName: toolName,
-                commandPreview: event.commandPreview ?? "Codex requested additional permission.",
+                commandPreview: event.commandPreview ?? "\(event.provider.displayName) requested additional permission.",
                 reason: event.reason,
                 receivedAt: Date()
             )
-            pendingCodexApprovals.removeAll { $0.id == request.id }
-            pendingCodexApprovals.append(request)
+            pendingAgentApprovals.removeAll { $0.id == request.id }
+            pendingAgentApprovals.append(request)
             didQueueApproval = true
         } else if priorInvalidation != nil {
-            reconcileCodexSessionAfterApprovalInvalidation(event.sessionID)
+            reconcileAgentSessionAfterApprovalInvalidation(sessionKey)
         }
 
-        if event.name == "Stop" {
-            scheduleCodexSessionDismissal(event.sessionID)
+        if event.name == "Stop" || event.name == "StopFailure" || event.name == "SessionEnd" {
+            scheduleAgentSessionDismissal(sessionKey)
         } else {
-            scheduleCodexSessionStaleExpiryIfNeeded(event.sessionID)
+            scheduleAgentSessionStaleExpiryIfNeeded(sessionKey)
         }
-        onCodexAgentStateChange?()
-        return didQueueApproval
+        onCodingAgentStateChange?()
+        return didQueueApproval || event.startsQuestion
     }
 
-    func resolveCodexApproval(_ approvalID: UUID, decision: CodexApprovalDecision) {
-        guard let request = pendingCodexApprovals.first(where: { $0.id == approvalID }) else {
+    func resolveAgentApproval(_ approvalID: UUID, decision: CodingAgentApprovalDecision) {
+        guard let request = pendingAgentApprovals.first(where: { $0.id == approvalID }) else {
             return
         }
 
-        pendingCodexApprovals.removeAll { $0.id == approvalID }
-        if !pendingCodexApprovals.contains(where: { $0.sessionID == request.sessionID }),
-           var session = codexAgentSessions[request.sessionID] {
+        pendingAgentApprovals.removeAll { $0.id == approvalID }
+        if !pendingAgentApprovals.contains(where: { $0.sessionKey == request.sessionKey }),
+           var session = codingAgentSessions[request.sessionKey] {
             session.activity = .working
             session.updatedAt = Date()
-            codexAgentSessions[request.sessionID] = session
-            scheduleCodexSessionStaleExpiryIfNeeded(request.sessionID)
+            codingAgentSessions[request.sessionKey] = session
+            scheduleAgentSessionStaleExpiryIfNeeded(request.sessionKey)
         }
-        onCodexAgentStateChange?()
-        onResolveCodexApproval?(approvalID, decision)
+        onCodingAgentStateChange?()
+        onResolveAgentApproval?(approvalID, decision)
     }
 
-    func invalidateCodexApproval(
+    func invalidateAgentApproval(
         _ approvalID: UUID,
-        reason: CodexApprovalInvalidationReason
+        reason: CodingAgentApprovalInvalidationReason
     ) {
-        guard let request = pendingCodexApprovals.first(where: { $0.id == approvalID }) else {
-            invalidatedCodexApprovalIDs[approvalID] = reason
+        guard let request = pendingAgentApprovals.first(where: { $0.id == approvalID }) else {
+            invalidatedAgentApprovalIDs[approvalID] = reason
             return
         }
 
-        pendingCodexApprovals.removeAll { $0.id == approvalID }
-        reconcileCodexSessionAfterApprovalInvalidation(request.sessionID)
-        onCodexAgentStateChange?()
+        pendingAgentApprovals.removeAll { $0.id == approvalID }
+        reconcileAgentSessionAfterApprovalInvalidation(request.sessionKey)
+        onCodingAgentStateChange?()
     }
 
-    func setCodexIntegrationStatus(_ text: String) {
-        codexIntegrationStatusText = text
+    func setCodingAgentIntegrationStatus(_ text: String) {
+        codingAgentIntegrationStatusText = text
     }
 
-    func clearCodexAgentState() {
-        codexSessionDismissWorkItems.values.forEach { $0.cancel() }
-        codexSessionDismissWorkItems.removeAll()
-        codexSessionStaleWorkItems.values.forEach { $0.cancel() }
-        codexSessionStaleWorkItems.removeAll()
-        pendingCodexApprovals.removeAll()
-        codexAgentSessions.removeAll()
-        invalidatedCodexApprovalIDs.removeAll()
-        onCodexAgentStateChange?()
+    func clearCodingAgentState() {
+        agentSessionDismissWorkItems.values.forEach { $0.cancel() }
+        agentSessionDismissWorkItems.removeAll()
+        agentSessionStaleWorkItems.values.forEach { $0.cancel() }
+        agentSessionStaleWorkItems.removeAll()
+        pendingAgentApprovals.removeAll()
+        codingAgentSessions.removeAll()
+        invalidatedAgentApprovalIDs.removeAll()
+        onCodingAgentStateChange?()
     }
 
-    var primaryCodexApproval: CodexApprovalRequest? {
-        pendingCodexApprovals.sorted { $0.receivedAt < $1.receivedAt }.first
+    var primaryAgentApproval: CodingAgentApprovalRequest? {
+        pendingAgentApprovals.sorted { $0.receivedAt < $1.receivedAt }.first
     }
 
-    var displayedCodexSession: CodexAgentSession? {
-        visibleCodexTaskSessions.first
+    var displayedCodingAgentSession: CodingAgentSession? {
+        visibleCodingAgentTaskSessions.first
     }
 
-    var activeCodexTaskSessions: [CodexAgentSession] {
-        codexAgentSessions.values
-            .filter { $0.activity != .idle }
+    var activeCodingAgentTaskSessions: [CodingAgentSession] {
+        codingAgentSessions.values
             .sorted { lhs, rhs in
                 if lhs.activity.taskSortPriority != rhs.activity.taskSortPriority {
                     return lhs.activity.taskSortPriority < rhs.activity.taskSortPriority
@@ -228,77 +248,89 @@ final class PillViewModel: ObservableObject {
             }
     }
 
-    var visibleCodexTaskSessions: [CodexAgentSession] {
-        Array(activeCodexTaskSessions.prefix(3))
+    var visibleCodingAgentTaskSessions: [CodingAgentSession] {
+        Array(activeCodingAgentTaskSessions.prefix(3))
     }
 
-    var hiddenCodexTaskCount: Int {
-        max(0, activeCodexTaskSessions.count - visibleCodexTaskSessions.count)
+    var hiddenCodingAgentTaskCount: Int {
+        max(0, activeCodingAgentTaskSessions.count - visibleCodingAgentTaskSessions.count)
     }
 
-    var hasPendingCodexApproval: Bool {
-        primaryCodexApproval != nil
+    var hasPendingAgentApproval: Bool {
+        primaryAgentApproval != nil
     }
 
-    private func reconcileCodexSessionAfterApprovalInvalidation(_ sessionID: String) {
-        if pendingCodexApprovals.contains(where: { $0.sessionID == sessionID }) {
-            guard var session = codexAgentSessions[sessionID] else { return }
+    var hasPendingAgentInput: Bool {
+        codingAgentSessions.values.contains { $0.activity == .waitingForInput }
+    }
+
+    var hasBlockingAgentInteraction: Bool {
+        hasPendingAgentApproval || hasPendingAgentInput
+    }
+
+    private func reconcileAgentSessionAfterApprovalInvalidation(_ sessionKey: String) {
+        if pendingAgentApprovals.contains(where: { $0.sessionKey == sessionKey }) {
+            guard var session = codingAgentSessions[sessionKey] else { return }
             session.activity = .waitingForApproval
             session.updatedAt = Date()
-            codexAgentSessions[sessionID] = session
+            codingAgentSessions[sessionKey] = session
             return
         }
 
-        codexSessionDismissWorkItems[sessionID]?.cancel()
-        codexSessionDismissWorkItems.removeValue(forKey: sessionID)
-        codexSessionStaleWorkItems[sessionID]?.cancel()
-        codexSessionStaleWorkItems.removeValue(forKey: sessionID)
-        codexAgentSessions.removeValue(forKey: sessionID)
+        agentSessionDismissWorkItems[sessionKey]?.cancel()
+        agentSessionDismissWorkItems.removeValue(forKey: sessionKey)
+        agentSessionStaleWorkItems[sessionKey]?.cancel()
+        agentSessionStaleWorkItems.removeValue(forKey: sessionKey)
+        codingAgentSessions.removeValue(forKey: sessionKey)
     }
 
-    private func scheduleCodexSessionStaleExpiryIfNeeded(_ sessionID: String) {
-        codexSessionStaleWorkItems[sessionID]?.cancel()
-        codexSessionStaleWorkItems.removeValue(forKey: sessionID)
+    private func scheduleAgentSessionStaleExpiryIfNeeded(_ sessionKey: String) {
+        agentSessionStaleWorkItems[sessionKey]?.cancel()
+        agentSessionStaleWorkItems.removeValue(forKey: sessionKey)
 
-        guard let session = codexAgentSessions[sessionID],
-              session.activity == .working else {
+        guard let session = codingAgentSessions[sessionKey],
+              session.activity != .completed,
+              session.activity != .waitingForApproval else {
             return
         }
 
         let expectedUpdate = session.updatedAt
+        let staleInterval = session.activity == .idle
+            ? Self.readyAgentSessionStaleInterval
+            : Self.activeAgentSessionStaleInterval
         let workItem = DispatchWorkItem { [weak self] in
             guard let self,
-                  let currentSession = self.codexAgentSessions[sessionID],
-                  currentSession.activity == .working,
+                  let currentSession = self.codingAgentSessions[sessionKey],
+                  currentSession.activity == session.activity,
                   currentSession.updatedAt == expectedUpdate,
-                  !self.pendingCodexApprovals.contains(where: { $0.sessionID == sessionID }) else {
+                  !self.pendingAgentApprovals.contains(where: { $0.sessionKey == sessionKey }) else {
                 return
             }
 
-            self.codexAgentSessions.removeValue(forKey: sessionID)
-            self.codexSessionStaleWorkItems.removeValue(forKey: sessionID)
-            self.onCodexAgentStateChange?()
+            self.codingAgentSessions.removeValue(forKey: sessionKey)
+            self.agentSessionStaleWorkItems.removeValue(forKey: sessionKey)
+            self.onCodingAgentStateChange?()
         }
-        codexSessionStaleWorkItems[sessionID] = workItem
+        agentSessionStaleWorkItems[sessionKey] = workItem
         DispatchQueue.main.asyncAfter(
-            deadline: .now() + Self.codexWorkingSessionStaleInterval,
+            deadline: .now() + staleInterval,
             execute: workItem
         )
     }
 
-    private func scheduleCodexSessionDismissal(_ sessionID: String) {
-        codexSessionStaleWorkItems[sessionID]?.cancel()
-        codexSessionStaleWorkItems.removeValue(forKey: sessionID)
+    private func scheduleAgentSessionDismissal(_ sessionKey: String) {
+        agentSessionStaleWorkItems[sessionKey]?.cancel()
+        agentSessionStaleWorkItems.removeValue(forKey: sessionKey)
         let workItem = DispatchWorkItem { [weak self] in
             guard let self,
-                  self.codexAgentSessions[sessionID]?.activity == .completed else {
+                  self.codingAgentSessions[sessionKey]?.activity == .completed else {
                 return
             }
-            self.codexAgentSessions.removeValue(forKey: sessionID)
-            self.codexSessionDismissWorkItems.removeValue(forKey: sessionID)
-            self.onCodexAgentStateChange?()
+            self.codingAgentSessions.removeValue(forKey: sessionKey)
+            self.agentSessionDismissWorkItems.removeValue(forKey: sessionKey)
+            self.onCodingAgentStateChange?()
         }
-        codexSessionDismissWorkItems[sessionID] = workItem
+        agentSessionDismissWorkItems[sessionKey] = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: workItem)
     }
 

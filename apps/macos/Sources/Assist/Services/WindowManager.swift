@@ -34,12 +34,16 @@ final class WindowManager {
         Self.isShowingRateLimits(settings: settings)
     }
 
-    private var isShowingCodexApproval: Bool {
-        pillViewModel.hasPendingCodexApproval
+    private var isShowingAgentApproval: Bool {
+        pillViewModel.hasPendingAgentApproval
     }
 
-    private var codexTaskCount: Int {
-        pillViewModel.activeCodexTaskSessions.count
+    private var hasBlockingAgentInteraction: Bool {
+        pillViewModel.hasBlockingAgentInteraction
+    }
+
+    private var codingAgentTaskCount: Int {
+        pillViewModel.activeCodingAgentTaskSessions.count
     }
 
     init(pillViewModel: PillViewModel, settings: PillSettings) {
@@ -111,7 +115,7 @@ final class WindowManager {
         ])
     }
 
-    func presentCodexApproval() {
+    func presentCodingAgentInteraction() {
         collapseWorkItem?.cancel()
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()
@@ -125,16 +129,16 @@ final class WindowManager {
         pillViewModel.isExpandedContentVisible = true
     }
 
-    func codexApprovalDidResolve() {
+    func agentInteractionDidResolve() {
         setPillFrame(display: true)
-        guard !isShowingCodexApproval,
+        guard !hasBlockingAgentInteraction,
               !isPointerHoveringPillChrome else {
             return
         }
         setPillHovering(false)
     }
 
-    func codexAgentStateDidChange() {
+    func codingAgentStateDidChange() {
         setPillFrame(display: true)
     }
 
@@ -168,13 +172,13 @@ final class WindowManager {
                 ? PillChromeMetrics.expandedSize(
                     settings: self.settings,
                     showingRateLimits: self.isShowingRateLimits,
-                    showingAgentApproval: self.isShowingCodexApproval,
-                    agentTaskCount: self.codexTaskCount
+                    showingAgentApproval: self.isShowingAgentApproval,
+                    agentTaskCount: self.codingAgentTaskCount
                 )
                 : PillChromeMetrics.collapsedSize(
                     settings: self.settings,
                     showingCopyFeedback: self.pillViewModel.copyFeedback != nil,
-                    showingAgentActivity: self.pillViewModel.displayedCodexSession != nil
+                    showingAgentActivity: self.pillViewModel.displayedCodingAgentSession != nil
                 )
             let bounds = hostingView.bounds
 
@@ -205,8 +209,8 @@ final class WindowManager {
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingCodexApproval,
-                agentTaskCount: codexTaskCount
+                showingAgentApproval: isShowingAgentApproval,
+                agentTaskCount: codingAgentTaskCount
             ),
             on: screenForCurrentPill()
         )
@@ -219,8 +223,8 @@ final class WindowManager {
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingCodexApproval,
-                agentTaskCount: codexTaskCount
+                showingAgentApproval: isShowingAgentApproval,
+                agentTaskCount: codingAgentTaskCount
             ),
             on: screenForCurrentPill()
         )
@@ -236,8 +240,8 @@ final class WindowManager {
                     windowSize: PillChromeMetrics.expandedSize(
                         settings: self.settings,
                         showingRateLimits: self.isShowingRateLimits,
-                        showingAgentApproval: self.isShowingCodexApproval,
-                        agentTaskCount: self.codexTaskCount
+                        showingAgentApproval: self.isShowingAgentApproval,
+                        agentTaskCount: self.codingAgentTaskCount
                     ),
                     on: self.screenForCurrentPill()
                 ),
@@ -255,7 +259,7 @@ final class WindowManager {
 
         guard !isDraggingFromPill else { return }
 
-        if !hovering, isShowingCodexApproval {
+        if !hovering, hasBlockingAgentInteraction {
             pillViewModel.isCollapsedContentVisible = false
             pillViewModel.isExpanded = true
             pillViewModel.isExpandedContentVisible = true
@@ -421,8 +425,8 @@ final class WindowManager {
             windowSize: PillChromeMetrics.expandedSize(
                 settings: settings,
                 showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingCodexApproval,
-                agentTaskCount: codexTaskCount
+                showingAgentApproval: isShowingAgentApproval,
+                agentTaskCount: codingAgentTaskCount
             ),
             on: pointerScreen
         )
