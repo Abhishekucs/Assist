@@ -9,7 +9,7 @@ enum PillChromeMetrics {
     static let copyFeedbackWidthBoost: CGFloat = 120
     static let agentActivityWidthBoost: CGFloat = 82
     static let compactExpandedHeight: CGFloat = 210
-    static let rateLimitExpandedMinHeight: CGFloat = 300
+    static let rateLimitExpandedHeight: CGFloat = 234
     static let agentApprovalExpandedMinHeight: CGFloat = 250
     static let agentTasksExpandedBaseHeight: CGFloat = 280
     static let agentTaskRowHeightBoost: CGFloat = 40
@@ -56,7 +56,7 @@ enum PillChromeMetrics {
                 + CGFloat(visibleTaskCount - 1) * agentTaskRowHeightBoost
             size.height = max(size.height, min(taskHeight, PillSettings.Defaults.expandedHeightRange.upperBound))
         } else if showingRateLimits {
-            size.height = max(size.height, rateLimitExpandedMinHeight)
+            size.height = rateLimitExpandedHeight
         } else if showingAgentApproval {
             size.height = max(size.height, agentApprovalExpandedMinHeight)
         } else {

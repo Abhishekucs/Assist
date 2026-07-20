@@ -474,6 +474,7 @@ struct ExpandedIslandView: View {
     let onDragChanged: (Bool) -> Void
     private static let galleryLeadingAnchorID = "gallery-leading-anchor"
     private static let galleryClipInset: CGFloat = 2
+    private static let galleryViewportHeight: CGFloat = 144
 
     var body: some View {
         let historyItems = Array(viewModel.historyItems.prefix(24))
@@ -552,8 +553,8 @@ struct ExpandedIslandView: View {
                                 .padding(.horizontal, Self.galleryClipInset)
                             }
                             .padding(.vertical, 1)
-                            .frame(maxHeight: .infinity, alignment: .top)
                         }
+                        .frame(height: Self.galleryViewportHeight, alignment: .top)
                         .onAppear {
                             alignGalleryToLeadingEdge(proxy)
                         }
