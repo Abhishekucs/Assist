@@ -70,9 +70,9 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 self?.handleCodexHookEvent(event)
             }
         }
-        codexAgentBridge.onApprovalExpired = { [weak self] approvalID in
+        codexAgentBridge.onApprovalInvalidated = { [weak self] approvalID, reason in
             Task { @MainActor [weak self] in
-                self?.pillViewModel.expireCodexApproval(approvalID)
+                self?.pillViewModel.invalidateCodexApproval(approvalID, reason: reason)
                 self?.windowManager.codexApprovalDidResolve()
             }
         }
@@ -130,8 +130,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
 
         pillViewModel.setCodexIntegrationStatus("Active with Codex")
-        pillViewModel.receiveCodexHookEvent(event)
-        if event.isPermissionRequest {
+        let shouldPresentApproval = pillViewModel.receiveCodexHookEvent(event)
+        if shouldPresentApproval {
             windowManager.presentCodexApproval()
         }
     }

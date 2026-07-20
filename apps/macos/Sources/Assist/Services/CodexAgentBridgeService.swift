@@ -15,7 +15,7 @@ final class CodexAgentBridgeService: @unchecked Sendable {
     private var approvalChannels: [UUID: CodexApprovalChannel] = [:]
 
     var onEvent: (@Sendable (CodexHookEvent) -> Void)?
-    var onApprovalExpired: (@Sendable (UUID) -> Void)?
+    var onApprovalInvalidated: (@Sendable (UUID, CodexApprovalInvalidationReason) -> Void)?
 
     func start() throws {
         guard listenerDescriptor < 0 else { return }
@@ -146,27 +146,31 @@ final class CodexAgentBridgeService: @unchecked Sendable {
         stateLock.withLock {
             approvalChannels[approvalID] = channel
         }
+        onEvent?(parsedEvent)
         channel.startMonitoringDisconnect(on: listenerQueue) { [weak self, weak channel] in
             guard let channel else { return }
-            self?.expireApproval(approvalID, channel: channel)
+            self?.invalidateApproval(approvalID, channel: channel, reason: .disconnected)
         }
-        onEvent?(parsedEvent)
 
         listenerQueue.asyncAfter(deadline: .now() + Self.approvalTimeout) { [weak self] in
-            self?.expireApproval(approvalID, channel: channel)
+            self?.invalidateApproval(approvalID, channel: channel, reason: .timedOut)
         }
     }
 
-    private func expireApproval(_ approvalID: UUID, channel: CodexApprovalChannel) {
-        let expired = stateLock.withLock {
+    private func invalidateApproval(
+        _ approvalID: UUID,
+        channel: CodexApprovalChannel,
+        reason: CodexApprovalInvalidationReason
+    ) {
+        let invalidated = stateLock.withLock {
             guard approvalChannels[approvalID] === channel else { return false }
             approvalChannels.removeValue(forKey: approvalID)
             return true
         }
-        guard expired else { return }
+        guard invalidated else { return }
 
         channel.closeWithoutDecision()
-        onApprovalExpired?(approvalID)
+        onApprovalInvalidated?(approvalID, reason)
     }
 
     private static func parseEvent(_ data: Data) -> CodexHookEvent? {

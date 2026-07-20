@@ -53,6 +53,11 @@ enum CodexApprovalDecision: Sendable {
     case deny
 }
 
+enum CodexApprovalInvalidationReason: Sendable {
+    case disconnected
+    case timedOut
+}
+
 struct CodexApprovalRequest: Identifiable, Equatable, Sendable {
     let id: UUID
     let sessionID: String

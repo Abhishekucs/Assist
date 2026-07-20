@@ -135,8 +135,9 @@ struct CodexHookInstaller {
     }
 
     private func write(_ root: [String: Any]) throws {
+        let writeURL = try resolvedHooksWriteURL()
         try fileManager.createDirectory(
-            at: codexHome,
+            at: writeURL.deletingLastPathComponent(),
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
@@ -144,8 +145,26 @@ struct CodexHookInstaller {
             withJSONObject: root,
             options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         )
-        try data.write(to: hooksURL, options: .atomic)
-        _ = chmod(hooksURL.path, mode_t(0o600))
+        try data.write(to: writeURL, options: .atomic)
+        _ = chmod(writeURL.path, mode_t(0o600))
+    }
+
+    private func resolvedHooksWriteURL() throws -> URL {
+        var metadata = stat()
+        guard lstat(hooksURL.path, &metadata) == 0,
+              metadata.st_mode & S_IFMT == S_IFLNK else {
+            return hooksURL
+        }
+
+        let destination = try fileManager.destinationOfSymbolicLink(atPath: hooksURL.path)
+        let destinationURL: URL
+        if destination.hasPrefix("/") {
+            destinationURL = URL(fileURLWithPath: destination)
+        } else {
+            destinationURL = hooksURL.deletingLastPathComponent()
+                .appendingPathComponent(destination)
+        }
+        return destinationURL.standardizedFileURL.resolvingSymlinksInPath()
     }
 
     private static func removingAssistHandlers(from groups: [[String: Any]]) -> [[String: Any]] {
