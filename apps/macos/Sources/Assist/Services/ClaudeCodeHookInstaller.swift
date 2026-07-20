@@ -41,8 +41,7 @@ struct ClaudeCodeHookInstaller {
         ownerIdentifier: String = AppIdentity.bundleIdentifier
     ) {
         self.fileManager = fileManager
-        self.claudeHome = claudeHome ?? fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude", isDirectory: true)
+        self.claudeHome = claudeHome ?? Self.defaultClaudeHome(fileManager: fileManager)
         self.ownerIdentifier = ownerIdentifier
     }
 
@@ -253,6 +252,19 @@ struct ClaudeCodeHookInstaller {
         guard process.terminationStatus == 0 else { return nil }
         let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         return text.split(whereSeparator: \.isWhitespace).first.map(String.init)
+    }
+
+    private static func defaultClaudeHome(fileManager: FileManager) -> URL {
+        if let path = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"],
+           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return URL(
+                fileURLWithPath: (path as NSString).expandingTildeInPath,
+                isDirectory: true
+            )
+        }
+
+        return fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude", isDirectory: true)
     }
 
     private static func shellQuote(_ value: String) -> String {

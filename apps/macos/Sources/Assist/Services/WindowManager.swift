@@ -417,9 +417,9 @@ final class WindowManager {
         collapseWorkItem?.cancel()
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()
-        pillViewModel.isExpandedContentVisible = false
-        pillViewModel.isCollapsedContentVisible = true
-        pillViewModel.isExpanded = false
+        pillViewModel.isExpandedContentVisible = hasBlockingAgentInteraction
+        pillViewModel.isCollapsedContentVisible = !hasBlockingAgentInteraction
+        pillViewModel.isExpanded = hasBlockingAgentInteraction
 
         let targetFrame = Self.topCenterFrame(
             windowSize: PillChromeMetrics.expandedSize(

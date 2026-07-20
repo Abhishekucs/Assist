@@ -664,7 +664,7 @@ private struct CodingAgentTaskRow: View {
     var body: some View {
         HStack(spacing: 9) {
             if session.activity == .working {
-                PixelClaudeCodeMascot(
+                CodingAgentMascot(
                     size: 22,
                     color: UsageLimitPalette.color(for: session.provider)
                 )
@@ -712,63 +712,6 @@ private struct CodingAgentTaskRow: View {
         .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(session.provider.displayName), \(session.projectName), \(session.activity.displayName), \(detailText)")
-    }
-}
-
-private struct PixelClaudeCodeMascot: View {
-    let size: CGFloat
-    let color: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 0.14, paused: reduceMotion)) { context in
-            let frame = reduceMotion
-                ? 0
-                : Int(context.date.timeIntervalSinceReferenceDate / 0.14) % 4
-
-            Canvas { canvas, canvasSize in
-                let pixels = Self.pixels(for: frame)
-                let columns = pixels.first?.count ?? 1
-                let rows = pixels.count
-                let pixelSize = min(
-                    canvasSize.width / CGFloat(columns),
-                    canvasSize.height / CGFloat(rows)
-                )
-                let origin = CGPoint(
-                    x: (canvasSize.width - CGFloat(columns) * pixelSize) / 2,
-                    y: (canvasSize.height - CGFloat(rows) * pixelSize) / 2
-                )
-
-                for (rowIndex, row) in pixels.enumerated() {
-                    for (columnIndex, pixel) in row.enumerated() where pixel == "#" {
-                        let rect = CGRect(
-                            x: origin.x + CGFloat(columnIndex) * pixelSize,
-                            y: origin.y + CGFloat(rowIndex) * pixelSize,
-                            width: ceil(pixelSize),
-                            height: ceil(pixelSize)
-                        )
-                        canvas.fill(Path(rect), with: .color(color))
-                    }
-                }
-            }
-            .offset(y: reduceMotion ? 0 : (frame == 1 || frame == 2 ? -1 : 0))
-        }
-        .frame(width: size, height: size)
-        .help("Coding agent working")
-    }
-
-    private static func pixels(for frame: Int) -> [[Character]] {
-        let legs = frame.isMultiple(of: 2)
-            ? ["..##....##..", ".##......##."]
-            : [".##......##.", "..##....##.."]
-        return ([
-            "...######...",
-            "..########..",
-            "###.####.###",
-            "..########..",
-            "...######...",
-            "...#....#..."
-        ] + legs).map(Array.init)
     }
 }
 
