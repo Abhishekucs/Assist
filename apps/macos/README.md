@@ -177,8 +177,8 @@ the island. Hovering the island shows up to three active tasks in an
 urgency-sorted vertical stack, including each task's prompt summary, state, and
 provider tag. Enabled 5-hour and 7-day usage windows stay pinned to the
 top-left of both the collapsed and expanded island while agents are running.
-Working rows replace the static state rail with the animated Codex blossom and
-blue pixel sparks from the Codex logo palette.
+Working rows replace the static state rail with the animated pixel Claude Code
+mascot recolored in the Codex blue palette.
 
 1. Open Assist settings.
 2. Under **General > Codex agents**, enable **Show activity and approvals**.
