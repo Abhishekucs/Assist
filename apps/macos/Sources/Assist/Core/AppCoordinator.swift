@@ -220,18 +220,23 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             }
         }
 
-        uninstall("Codex") {
-            try codexHookInstaller.uninstall()
+        if codexHookInstaller.containsAssistHandlers() {
+            uninstall("Codex") {
+                try codexHookInstaller.uninstall()
+            }
         }
         if let claudeCodeHookInstaller,
            claudeCodeHookInstaller.settingsURL.standardizedFileURL
-            != nextClaudeCodeHookInstaller.settingsURL.standardizedFileURL {
+            != nextClaudeCodeHookInstaller.settingsURL.standardizedFileURL,
+           claudeCodeHookInstaller.containsAssistHandlers() {
             uninstall("Claude Code (previous directory)") {
                 try claudeCodeHookInstaller.uninstall()
             }
         }
-        uninstall("Claude Code") {
-            try nextClaudeCodeHookInstaller.uninstall()
+        if nextClaudeCodeHookInstaller.containsAssistHandlers() {
+            uninstall("Claude Code") {
+                try nextClaudeCodeHookInstaller.uninstall()
+            }
         }
         claudeCodeHookInstaller = nextClaudeCodeHookInstaller
 

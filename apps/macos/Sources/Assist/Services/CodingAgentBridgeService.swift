@@ -3,6 +3,8 @@ import Foundation
 
 final class CodingAgentBridgeService: @unchecked Sendable {
     private static let approvalTimeout: TimeInterval = 600
+    private static let minimumAutoResolutionMilliseconds = 60_000.0
+    private static let maximumAutoResolutionMilliseconds = 240_000.0
 
     private let listenerQueue = DispatchQueue(label: "com.thinkingsoundlab.assist.agent-listener")
     private let clientQueue = DispatchQueue(
@@ -207,6 +209,7 @@ final class CodingAgentBridgeService: @unchecked Sendable {
             questionChannels[questionID] = CodingAgentQuestionChannel(
                 provider: event.provider,
                 questions: event.questions,
+                autoResolutionMilliseconds: event.autoResolutionMilliseconds,
                 channel: channel
             )
         }
@@ -216,8 +219,10 @@ final class CodingAgentBridgeService: @unchecked Sendable {
             self?.invalidateQuestion(questionID, channel: channel, reason: .disconnected)
         }
 
-        listenerQueue.asyncAfter(deadline: .now() + Self.approvalTimeout) { [weak self] in
-            self?.invalidateQuestion(questionID, channel: channel, reason: .timedOut)
+        let timeout = event.autoResolutionMilliseconds.map { $0 / 1_000 }
+            ?? Self.approvalTimeout
+        listenerQueue.asyncAfter(deadline: .now() + timeout) { [weak self] in
+            self?.expireQuestion(questionID, channel: channel)
         }
     }
 
@@ -253,6 +258,25 @@ final class CodingAgentBridgeService: @unchecked Sendable {
         onQuestionInvalidated?(questionID, reason)
     }
 
+    private func expireQuestion(
+        _ questionID: UUID,
+        channel: CodingAgentResponseChannel
+    ) {
+        let expiredQuestion: CodingAgentQuestionChannel? = stateLock.withLock {
+            guard questionChannels[questionID]?.channel === channel else { return nil }
+            return questionChannels.removeValue(forKey: questionID)
+        }
+        guard let expiredQuestion else { return }
+
+        if expiredQuestion.provider == .codex,
+           expiredQuestion.autoResolutionMilliseconds != nil {
+            channel.resolveAutoResolutionTimeout()
+        } else {
+            channel.closeWithoutResponse()
+        }
+        onQuestionInvalidated?(questionID, .timedOut)
+    }
+
     private static func parseEvent(_ data: Data) -> CodingAgentHookEvent? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let providerRawValue = object["_assist_provider"] as? String,
@@ -276,6 +300,9 @@ final class CodingAgentBridgeService: @unchecked Sendable {
         let isAnswerableQuestion = name == "PreToolUse"
             && provider.isQuestionToolName(toolName)
             && !questions.isEmpty
+        let autoResolutionMilliseconds = provider == .codex
+            ? Self.autoResolutionMilliseconds(from: toolInput)
+            : nil
 
         return CodingAgentHookEvent(
             provider: provider,
@@ -294,7 +321,18 @@ final class CodingAgentBridgeService: @unchecked Sendable {
             reason: reason,
             approvalID: name == "PermissionRequest" ? UUID() : nil,
             questionRequestID: isAnswerableQuestion ? UUID() : nil,
+            autoResolutionMilliseconds: autoResolutionMilliseconds,
             questions: questions
+        )
+    }
+
+    private static func autoResolutionMilliseconds(from toolInput: [String: Any]?) -> Double? {
+        guard let number = toolInput?["autoResolutionMs"] as? NSNumber else { return nil }
+        let milliseconds = number.doubleValue
+        guard milliseconds.isFinite, milliseconds > 0 else { return nil }
+        return min(
+            max(milliseconds, minimumAutoResolutionMilliseconds),
+            maximumAutoResolutionMilliseconds
         )
     }
 
@@ -403,6 +441,7 @@ final class CodingAgentBridgeService: @unchecked Sendable {
 private struct CodingAgentQuestionChannel {
     let provider: UsageLimitProvider
     let questions: [CodingAgentQuestion]
+    let autoResolutionMilliseconds: Double?
     let channel: CodingAgentResponseChannel
 }
 
@@ -522,6 +561,19 @@ private final class CodingAgentResponseChannel: @unchecked Sendable {
         }
 
         writeResponse(response)
+    }
+
+    func resolveAutoResolutionTimeout() {
+        writeResponse([
+            "hookSpecificOutput": [
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": """
+                The user did not answer in Assist before this request's auto-resolution deadline.
+                Continue with your best judgment without asking again.
+                """
+            ]
+        ])
     }
 
     private func writeResponse(_ response: [String: Any]) {

@@ -162,6 +162,7 @@ struct CodingAgentHookEvent: Sendable {
     let reason: String?
     let approvalID: UUID?
     let questionRequestID: UUID?
+    let autoResolutionMilliseconds: Double?
     let questions: [CodingAgentQuestion]
 
     var isPermissionRequest: Bool {
