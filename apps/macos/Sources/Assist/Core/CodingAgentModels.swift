@@ -101,6 +101,50 @@ struct CodingAgentApprovalRequest: Identifiable, Equatable, Sendable {
     }
 }
 
+struct CodingAgentQuestionOption: Identifiable, Equatable, Sendable {
+    let label: String
+    let description: String
+
+    var id: String { label }
+}
+
+struct CodingAgentQuestion: Identifiable, Equatable, Sendable {
+    let id: String
+    let responseKey: String
+    let header: String
+    let prompt: String
+    let options: [CodingAgentQuestionOption]
+    let allowsMultipleSelection: Bool
+    let allowsCustomAnswer: Bool
+    let isSecret: Bool
+}
+
+struct CodingAgentQuestionAnswer: Equatable, Sendable {
+    let questionID: String
+    let responseKey: String
+    let selectedAnswers: [String]
+}
+
+struct CodingAgentQuestionRequest: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let provider: UsageLimitProvider
+    let sessionID: String
+    let turnID: String?
+    let cwd: String
+    let model: String?
+    let questions: [CodingAgentQuestion]
+    let receivedAt: Date
+
+    var sessionKey: String {
+        "\(provider.rawValue):\(sessionID)"
+    }
+
+    var projectName: String {
+        let name = URL(fileURLWithPath: cwd).lastPathComponent
+        return name.isEmpty ? "\(provider.displayName) task" : name
+    }
+}
+
 struct CodingAgentHookEvent: Sendable {
     let provider: UsageLimitProvider
     let name: String
@@ -117,9 +161,15 @@ struct CodingAgentHookEvent: Sendable {
     let commandPreview: String?
     let reason: String?
     let approvalID: UUID?
+    let questionRequestID: UUID?
+    let questions: [CodingAgentQuestion]
 
     var isPermissionRequest: Bool {
         name == "PermissionRequest"
+    }
+
+    var isAnswerableQuestion: Bool {
+        name == "PreToolUse" && provider.isQuestionToolName(toolName) && !questions.isEmpty
     }
 
     var sessionKey: String {
@@ -128,7 +178,7 @@ struct CodingAgentHookEvent: Sendable {
 
     var startsQuestion: Bool {
         if name == "PreToolUse" {
-            return provider.isQuestionTool(toolName)
+            return provider.isQuestionToolName(toolName)
         }
         guard name == "Notification" else { return false }
         return ["elicitation_dialog", "agent_needs_input"].contains(notificationType)
@@ -136,15 +186,15 @@ struct CodingAgentHookEvent: Sendable {
 
     var finishesQuestion: Bool {
         if name == "PostToolUse" || name == "PostToolUseFailure" {
-            return provider.isQuestionTool(toolName)
+            return provider.isQuestionToolName(toolName)
         }
         guard name == "Notification" else { return false }
         return ["elicitation_complete", "elicitation_response", "agent_completed"].contains(notificationType)
     }
 }
 
-private extension UsageLimitProvider {
-    func isQuestionTool(_ toolName: String?) -> Bool {
+extension UsageLimitProvider {
+    func isQuestionToolName(_ toolName: String?) -> Bool {
         switch self {
         case .claudeCode:
             toolName == "AskUserQuestion"

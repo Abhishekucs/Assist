@@ -10,7 +10,7 @@ enum PillChromeMetrics {
     static let agentActivityWidthBoost: CGFloat = 82
     static let compactExpandedHeight: CGFloat = 210
     static let rateLimitExpandedHeight: CGFloat = 234
-    static let agentApprovalExpandedMinHeight: CGFloat = 250
+    static let agentApprovalExpandedMinHeight: CGFloat = 300
     private static let expandedVerticalPadding: CGFloat = 20
     private static let expandedSectionSpacing: CGFloat = 10
     private static let usageRailHeight: CGFloat = 26

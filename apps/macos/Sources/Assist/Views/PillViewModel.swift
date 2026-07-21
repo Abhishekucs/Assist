@@ -25,6 +25,7 @@ final class PillViewModel: ObservableObject {
     @Published private(set) var isRefreshingUsageLimits = false
     @Published private(set) var codingAgentSessions: [String: CodingAgentSession] = [:]
     @Published private(set) var pendingAgentApprovals: [CodingAgentApprovalRequest] = []
+    @Published private(set) var pendingAgentQuestions: [CodingAgentQuestionRequest] = []
     @Published private(set) var codingAgentIntegrationStatusText = "Not connected"
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
@@ -35,6 +36,7 @@ final class PillViewModel: ObservableObject {
     private var agentSessionDismissWorkItems: [String: DispatchWorkItem] = [:]
     private var agentSessionStaleWorkItems: [String: DispatchWorkItem] = [:]
     private var invalidatedAgentApprovalIDs: [UUID: CodingAgentApprovalInvalidationReason] = [:]
+    private var invalidatedAgentQuestionIDs: [UUID: CodingAgentApprovalInvalidationReason] = [:]
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
     private static let usageLimitRefreshIntervalNanoseconds: UInt64 = 180_000_000_000
@@ -48,6 +50,7 @@ final class PillViewModel: ObservableObject {
     var onDeleteHistoryItem: ((ClipboardHistoryItem) -> Void)?
     var onWillShowHistory: (() -> Void)?
     var onResolveAgentApproval: ((UUID, CodingAgentApprovalDecision) -> Void)?
+    var onResolveAgentQuestion: ((UUID, [CodingAgentQuestionAnswer]) -> Void)?
     var onCodingAgentStateChange: (() -> Void)?
 
     init(settings: PillSettings) {
@@ -116,6 +119,9 @@ final class PillViewModel: ObservableObject {
         let priorInvalidation = event.approvalID.flatMap {
             invalidatedAgentApprovalIDs.removeValue(forKey: $0)
         }
+        let priorQuestionInvalidation = event.questionRequestID.flatMap {
+            invalidatedAgentQuestionIDs.removeValue(forKey: $0)
+        }
 
         let activity: CodingAgentActivity
         if event.startsQuestion {
@@ -183,13 +189,38 @@ final class PillViewModel: ObservableObject {
             reconcileAgentSessionAfterApprovalInvalidation(sessionKey)
         }
 
+        var didQueueQuestion = false
+        if priorQuestionInvalidation == nil,
+           event.isAnswerableQuestion,
+           let questionID = event.questionRequestID {
+            let request = CodingAgentQuestionRequest(
+                id: questionID,
+                provider: event.provider,
+                sessionID: event.sessionID,
+                turnID: event.turnID,
+                cwd: event.cwd,
+                model: event.model,
+                questions: event.questions,
+                receivedAt: Date()
+            )
+            pendingAgentQuestions.removeAll { $0.id == request.id }
+            pendingAgentQuestions.append(request)
+            didQueueQuestion = true
+        } else if priorQuestionInvalidation != nil {
+            reconcileAgentSessionAfterApprovalInvalidation(sessionKey)
+        }
+
+        if event.finishesQuestion {
+            pendingAgentQuestions.removeAll { $0.sessionKey == sessionKey }
+        }
+
         if event.name == "Stop" || event.name == "StopFailure" || event.name == "SessionEnd" {
             scheduleAgentSessionDismissal(sessionKey)
         } else {
             scheduleAgentSessionStaleExpiryIfNeeded(sessionKey)
         }
         onCodingAgentStateChange?()
-        return didQueueApproval || event.startsQuestion
+        return didQueueApproval || didQueueQuestion || event.startsQuestion
     }
 
     func resolveAgentApproval(_ approvalID: UUID, decision: CodingAgentApprovalDecision) {
@@ -198,13 +229,7 @@ final class PillViewModel: ObservableObject {
         }
 
         pendingAgentApprovals.removeAll { $0.id == approvalID }
-        if !pendingAgentApprovals.contains(where: { $0.sessionKey == request.sessionKey }),
-           var session = codingAgentSessions[request.sessionKey] {
-            session.activity = .working
-            session.updatedAt = Date()
-            codingAgentSessions[request.sessionKey] = session
-            scheduleAgentSessionStaleExpiryIfNeeded(request.sessionKey)
-        }
+        updateSessionAfterResolvingInteraction(request.sessionKey)
         onCodingAgentStateChange?()
         onResolveAgentApproval?(approvalID, decision)
     }
@@ -223,6 +248,34 @@ final class PillViewModel: ObservableObject {
         onCodingAgentStateChange?()
     }
 
+    func resolveAgentQuestion(
+        _ questionID: UUID,
+        answers: [CodingAgentQuestionAnswer]
+    ) {
+        guard let request = pendingAgentQuestions.first(where: { $0.id == questionID }) else {
+            return
+        }
+
+        pendingAgentQuestions.removeAll { $0.id == questionID }
+        updateSessionAfterResolvingInteraction(request.sessionKey)
+        onCodingAgentStateChange?()
+        onResolveAgentQuestion?(questionID, answers)
+    }
+
+    func invalidateAgentQuestion(
+        _ questionID: UUID,
+        reason: CodingAgentApprovalInvalidationReason
+    ) {
+        guard let request = pendingAgentQuestions.first(where: { $0.id == questionID }) else {
+            invalidatedAgentQuestionIDs[questionID] = reason
+            return
+        }
+
+        pendingAgentQuestions.removeAll { $0.id == questionID }
+        reconcileAgentSessionAfterApprovalInvalidation(request.sessionKey)
+        onCodingAgentStateChange?()
+    }
+
     func setCodingAgentIntegrationStatus(_ text: String) {
         codingAgentIntegrationStatusText = text
     }
@@ -233,13 +286,19 @@ final class PillViewModel: ObservableObject {
         agentSessionStaleWorkItems.values.forEach { $0.cancel() }
         agentSessionStaleWorkItems.removeAll()
         pendingAgentApprovals.removeAll()
+        pendingAgentQuestions.removeAll()
         codingAgentSessions.removeAll()
         invalidatedAgentApprovalIDs.removeAll()
+        invalidatedAgentQuestionIDs.removeAll()
         onCodingAgentStateChange?()
     }
 
     var primaryAgentApproval: CodingAgentApprovalRequest? {
         pendingAgentApprovals.sorted { $0.receivedAt < $1.receivedAt }.first
+    }
+
+    var primaryAgentQuestion: CodingAgentQuestionRequest? {
+        pendingAgentQuestions.sorted { $0.receivedAt < $1.receivedAt }.first
     }
 
     var displayedCodingAgentSession: CodingAgentSession? {
@@ -269,7 +328,12 @@ final class PillViewModel: ObservableObject {
     }
 
     var hasPendingAgentInput: Bool {
-        codingAgentSessions.values.contains { $0.activity == .waitingForInput }
+        primaryAgentQuestion != nil
+            || codingAgentSessions.values.contains { $0.activity == .waitingForInput }
+    }
+
+    var hasPendingAnswerableQuestion: Bool {
+        primaryAgentQuestion != nil
     }
 
     var hasBlockingAgentInteraction: Bool {
@@ -285,11 +349,34 @@ final class PillViewModel: ObservableObject {
             return
         }
 
+        if pendingAgentQuestions.contains(where: { $0.sessionKey == sessionKey }) {
+            guard var session = codingAgentSessions[sessionKey] else { return }
+            session.activity = .waitingForInput
+            session.updatedAt = Date()
+            codingAgentSessions[sessionKey] = session
+            return
+        }
+
         agentSessionDismissWorkItems[sessionKey]?.cancel()
         agentSessionDismissWorkItems.removeValue(forKey: sessionKey)
         agentSessionStaleWorkItems[sessionKey]?.cancel()
         agentSessionStaleWorkItems.removeValue(forKey: sessionKey)
         codingAgentSessions.removeValue(forKey: sessionKey)
+    }
+
+    private func updateSessionAfterResolvingInteraction(_ sessionKey: String) {
+        guard var session = codingAgentSessions[sessionKey] else { return }
+        if pendingAgentApprovals.contains(where: { $0.sessionKey == sessionKey }) {
+            session.activity = .waitingForApproval
+        } else if pendingAgentQuestions.contains(where: { $0.sessionKey == sessionKey }) {
+            session.activity = .waitingForInput
+        } else {
+            session.activity = .working
+        }
+        session.questionPrompt = nil
+        session.updatedAt = Date()
+        codingAgentSessions[sessionKey] = session
+        scheduleAgentSessionStaleExpiryIfNeeded(sessionKey)
     }
 
     private func scheduleAgentSessionStaleExpiryIfNeeded(_ sessionKey: String) {
@@ -298,7 +385,8 @@ final class PillViewModel: ObservableObject {
 
         guard let session = codingAgentSessions[sessionKey],
               session.activity != .completed,
-              session.activity != .waitingForApproval else {
+              session.activity != .waitingForApproval,
+              session.activity != .waitingForInput else {
             return
         }
 
@@ -311,7 +399,8 @@ final class PillViewModel: ObservableObject {
                   let currentSession = self.codingAgentSessions[sessionKey],
                   currentSession.activity == session.activity,
                   currentSession.updatedAt == expectedUpdate,
-                  !self.pendingAgentApprovals.contains(where: { $0.sessionKey == sessionKey }) else {
+                  !self.pendingAgentApprovals.contains(where: { $0.sessionKey == sessionKey }),
+                  !self.pendingAgentQuestions.contains(where: { $0.sessionKey == sessionKey }) else {
                 return
             }
 

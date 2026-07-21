@@ -27,7 +27,8 @@ struct PillView: View {
         PillChromeMetrics.expandedSize(
             settings: settings,
             showingRateLimits: !visibleUsageLimitSnapshots.isEmpty,
-            showingAgentApproval: viewModel.hasPendingAgentApproval,
+            showingAgentApproval: viewModel.hasPendingAgentApproval
+                || viewModel.hasPendingAnswerableQuestion,
             agentTaskCount: viewModel.activeCodingAgentTaskSessions.count
         )
     }
@@ -526,6 +527,9 @@ struct ExpandedIslandView: View {
                     queuedCount: viewModel.pendingAgentApprovals.count,
                     viewModel: viewModel
                 )
+            } else if let question = viewModel.primaryAgentQuestion {
+                AgentQuestionPanel(request: question, viewModel: viewModel)
+                    .id(question.id)
             } else {
                 ExpandedIslandHeader(viewModel: viewModel)
                     .frame(height: 24)
@@ -841,6 +845,229 @@ private struct AgentApprovalPanel: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(approval.provider.displayName) permission request for \(approval.projectName)")
+    }
+}
+
+private struct AgentQuestionPanel: View {
+    let request: CodingAgentQuestionRequest
+    @ObservedObject var viewModel: PillViewModel
+
+    @State private var questionIndex = 0
+    @State private var collectedAnswers: [String: [String]] = [:]
+    @State private var selectedOptions: Set<String> = []
+    @State private var customAnswer = ""
+    @State private var isEnteringCustomAnswer: Bool
+    @FocusState private var isCustomAnswerFocused: Bool
+
+    init(request: CodingAgentQuestionRequest, viewModel: PillViewModel) {
+        self.request = request
+        self.viewModel = viewModel
+        _isEnteringCustomAnswer = State(
+            initialValue: request.questions.first?.options.isEmpty ?? false
+        )
+    }
+
+    private var currentQuestion: CodingAgentQuestion? {
+        guard request.questions.indices.contains(questionIndex) else { return nil }
+        return request.questions[questionIndex]
+    }
+
+    private var selectedAnswers: [String] {
+        if isEnteringCustomAnswer {
+            let trimmedAnswer = customAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmedAnswer.isEmpty ? [] : [trimmedAnswer]
+        }
+
+        guard let currentQuestion else { return [] }
+        return currentQuestion.options
+            .map(\.label)
+            .filter(selectedOptions.contains)
+    }
+
+    var body: some View {
+        if let currentQuestion {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 8) {
+                    Text("\(request.provider.displayName) asks")
+                        .font(AssistFont.roundedFootnote(.semibold))
+                        .foregroundStyle(.white.opacity(0.78))
+
+                    Spacer(minLength: 8)
+
+                    if request.questions.count > 1 {
+                        Text("\(questionIndex + 1) of \(request.questions.count)")
+                            .font(AssistFont.roundedFootnote(.semibold))
+                            .foregroundStyle(.white.opacity(0.52))
+                    }
+                }
+
+                Text(currentQuestion.prompt)
+                    .font(AssistFont.roundedFootnote(.semibold))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ScrollView(.vertical, showsIndicators: currentQuestion.options.count > 3) {
+                    VStack(spacing: 6) {
+                        ForEach(currentQuestion.options) { option in
+                            questionOptionButton(option, question: currentQuestion)
+                        }
+
+                        if currentQuestion.allowsCustomAnswer {
+                            customAnswerControl
+                        }
+                    }
+                }
+                .frame(maxHeight: 118)
+
+                if currentQuestion.allowsMultipleSelection || isEnteringCustomAnswer {
+                    HStack {
+                        Spacer()
+
+                        Button(questionIndex + 1 == request.questions.count ? "Send answer" : "Next") {
+                            completeCurrentQuestion(with: selectedAnswers)
+                        }
+                        .buttonStyle(.plain)
+                        .font(AssistFont.roundedFootnote(.semibold))
+                        .foregroundStyle(.black.opacity(0.88))
+                        .padding(.horizontal, 15)
+                        .frame(height: 28)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .opacity(selectedAnswers.isEmpty ? 0.45 : 1)
+                        .disabled(selectedAnswers.isEmpty)
+                        .keyboardShortcut(.return, modifiers: [])
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("\(request.provider.displayName) question for \(request.projectName)")
+        }
+    }
+
+    private func questionOptionButton(
+        _ option: CodingAgentQuestionOption,
+        question: CodingAgentQuestion
+    ) -> some View {
+        let isSelected = selectedOptions.contains(option.label)
+
+        return Button {
+            isEnteringCustomAnswer = false
+            customAnswer = ""
+            if question.allowsMultipleSelection {
+                if isSelected {
+                    selectedOptions.remove(option.label)
+                } else {
+                    selectedOptions.insert(option.label)
+                }
+            } else {
+                completeCurrentQuestion(with: [option.label])
+            }
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(option.label)
+                        .font(AssistFont.roundedFootnote(.semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+
+                    if !option.description.isEmpty {
+                        Text(option.description)
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.46))
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                if question.allowsMultipleSelection {
+                    HugeIcon(
+                        isSelected ? .check : .circle,
+                        size: 13,
+                        color: .white.opacity(isSelected ? 0.9 : 0.42)
+                    )
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+            .background(
+                Color.white.opacity(isSelected ? 0.12 : 0.065),
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var customAnswerControl: some View {
+        if isEnteringCustomAnswer {
+            Group {
+                if currentQuestion?.isSecret == true {
+                    SecureField("Type another answer", text: $customAnswer)
+                } else {
+                    TextField("Type another answer", text: $customAnswer)
+                }
+            }
+                .textFieldStyle(.plain)
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(.white.opacity(0.9))
+                .padding(.horizontal, 10)
+                .frame(height: 32)
+                .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .focused($isCustomAnswerFocused)
+                .onSubmit {
+                    if !selectedAnswers.isEmpty {
+                        completeCurrentQuestion(with: selectedAnswers)
+                    }
+                }
+                .onAppear {
+                    isCustomAnswerFocused = true
+                }
+        } else {
+            Button("Other answer…") {
+                selectedOptions.removeAll()
+                isEnteringCustomAnswer = true
+                isCustomAnswerFocused = true
+            }
+            .buttonStyle(.plain)
+            .font(AssistFont.roundedFootnote(.semibold))
+            .foregroundStyle(.white.opacity(0.68))
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+            .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+    }
+
+    private func completeCurrentQuestion(with answers: [String]) {
+        guard let currentQuestion, !answers.isEmpty else { return }
+
+        var updatedAnswers = collectedAnswers
+        updatedAnswers[currentQuestion.id] = answers
+
+        if questionIndex + 1 < request.questions.count {
+            collectedAnswers = updatedAnswers
+            questionIndex += 1
+            selectedOptions.removeAll()
+            customAnswer = ""
+            isEnteringCustomAnswer = request.questions[questionIndex].options.isEmpty
+            if isEnteringCustomAnswer {
+                isCustomAnswerFocused = true
+            }
+            return
+        }
+
+        let resolvedAnswers = request.questions.compactMap { question -> CodingAgentQuestionAnswer? in
+            guard let selectedAnswers = updatedAnswers[question.id], !selectedAnswers.isEmpty else {
+                return nil
+            }
+            return CodingAgentQuestionAnswer(
+                questionID: question.id,
+                responseKey: question.responseKey,
+                selectedAnswers: selectedAnswers
+            )
+        }
+        guard resolvedAnswers.count == request.questions.count else { return }
+        viewModel.resolveAgentQuestion(request.id, answers: resolvedAnswers)
     }
 }
 

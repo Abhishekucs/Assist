@@ -101,10 +101,12 @@ struct ClaudeCodeHookInstaller {
             var handler: [String: Any] = [
                 "type": "command",
                 "command": command,
-                "timeout": event == "PermissionRequest" ? 600 : 5
+                "timeout": ["PermissionRequest", "PreToolUse"].contains(event) ? 600 : 5
             ]
             if event == "PermissionRequest" {
                 handler["statusMessage"] = "Waiting for approval in Assist"
+            } else if event == "PreToolUse" {
+                handler["statusMessage"] = "Waiting for an answer in Assist"
             }
 
             var group: [String: Any] = ["hooks": [handler]]

@@ -175,8 +175,10 @@ The app does not block behind a permission gateway. Capture is attempted directl
 Assist can show Codex and terminal Claude Code activity and route their
 permission requests to the island. Questions from Codex `request_user_input`,
 Claude Code `AskUserQuestion`, and Claude Code elicitation notifications expand
-the island and stay visible as a **Needs answer** task until the interaction
-finishes. Claude Code rows also show the detected CLI version.
+the island. Answerable questions show their choices and an optional custom-answer
+field directly in the island; the selected answer is returned to the waiting
+agent. Notification-only questions stay visible as a **Needs answer** task until
+the interaction finishes. Claude Code rows also show the detected CLI version.
 
 Hovering the island shows up to three active tasks in an urgency-sorted
 vertical stack, including each task's prompt or question summary, state, and

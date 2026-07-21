@@ -62,6 +62,10 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             self?.codingAgentBridge.resolve(approvalID, decision: decision)
             self?.windowManager.agentInteractionDidResolve()
         }
+        pillViewModel.onResolveAgentQuestion = { [weak self] questionID, answers in
+            self?.codingAgentBridge.answer(questionID, answers: answers)
+            self?.windowManager.agentInteractionDidResolve()
+        }
         pillViewModel.onCodingAgentStateChange = { [weak self] in
             self?.windowManager.codingAgentStateDidChange()
         }
@@ -74,6 +78,12 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         codingAgentBridge.onApprovalInvalidated = { [weak self] approvalID, reason in
             Task { @MainActor [weak self] in
                 self?.pillViewModel.invalidateAgentApproval(approvalID, reason: reason)
+                self?.windowManager.agentInteractionDidResolve()
+            }
+        }
+        codingAgentBridge.onQuestionInvalidated = { [weak self] questionID, reason in
+            Task { @MainActor [weak self] in
+                self?.pillViewModel.invalidateAgentQuestion(questionID, reason: reason)
                 self?.windowManager.agentInteractionDidResolve()
             }
         }
@@ -134,6 +144,9 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         guard pillViewModel.settings.codingAgentIntegrationEnabled else {
             if let approvalID = event.approvalID {
                 codingAgentBridge.declineToDecide(approvalID)
+            }
+            if let questionID = event.questionRequestID {
+                codingAgentBridge.declineToAnswer(questionID)
             }
             return
         }

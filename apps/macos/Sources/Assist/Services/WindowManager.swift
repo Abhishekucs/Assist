@@ -35,7 +35,7 @@ final class WindowManager {
     }
 
     private var isShowingAgentApproval: Bool {
-        pillViewModel.hasPendingAgentApproval
+        pillViewModel.hasPendingAgentApproval || pillViewModel.hasPendingAnswerableQuestion
     }
 
     private var hasBlockingAgentInteraction: Bool {
