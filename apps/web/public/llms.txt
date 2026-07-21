@@ -1,0 +1,19 @@
+# Assist
+
+> Assist is a Dynamic Island for coding agents on macOS. It monitors Codex and Claude Code tasks, surfaces approvals and questions in the notch, and keeps screenshots, annotations, and copied text ready to reuse. Local-first: context stays on your Mac.
+
+Key facts:
+
+- Platform: macOS 14 (Sonoma) or later
+- Price: $12 one-time purchase (early access), no subscription
+- License: one device per license, lifetime access with 1.x updates included
+- Agents: monitors Codex and terminal Claude Code sessions
+- Interaction: approve or deny permission requests and answer agent questions from the island
+- Tasks: shows up to three active coding-agent tasks in a vertical stack
+- Storage: local-first; screenshots and copied text stay on your Mac, no cloud upload required
+- Capture: Control + Option for full screen screenshots; hold Option to draw annotations before capture
+- Reuse: drag recent screenshots, annotations, and copied text from the notch shelf into documents, chats, and design tools
+
+## Pages
+
+- [Home](https://assistapp.dev/): product overview, feature tour, pricing, and FAQ

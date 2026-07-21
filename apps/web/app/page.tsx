@@ -1,10 +1,114 @@
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
+const siteUrl = "https://assistapp.dev";
+
+const faqItems = [
+  {
+    question: "Which coding agents does Assist support?",
+    answer:
+      "Assist currently connects to Codex and terminal Claude Code. It shows active tasks, their latest status, and the detected Claude Code version directly in the island."
+  },
+  {
+    question: "Can I approve requests and answer agents from the island?",
+    answer:
+      "Yes. Codex and Claude Code permission requests appear in the island, where you can allow or deny them. Agent questions also expand in place so you can respond without finding the terminal."
+  },
+  {
+    question: "How many agent tasks can I see at once?",
+    answer:
+      "The expanded island shows up to three active tasks in a vertical stack. Claude and Codex usage windows remain available in both the collapsed and expanded states."
+  },
+  {
+    question: "What can I capture and reuse?",
+    answer:
+      "Press Control + Option for a clean full-screen screenshot, or hold Option to draw and save an annotated screenshot. Assist also keeps recent copied text ready to reuse or drag into another app."
+  },
+  {
+    question: "Where is my captured context stored?",
+    answer:
+      "Screenshot metadata and history are stored locally on your Mac. Assist also uses local Vision OCR for its first-pass screenshot context instead of sending the image to a remote vision model."
+  },
+  {
+    question: "Does Assist require any macOS permissions?",
+    answer:
+      "Screen and System Audio Recording is required for capture. Accessibility or Input Monitoring lets Assist detect the global Option and Control + Option shortcuts."
+  },
+  {
+    question: "Is Assist a subscription?",
+    answer:
+      "No. Assist is $12 for one Mac as a one-time purchase. There is no recurring subscription."
+  }
+];
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#app`,
+      name: "Assist",
+      operatingSystem: "macOS 14 or later",
+      applicationCategory: "UtilitiesApplication",
+      description:
+        "Assist is a native macOS app for monitoring Codex and Claude Code, approving agent requests, answering questions, and reusing screenshots, annotations, and copied text from the Mac notch.",
+      url: siteUrl,
+      image: `${siteUrl}/og-image.png`,
+      offers: {
+        "@type": "Offer",
+        price: "12",
+        priceCurrency: "USD",
+        category: "one-time purchase",
+        availability: "https://schema.org/InStock"
+      },
+      featureList: [
+        "Codex and Claude Code task monitoring",
+        "Agent permission approvals",
+        "Agent question answering",
+        "Coding-agent usage windows",
+        "Full screen screenshot capture",
+        "Option-hold annotation",
+        "Drag and drop from notch",
+        "Copied text and screenshot history",
+        "Local-first storage"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: "Assist",
+      url: siteUrl,
+      logo: `${siteUrl}/assist-icon.png`
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      name: "Assist",
+      url: siteUrl,
+      publisher: { "@id": `${siteUrl}/#organization` }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": `${siteUrl}/#faq`,
+      mainEntity: faqItems.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.answer
+        }
+      }))
+    }
+  ]
+};
 
 export default function Home() {
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <header className="site-header" aria-label="Site header">
         <nav className="header-pill" aria-label="Primary navigation">
           <a className="brand" href="#top" aria-label="Assist home">
@@ -153,88 +257,15 @@ export default function Home() {
         </div>
 
         <div className="faq-list">
-          <details className="faq-item" open>
-            <summary>
-              <span>Which coding agents does Assist support?</span>
-              <span className="faq-state" aria-hidden="true" />
-            </summary>
-            <p>
-              Assist currently connects to Codex and terminal Claude Code. It
-              shows active tasks, their latest status, and the detected Claude
-              Code version directly in the island.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Can I approve requests and answer agents from the island?</span>
-              <span className="faq-state" aria-hidden="true" />
-            </summary>
-            <p>
-              Yes. Codex and Claude Code permission requests appear in the
-              island, where you can allow or deny them. Agent questions also
-              expand in place so you can respond without finding the terminal.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>How many agent tasks can I see at once?</span>
-              <span className="faq-state" aria-hidden="true" />
-            </summary>
-            <p>
-              The expanded island shows up to three active tasks in a vertical
-              stack. Claude and Codex usage windows remain available in both
-              the collapsed and expanded states.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>What can I capture and reuse?</span>
-              <span className="faq-state" aria-hidden="true" />
-            </summary>
-            <p>
-              Press Control + Option for a clean full-screen screenshot, or
-              hold Option to draw and save an annotated screenshot. Assist also
-              keeps recent copied text ready to reuse or drag into another app.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Where is my captured context stored?</span>
-              <span className="faq-state" aria-hidden="true" />
-            </summary>
-            <p>
-              Screenshot metadata and history are stored locally on your Mac.
-              Assist also uses local Vision OCR for its first-pass screenshot
-              context instead of sending the image to a remote vision model.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Does Assist require any macOS permissions?</span>
-              <span className="faq-state" aria-hidden="true" />
-            </summary>
-            <p>
-              Screen &amp; System Audio Recording is required for capture.
-              Accessibility or Input Monitoring lets Assist detect the global
-              Option and Control + Option shortcuts.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>
-              <span>Is Assist a subscription?</span>
-              <span className="faq-state" aria-hidden="true" />
-            </summary>
-            <p>
-              No. Assist is $12 for one Mac as a one-time purchase—there is no
-              recurring subscription.
-            </p>
-          </details>
+          {faqItems.map((item, index) => (
+            <details className="faq-item" key={item.question} open={index === 0}>
+              <summary>
+                <span>{item.question}</span>
+                <span className="faq-state" aria-hidden="true" />
+              </summary>
+              <p>{item.answer}</p>
+            </details>
+          ))}
         </div>
       </section>
 
