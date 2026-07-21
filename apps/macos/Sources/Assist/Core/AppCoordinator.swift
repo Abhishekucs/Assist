@@ -21,6 +21,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private var debugOverlayWorkItems: [DispatchWorkItem] = []
     private var codingAgentIntegrationSettingsCancellable: AnyCancellable?
     private var isCodingAgentBridgeRunning = false
+    private var observedCodingAgentProviders: Set<UsageLimitProvider> = []
 
     init(
         windowManager: WindowManager,
@@ -151,7 +152,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             return
         }
 
-        pillViewModel.setCodingAgentIntegrationStatus("Active with Codex and Claude Code")
+        observedCodingAgentProviders.insert(event.provider)
+        updateCodingAgentIntegrationStatus()
         let shouldPresentInteraction = pillViewModel.receiveCodingAgentHookEvent(event)
         if shouldPresentInteraction {
             windowManager.presentCodingAgentInteraction()
@@ -171,6 +173,13 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         )
         pillViewModel.refreshUsageLimitsSoon()
 
+        guard isEnabled else {
+            disableCodingAgentIntegration(
+                nextClaudeCodeHookInstaller: nextClaudeCodeHookInstaller
+            )
+            return
+        }
+
         do {
             if let claudeCodeHookInstaller,
                claudeCodeHookInstaller.settingsURL.standardizedFileURL
@@ -180,30 +189,92 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             }
             claudeCodeHookInstaller = nextClaudeCodeHookInstaller
 
-            if isEnabled {
-                try codexHookInstaller.install(executableURL: Bundle.main.executableURL)
-                try nextClaudeCodeHookInstaller.install(executableURL: Bundle.main.executableURL)
-                let status = isCodingAgentBridgeRunning
-                    ? "Connected to Codex and Claude Code. Claude settings: \(nextClaudeCodeHookInstaller.settingsURL.path)"
-                    : "Hooks installed, but the local Assist bridge is unavailable."
-                pillViewModel.setCodingAgentIntegrationStatus(status)
-                DebugLogger.log("agents.integration.enabled")
-            } else {
-                if codexHookInstaller.containsAssistHandlers() {
-                    try codexHookInstaller.uninstall()
-                }
-                if nextClaudeCodeHookInstaller.containsAssistHandlers() {
-                    try nextClaudeCodeHookInstaller.uninstall()
-                }
-                codingAgentBridge.declineToDecideAll()
-                pillViewModel.clearCodingAgentState()
-                windowManager.agentInteractionDidResolve()
-                pillViewModel.setCodingAgentIntegrationStatus("Not connected")
-                DebugLogger.log("agents.integration.disabled")
-            }
+            try codexHookInstaller.install(executableURL: Bundle.main.executableURL)
+            try nextClaudeCodeHookInstaller.install(executableURL: Bundle.main.executableURL)
+            updateCodingAgentIntegrationStatus()
+            DebugLogger.log("agents.integration.enabled")
         } catch {
             pillViewModel.setCodingAgentIntegrationStatus(error.localizedDescription)
             DebugLogger.log("agents.integration.configure.error", errorFields(error))
+        }
+    }
+
+    private func disableCodingAgentIntegration(
+        nextClaudeCodeHookInstaller: ClaudeCodeHookInstaller
+    ) {
+        codingAgentBridge.declineToDecideAll()
+        pillViewModel.clearCodingAgentState()
+        observedCodingAgentProviders.removeAll()
+        windowManager.agentInteractionDidResolve()
+
+        var uninstallErrors: [String] = []
+        func uninstall(_ label: String, _ operation: () throws -> Void) {
+            do {
+                try operation()
+            } catch {
+                uninstallErrors.append("\(label): \(error.localizedDescription)")
+                DebugLogger.log("agents.integration.uninstall.error", [
+                    "provider": label,
+                    "message": error.localizedDescription
+                ])
+            }
+        }
+
+        uninstall("Codex") {
+            try codexHookInstaller.uninstall()
+        }
+        if let claudeCodeHookInstaller,
+           claudeCodeHookInstaller.settingsURL.standardizedFileURL
+            != nextClaudeCodeHookInstaller.settingsURL.standardizedFileURL {
+            uninstall("Claude Code (previous directory)") {
+                try claudeCodeHookInstaller.uninstall()
+            }
+        }
+        uninstall("Claude Code") {
+            try nextClaudeCodeHookInstaller.uninstall()
+        }
+        claudeCodeHookInstaller = nextClaudeCodeHookInstaller
+
+        if uninstallErrors.isEmpty {
+            pillViewModel.setCodingAgentIntegrationStatus("Not connected")
+            DebugLogger.log("agents.integration.disabled")
+        } else {
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Disconnected. Assist could not remove every hook: \(uninstallErrors.joined(separator: " "))"
+            )
+        }
+    }
+
+    private func updateCodingAgentIntegrationStatus() {
+        guard pillViewModel.settings.codingAgentIntegrationEnabled else {
+            pillViewModel.setCodingAgentIntegrationStatus("Not connected")
+            return
+        }
+
+        guard isCodingAgentBridgeRunning else {
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Hooks installed, but the local Assist bridge is unavailable."
+            )
+            return
+        }
+
+        let observedCodex = observedCodingAgentProviders.contains(.codex)
+        let observedClaudeCode = observedCodingAgentProviders.contains(.claudeCode)
+        switch (observedCodex, observedClaudeCode) {
+        case (true, true):
+            pillViewModel.setCodingAgentIntegrationStatus("Active with Codex and Claude Code")
+        case (true, false):
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Codex is active. Claude Code hooks are installed and waiting for a session."
+            )
+        case (false, true):
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Claude Code is active. In Codex, open /hooks and trust the Assist hook."
+            )
+        case (false, false):
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Hooks installed. In Codex, open /hooks and trust the Assist hook."
+            )
         }
     }
 

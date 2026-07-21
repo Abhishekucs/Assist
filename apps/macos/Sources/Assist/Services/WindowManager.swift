@@ -2,6 +2,11 @@ import AppKit
 import Combine
 import SwiftUI
 
+private final class PillPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
 @MainActor
 final class WindowManager {
     private enum Metrics {
@@ -50,7 +55,7 @@ final class WindowManager {
         self.pillViewModel = pillViewModel
         self.settings = settings
 
-        pillPanel = NSPanel(
+        pillPanel = PillPanel(
             contentRect: Self.topCenterFrame(
                 windowSize: PillChromeMetrics.expandedSize(
                     settings: settings,
@@ -130,6 +135,7 @@ final class WindowManager {
     }
 
     func agentInteractionDidResolve() {
+        pillPanel.resignKey()
         setPillFrame(display: true)
         guard !hasBlockingAgentInteraction,
               !isPointerHoveringPillChrome else {
@@ -149,6 +155,7 @@ final class WindowManager {
         pillPanel.level = .statusBar
         pillPanel.isMovable = true
         pillPanel.isMovableByWindowBackground = false
+        pillPanel.becomesKeyOnlyIfNeeded = true
         pillPanel.acceptsMouseMovedEvents = true
         pillPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         pillPanel.hidesOnDeactivate = false

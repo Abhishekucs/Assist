@@ -239,6 +239,7 @@ private struct AgentApprovalCollapsedActions: View {
             }
             .buttonStyle(.plain)
             .help("Deny \(approval.provider.displayName) request")
+            .accessibilityLabel("Deny \(approval.provider.displayName) request")
 
             Button {
                 viewModel.resolveAgentApproval(approval.id, decision: .allow)
@@ -249,6 +250,7 @@ private struct AgentApprovalCollapsedActions: View {
             }
             .buttonStyle(.plain)
             .help("Allow \(approval.provider.displayName) request")
+            .accessibilityLabel("Allow \(approval.provider.displayName) request")
         }
     }
 }
