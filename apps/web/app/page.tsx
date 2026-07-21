@@ -1,4 +1,3 @@
-import ClipRow from "./ClipRow";
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
@@ -47,21 +46,18 @@ export default function Home() {
             </a>
           </div>
         </div>
-        <div className="landscape" aria-hidden="true">
-          <div className="glass-shell" />
-          <div className="notch-preview">
-            <div className="notch-bar">
-              <span>Recent items</span>
-              <div className="notch-tools">
-                <span className="tool-icon grid-icon" />
-                <span className="tool-icon image-icon" />
-                <span className="tool-icon folder-icon" />
-              </div>
-            </div>
-            <ClipRow />
-          </div>
+        <div className="hero-video-frame">
+          <video
+            className="hero-video"
+            src="https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/IMG_4597.mov"
+            aria-label="Assist working from the Mac notch"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+          />
         </div>
-
       </section>
       <section id="features" className="capability-section">
         <div className="trusted-by" aria-label="Companies where Assist users work">
@@ -251,7 +247,7 @@ export default function Home() {
               </span>
               <span>Assist</span>
             </a>
-            <p>Native capture memory for Mac builders.</p>
+            <p>Coding agents, approvals, screenshots, and context—right from your Mac notch.</p>
           </div>
 
           <nav className="footer-link-grid" aria-label="Footer navigation">
