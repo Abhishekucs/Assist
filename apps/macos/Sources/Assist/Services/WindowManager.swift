@@ -135,12 +135,12 @@ final class WindowManager {
     }
 
     func agentInteractionDidResolve() {
-        pillPanel.resignKey()
         setPillFrame(display: true)
-        guard !hasBlockingAgentInteraction,
-              !isPointerHoveringPillChrome else {
+        guard !hasBlockingAgentInteraction else {
             return
         }
+        pillPanel.resignKey()
+        guard !isPointerHoveringPillChrome else { return }
         setPillHovering(false)
     }
 
