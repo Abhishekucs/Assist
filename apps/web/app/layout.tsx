@@ -6,18 +6,18 @@ import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
   style: ["normal", "italic"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans"
 });
 
 const siteUrl = "https://assistapp.dev";
 const siteDescription =
-  "Assist is a native macOS app for screenshots, annotations, and clipboard history. Capture, annotate, and reuse screenshots and copied text from a notch-style shelf. One-time purchase, local-first.";
+  "Assist is a Dynamic Island for Codex and Claude Code on macOS. Monitor tasks, approve requests, answer agent questions, and reuse screenshots and copied text from the notch.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Assist — Screenshot, Annotation & Clipboard History for macOS",
+    default: "Assist — Dynamic Island for Your Coding Agents",
     template: "%s — Assist"
   },
   description: siteDescription,
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     apple: "/assist-icon.png"
   },
   openGraph: {
-    title: "Assist — Screenshot, Annotation & Clipboard History for macOS",
+    title: "Assist — Dynamic Island for Your Coding Agents",
     description: siteDescription,
     url: siteUrl,
     siteName: "Assist",
@@ -39,13 +39,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Assist notch shelf with recent screenshots and copied text on macOS"
+        alt: "Assist showing coding-agent tasks and recent context in the Mac notch"
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Assist — Screenshot, Annotation & Clipboard History for macOS",
+    title: "Assist — Dynamic Island for Your Coding Agents",
     description: siteDescription,
     images: ["/og-image.png"]
   }

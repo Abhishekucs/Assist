@@ -16,7 +16,7 @@ final class PillSettings: ObservableObject {
         static let collapsedWidthRange: ClosedRange<CGFloat> = 180...360
         static let collapsedHeightRange: ClosedRange<CGFloat> = 26...42
         static let expandedWidthRange: ClosedRange<CGFloat> = 440...760
-        static let expandedHeightRange: ClosedRange<CGFloat> = 210...360
+        static let expandedHeightRange: ClosedRange<CGFloat> = 210...400
         static let collapsedTopCornerRadius: CGFloat = 6
         static let collapsedBottomCornerRadius: CGFloat = 14
         static let expandedTopCornerRadius: CGFloat = 19
@@ -54,6 +54,12 @@ final class PillSettings: ObservableObject {
     @Published var showCodexRateLimit: Bool {
         didSet { defaults.set(showCodexRateLimit, forKey: Keys.showCodexRateLimit) }
     }
+    @Published var codingAgentIntegrationEnabled: Bool {
+        didSet { defaults.set(codingAgentIntegrationEnabled, forKey: Keys.codingAgentIntegrationEnabled) }
+    }
+    @Published var claudeCodeConfigDirectory: String {
+        didSet { defaults.set(claudeCodeConfigDirectory, forKey: Keys.claudeCodeConfigDirectory) }
+    }
     @Published var downloadUpdatesAutomatically: Bool {
         didSet { defaults.set(downloadUpdatesAutomatically, forKey: Keys.downloadUpdatesAutomatically) }
     }
@@ -89,6 +95,29 @@ final class PillSettings: ObservableObject {
         showMenuBarIcon = Self.bool(for: Keys.showMenuBarIcon, default: true, defaults: defaults)
         showClaudeCodeRateLimit = Self.bool(for: Keys.showClaudeCodeRateLimit, default: true, defaults: defaults)
         showCodexRateLimit = Self.bool(for: Keys.showCodexRateLimit, default: true, defaults: defaults)
+        let legacyAgentIntegrationEnabled = Self.bool(
+            for: Keys.legacyCodexAgentIntegrationEnabled,
+            default: false,
+            defaults: defaults
+        )
+        let resolvedCodingAgentIntegrationEnabled = Self.bool(
+            for: Keys.codingAgentIntegrationEnabled,
+            default: legacyAgentIntegrationEnabled,
+            defaults: defaults
+        )
+        codingAgentIntegrationEnabled = resolvedCodingAgentIntegrationEnabled
+        if defaults.object(forKey: Keys.codingAgentIntegrationEnabled) == nil,
+           defaults.object(forKey: Keys.legacyCodexAgentIntegrationEnabled) != nil {
+            defaults.set(resolvedCodingAgentIntegrationEnabled, forKey: Keys.codingAgentIntegrationEnabled)
+        }
+        let resolvedClaudeCodeConfigDirectory = defaults.string(forKey: Keys.claudeCodeConfigDirectory)
+            ?? ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"]
+            ?? ""
+        claudeCodeConfigDirectory = resolvedClaudeCodeConfigDirectory
+        if defaults.object(forKey: Keys.claudeCodeConfigDirectory) == nil,
+           !resolvedClaudeCodeConfigDirectory.isEmpty {
+            defaults.set(resolvedClaudeCodeConfigDirectory, forKey: Keys.claudeCodeConfigDirectory)
+        }
         downloadUpdatesAutomatically = Self.bool(for: Keys.downloadUpdatesAutomatically, default: true, defaults: defaults)
         appAppearance = Self.appearance(for: Keys.appAppearance, default: .system, defaults: defaults)
     }
@@ -135,6 +164,9 @@ private enum Keys {
     static let showMenuBarIcon = "app.showMenuBarIcon"
     static let showClaudeCodeRateLimit = "rateLimits.showClaudeCode"
     static let showCodexRateLimit = "rateLimits.showCodex"
+    static let codingAgentIntegrationEnabled = "agents.coding.enabled"
+    static let legacyCodexAgentIntegrationEnabled = "agents.codex.enabled"
+    static let claudeCodeConfigDirectory = "agents.claude.configDirectory"
     static let downloadUpdatesAutomatically = "updates.downloadAutomatically"
     static let appAppearance = "app.appearance"
 }

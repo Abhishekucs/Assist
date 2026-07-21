@@ -1,10 +1,14 @@
 import Foundation
 
 enum UsageLimitService {
-    static func loadSnapshots() async -> [UsageLimitSnapshot] {
+    static func loadSnapshots(claudeCodeConfigDirectory: String = "") async -> [UsageLimitSnapshot] {
         await Task.detached(priority: .utility) {
             [
-                ClaudeCodeUsageAdapter().loadSnapshot(),
+                ClaudeCodeUsageAdapter(
+                    claudeHome: CodingAgentConfiguration.claudeHome(
+                        configuredDirectory: claudeCodeConfigDirectory
+                    )
+                ).loadSnapshot(),
                 CodexUsageAdapter().loadSnapshot()
             ]
         }.value
@@ -12,10 +16,9 @@ enum UsageLimitService {
 }
 
 private struct ClaudeCodeUsageAdapter: Sendable {
-    func loadSnapshot() -> UsageLimitSnapshot {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let claudeHome = home.appendingPathComponent(".claude", isDirectory: true)
+    let claudeHome: URL
 
+    func loadSnapshot() -> UsageLimitSnapshot {
         return LocalRateLimitReader.loadSnapshot(
             provider: .claudeCode,
             source: .claudeStatusLine,

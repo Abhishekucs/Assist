@@ -1,5 +1,9 @@
 import AppKit
 
+if let provider = CodingAgentHookCommand.provider(in: CommandLine.arguments) {
+    exit(CodingAgentHookCommand.run(provider: provider, arguments: CommandLine.arguments))
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 @preconcurrency import ScreenCaptureKit
 
 @MainActor
@@ -9,12 +10,18 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private let pillViewModel: PillViewModel
     private let monitor = ControlGestureMonitor()
     private let clipboardMonitor = ClipboardTextMonitor()
+    private let codingAgentBridge = CodingAgentBridgeService()
+    private let codexHookInstaller = CodexHookInstaller()
+    private var claudeCodeHookInstaller: ClaudeCodeHookInstaller?
 
     private var activeScreen: NSScreen?
     private var activeStroke: Stroke?
     private var isCapturing = false
     private var annotationSessionID: UUID?
     private var debugOverlayWorkItems: [DispatchWorkItem] = []
+    private var codingAgentIntegrationSettingsCancellable: AnyCancellable?
+    private var isCodingAgentBridgeRunning = false
+    private var observedCodingAgentProviders: Set<UsageLimitProvider> = []
 
     init(
         windowManager: WindowManager,
@@ -52,6 +59,60 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         pillViewModel.onWillShowHistory = { [weak self] in
             self?.syncHistoryFromStore()
         }
+        pillViewModel.onResolveAgentApproval = { [weak self] approvalID, decision in
+            self?.codingAgentBridge.resolve(approvalID, decision: decision)
+            self?.windowManager.agentInteractionDidResolve()
+        }
+        pillViewModel.onResolveAgentQuestion = { [weak self] questionID, answers in
+            self?.codingAgentBridge.answer(questionID, answers: answers)
+            self?.windowManager.agentInteractionDidResolve()
+        }
+        pillViewModel.onCodingAgentStateChange = { [weak self] in
+            self?.windowManager.codingAgentStateDidChange()
+        }
+
+        codingAgentBridge.onEvent = { [weak self] event in
+            Task { @MainActor [weak self] in
+                self?.handleCodingAgentHookEvent(event)
+            }
+        }
+        codingAgentBridge.onApprovalInvalidated = { [weak self] approvalID, reason in
+            Task { @MainActor [weak self] in
+                self?.pillViewModel.invalidateAgentApproval(approvalID, reason: reason)
+                self?.windowManager.agentInteractionDidResolve()
+            }
+        }
+        codingAgentBridge.onQuestionInvalidated = { [weak self] questionID, reason in
+            Task { @MainActor [weak self] in
+                self?.pillViewModel.invalidateAgentQuestion(questionID, reason: reason)
+                self?.windowManager.agentInteractionDidResolve()
+            }
+        }
+        do {
+            try codingAgentBridge.start()
+            isCodingAgentBridgeRunning = true
+        } catch {
+            isCodingAgentBridgeRunning = false
+            pillViewModel.setCodingAgentIntegrationStatus("Bridge unavailable: \(error.localizedDescription)")
+            DebugLogger.log("agents.bridge.start.error", errorFields(error))
+        }
+
+        codingAgentIntegrationSettingsCancellable = Publishers.CombineLatest(
+            pillViewModel.settings.$codingAgentIntegrationEnabled,
+            pillViewModel.settings.$claudeCodeConfigDirectory
+        )
+            .removeDuplicates { previous, current in
+                previous.0 == current.0 && previous.1 == current.1
+            }
+            .sink { [weak self] integrationSettings in
+                let (isEnabled, claudeCodeConfigDirectory) = integrationSettings
+                Task { @MainActor [weak self] in
+                    self?.configureCodingAgentIntegration(
+                        isEnabled: isEnabled,
+                        claudeCodeConfigDirectory: claudeCodeConfigDirectory
+                    )
+                }
+            }
 
         syncHistoryFromStore()
         pillViewModel.clearCaptureIssue()
@@ -74,6 +135,152 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         monitor.stop()
         clipboardMonitor.stop()
         pillViewModel.stopUsageLimitUpdates()
+        codingAgentIntegrationSettingsCancellable?.cancel()
+        codingAgentIntegrationSettingsCancellable = nil
+        codingAgentBridge.stop()
+        isCodingAgentBridgeRunning = false
+    }
+
+    private func handleCodingAgentHookEvent(_ event: CodingAgentHookEvent) {
+        guard pillViewModel.settings.codingAgentIntegrationEnabled else {
+            if let approvalID = event.approvalID {
+                codingAgentBridge.declineToDecide(approvalID)
+            }
+            if let questionID = event.questionRequestID {
+                codingAgentBridge.declineToAnswer(questionID)
+            }
+            return
+        }
+
+        observedCodingAgentProviders.insert(event.provider)
+        updateCodingAgentIntegrationStatus()
+        let shouldPresentInteraction = pillViewModel.receiveCodingAgentHookEvent(event)
+        if shouldPresentInteraction {
+            windowManager.presentCodingAgentInteraction()
+        } else {
+            windowManager.agentInteractionDidResolve()
+        }
+    }
+
+    private func configureCodingAgentIntegration(
+        isEnabled: Bool,
+        claudeCodeConfigDirectory: String
+    ) {
+        let nextClaudeCodeHookInstaller = ClaudeCodeHookInstaller(
+            claudeHome: CodingAgentConfiguration.claudeHome(
+                configuredDirectory: claudeCodeConfigDirectory
+            )
+        )
+        pillViewModel.refreshUsageLimitsSoon()
+
+        guard isEnabled else {
+            disableCodingAgentIntegration(
+                nextClaudeCodeHookInstaller: nextClaudeCodeHookInstaller
+            )
+            return
+        }
+
+        do {
+            if let claudeCodeHookInstaller,
+               claudeCodeHookInstaller.settingsURL.standardizedFileURL
+                != nextClaudeCodeHookInstaller.settingsURL.standardizedFileURL,
+               claudeCodeHookInstaller.containsAssistHandlers() {
+                try claudeCodeHookInstaller.uninstall()
+            }
+            claudeCodeHookInstaller = nextClaudeCodeHookInstaller
+
+            try codexHookInstaller.install(executableURL: Bundle.main.executableURL)
+            try nextClaudeCodeHookInstaller.install(executableURL: Bundle.main.executableURL)
+            updateCodingAgentIntegrationStatus()
+            DebugLogger.log("agents.integration.enabled")
+        } catch {
+            pillViewModel.setCodingAgentIntegrationStatus(error.localizedDescription)
+            DebugLogger.log("agents.integration.configure.error", errorFields(error))
+        }
+    }
+
+    private func disableCodingAgentIntegration(
+        nextClaudeCodeHookInstaller: ClaudeCodeHookInstaller
+    ) {
+        codingAgentBridge.declineToDecideAll()
+        pillViewModel.clearCodingAgentState()
+        observedCodingAgentProviders.removeAll()
+        windowManager.agentInteractionDidResolve()
+
+        var uninstallErrors: [String] = []
+        func uninstall(_ label: String, _ operation: () throws -> Void) {
+            do {
+                try operation()
+            } catch {
+                uninstallErrors.append("\(label): \(error.localizedDescription)")
+                DebugLogger.log("agents.integration.uninstall.error", [
+                    "provider": label,
+                    "message": error.localizedDescription
+                ])
+            }
+        }
+
+        if codexHookInstaller.containsAssistHandlers() {
+            uninstall("Codex") {
+                try codexHookInstaller.uninstall()
+            }
+        }
+        if let claudeCodeHookInstaller,
+           claudeCodeHookInstaller.settingsURL.standardizedFileURL
+            != nextClaudeCodeHookInstaller.settingsURL.standardizedFileURL,
+           claudeCodeHookInstaller.containsAssistHandlers() {
+            uninstall("Claude Code (previous directory)") {
+                try claudeCodeHookInstaller.uninstall()
+            }
+        }
+        if nextClaudeCodeHookInstaller.containsAssistHandlers() {
+            uninstall("Claude Code") {
+                try nextClaudeCodeHookInstaller.uninstall()
+            }
+        }
+        claudeCodeHookInstaller = nextClaudeCodeHookInstaller
+
+        if uninstallErrors.isEmpty {
+            pillViewModel.setCodingAgentIntegrationStatus("Not connected")
+            DebugLogger.log("agents.integration.disabled")
+        } else {
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Disconnected. Assist could not remove every hook: \(uninstallErrors.joined(separator: " "))"
+            )
+        }
+    }
+
+    private func updateCodingAgentIntegrationStatus() {
+        guard pillViewModel.settings.codingAgentIntegrationEnabled else {
+            pillViewModel.setCodingAgentIntegrationStatus("Not connected")
+            return
+        }
+
+        guard isCodingAgentBridgeRunning else {
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Hooks installed, but the local Assist bridge is unavailable."
+            )
+            return
+        }
+
+        let observedCodex = observedCodingAgentProviders.contains(.codex)
+        let observedClaudeCode = observedCodingAgentProviders.contains(.claudeCode)
+        switch (observedCodex, observedClaudeCode) {
+        case (true, true):
+            pillViewModel.setCodingAgentIntegrationStatus("Active with Codex and Claude Code")
+        case (true, false):
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Codex is active. Claude Code hooks are installed and waiting for a session."
+            )
+        case (false, true):
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Claude Code is active. In Codex, open /hooks and trust the Assist hook."
+            )
+        case (false, false):
+            pillViewModel.setCodingAgentIntegrationStatus(
+                "Hooks installed. In Codex, open /hooks and trust the Assist hook."
+            )
+        }
     }
 
     func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String) {

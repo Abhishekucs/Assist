@@ -101,7 +101,7 @@ struct ControlPanelView: View {
     private var detailView: some View {
         switch selectedPage {
         case .general:
-            GeneralSettingsPane(settings: settings)
+            GeneralSettingsPane(settings: settings, viewModel: viewModel)
         case .appearance:
             AppearanceSettingsPane(settings: settings)
         case .capture:
@@ -815,12 +815,37 @@ private struct SettingsActionButton: View {
 
 private struct GeneralSettingsPane: View {
     @ObservedObject var settings: PillSettings
+    @ObservedObject var viewModel: PillViewModel
 
     var body: some View {
         SettingsDetailPage(
             title: "General",
-            subtitle: "Choose which rate limits appear on the island."
+            subtitle: "Connect coding agents and choose which rate limits appear on the island."
         ) {
+            SettingsSection("Coding agents") {
+                VStack(alignment: .leading, spacing: 0) {
+                    SettingToggleRow(
+                        title: "Show activity and approvals",
+                        detail: "Connects Codex and terminal Claude Code sessions to the island.",
+                        isOn: $settings.codingAgentIntegrationEnabled
+                    )
+
+                    RowDivider()
+
+                    ClaudeConfigDirectoryRow(
+                        directory: $settings.claudeCodeConfigDirectory
+                    )
+
+                    RowDivider()
+
+                    SettingValueRow(
+                        title: "Connection",
+                        value: settings.codingAgentIntegrationEnabled ? "Enabled" : "Disabled",
+                        detail: viewModel.codingAgentIntegrationStatusText
+                    )
+                }
+            }
+
             SettingsSection("Rate limits") {
                 VStack(alignment: .leading, spacing: 0) {
                     SettingToggleRow(
@@ -836,6 +861,66 @@ private struct GeneralSettingsPane: View {
                     )
                 }
             }
+        }
+    }
+}
+
+private struct ClaudeConfigDirectoryRow: View {
+    @Binding var directory: String
+    @State private var draftDirectory: String
+    @FocusState private var isFieldFocused: Bool
+    @Environment(\.assistTheme) private var theme
+
+    init(directory: Binding<String>) {
+        _directory = directory
+        _draftDirectory = State(initialValue: directory.wrappedValue)
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Claude config directory")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(theme.foreground)
+
+                Text("Use the same directory as CLAUDE_CONFIG_DIR. Leave blank for ~/.claude.")
+                    .font(.caption)
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            TextField("~/.claude", text: $draftDirectory)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 220)
+                .focused($isFieldFocused)
+                .onSubmit(commitDirectory)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 64)
+        .onChange(of: isFieldFocused) { _, isFocused in
+            if !isFocused {
+                commitDirectory()
+            }
+        }
+        .onChange(of: directory) { _, newDirectory in
+            if !isFieldFocused {
+                draftDirectory = newDirectory
+            }
+        }
+        .onDisappear(perform: commitDirectory)
+    }
+
+    private func commitDirectory() {
+        let trimmedDirectory = draftDirectory
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if draftDirectory != trimmedDirectory {
+            draftDirectory = trimmedDirectory
+        }
+        if directory != trimmedDirectory {
+            directory = trimmedDirectory
         }
     }
 }
@@ -1036,14 +1121,30 @@ private struct StorageMetrics {
 
 private struct SettingToggleRow: View {
     let title: String
+    let detail: String?
     @Binding var isOn: Bool
     @Environment(\.assistTheme) private var theme
 
+    init(title: String, detail: String? = nil, isOn: Binding<Bool>) {
+        self.title = title
+        self.detail = detail
+        _isOn = isOn
+    }
+
     var body: some View {
         HStack(spacing: 16) {
-            Text(title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(theme.foreground)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(theme.foreground)
+
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
 
             Spacer(minLength: 16)
 
@@ -1054,7 +1155,8 @@ private struct SettingToggleRow: View {
                 .controlSize(.small)
                 .pointingHandCursor()
         }
-        .frame(height: 42)
+        .padding(.horizontal, 14)
+        .frame(minHeight: detail == nil ? 42 : 56)
     }
 }
 

@@ -1,5 +1,3 @@
-import ClipRow from "./ClipRow";
-import FeatureVideo from "./FeatureVideo";
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
@@ -7,43 +5,39 @@ const siteUrl = "https://assistapp.dev";
 
 const faqItems = [
   {
-    question: "What is Assist?",
+    question: "Which coding agents does Assist support?",
     answer:
-      "Assist is a native macOS capture tool that keeps screenshots, annotations, and copied text close to your workflow through a notch-style shelf."
+      "Assist currently connects to Codex and terminal Claude Code. It shows active tasks, their latest status, and the detected Claude Code version directly in the island."
+  },
+  {
+    question: "Can I approve requests and answer agents from the island?",
+    answer:
+      "Yes. Codex and Claude Code permission requests appear in the island, where you can allow or deny them. Agent questions also expand in place so you can respond without finding the terminal."
+  },
+  {
+    question: "How many agent tasks can I see at once?",
+    answer:
+      "The expanded island shows up to three active tasks in a vertical stack. Claude and Codex usage windows remain available in both the collapsed and expanded states."
+  },
+  {
+    question: "What can I capture and reuse?",
+    answer:
+      "Press Control + Option for a clean full-screen screenshot, or hold Option to draw and save an annotated screenshot. Assist also keeps recent copied text ready to reuse or drag into another app."
   },
   {
     question: "Where is my captured context stored?",
     answer:
-      "Assist is designed to be local-first, so your screenshots and copied items stay on your Mac unless you choose to share or export them."
+      "Screenshot metadata and history are stored locally on your Mac. Assist also uses local Vision OCR for its first-pass screenshot context instead of sending the image to a remote vision model."
   },
   {
-    question: "Does Assist upload my screenshots?",
+    question: "Does Assist require any macOS permissions?",
     answer:
-      "No automatic upload is required for the core workflow. Capture, annotate, and reuse items from your Mac without sending your history to a cloud service."
-  },
-  {
-    question: "What can I capture?",
-    answer:
-      "You can capture full screen screenshots with Control + Option, create annotated screenshots by holding Option, and save copied text for reuse."
-  },
-  {
-    question: "Can I drag captures into other apps?",
-    answer:
-      "Yes. The notch shelf is built so recent captures can be dragged straight into documents, chats, design tools, and developer workflows."
-  },
-  {
-    question: "Which versions of macOS does Assist support?",
-    answer: "Assist requires macOS 14 (Sonoma) or later."
-  },
-  {
-    question: "How many Macs can I use Assist on?",
-    answer:
-      "An early access license covers one device. Your license key activates Assist on a single Mac."
+      "Screen and System Audio Recording is required for capture. Accessibility or Input Monitoring lets Assist detect the global Option and Control + Option shortcuts."
   },
   {
     question: "Is Assist a subscription?",
     answer:
-      "No. The pricing model is a one-time license for macOS, with lifetime access to the included feature set and future 1.x updates."
+      "No. Assist is $12 for one Mac as a one-time purchase. There is no recurring subscription."
   }
 ];
 
@@ -57,7 +51,7 @@ const structuredData = {
       operatingSystem: "macOS 14 or later",
       applicationCategory: "UtilitiesApplication",
       description:
-        "Assist is a native macOS app for screenshots, annotations, and clipboard history. Capture, annotate, and reuse screenshots and copied text from a notch-style shelf.",
+        "Assist is a native macOS app for monitoring Codex and Claude Code, approving agent requests, answering questions, and reusing screenshots, annotations, and copied text from the Mac notch.",
       url: siteUrl,
       image: `${siteUrl}/og-image.png`,
       offers: {
@@ -68,9 +62,12 @@ const structuredData = {
         availability: "https://schema.org/InStock"
       },
       featureList: [
+        "Codex and Claude Code task monitoring",
+        "Agent permission approvals",
+        "Agent question answering",
+        "Coding-agent usage windows",
         "Full screen screenshot capture",
         "Option-hold annotation",
-        "Notch-style capture shelf",
         "Drag and drop from notch",
         "Copied text and screenshot history",
         "Local-first storage"
@@ -105,15 +102,6 @@ const structuredData = {
   ]
 };
 
-const featureVideos = {
-  dragDrop:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/Assist%20Demos.mp4",
-  annotate:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/annotationedit.mp4",
-  fullScreen:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/fullscreenedit.mp4"
-};
-
 export default function Home() {
   return (
     <main>
@@ -144,165 +132,127 @@ export default function Home() {
 
       <section id="top" className="hero">
         <div className="hero-content">
-          <p className="eyebrow">Screenshot memory for builders</p>
-          <h1>
-            <span className="headline-context">Context</span>
-            <span className="headline-captured">captured.</span>
+          <h1 className="hero-title">
+            <span>Dynamic Island for Your</span>
+            <span>Coding Agents</span>
           </h1>
           <p className="hero-copy">
-            Assist keeps screenshots, annotations, and copied text in a fast
-            local shelf you can reuse when your workflow needs context.
+            Assist helps you monitor coding agents, approve requests, capture
+            screenshots, and annotate—right from the notch.
           </p>
-          <a className="hero-download-button" href={checkoutHref}>
-            <span aria-hidden="true"></span>
-            <span>Download for Mac</span>
-          </a>
-        </div>
-        <div className="landscape" aria-hidden="true">
-          <div className="glass-shell" />
-          <div className="notch-preview">
-            <div className="notch-bar">
-              <span>Recent items</span>
-              <div className="notch-tools">
-                <span className="tool-icon grid-icon" />
-                <span className="tool-icon image-icon" />
-                <span className="tool-icon folder-icon" />
-              </div>
-            </div>
-            <ClipRow />
+          <div className="hero-actions">
+            <a className="hero-download-button" href={checkoutHref}>
+              <span aria-hidden="true"></span>
+              <span>Download for Mac</span>
+            </a>
+            <a className="hero-price-button" href="#pricing">
+              <span>$12 · One-time →</span>
+            </a>
           </div>
         </div>
-
-      </section>
-      <section id="features" className="clipboard-section">
-        <div className="clipboard-copy">
-          <h2>Your clipboard, wherever you need it</h2>
-          <p>
-            Use the notch shelf, drag and drop, and the full Library view to
-            reuse recent screenshots, annotations, and copied text.
-          </p>
-          <div className="feature-tags" aria-label="Assist features">
-            <span>Local first</span>
-            <span>Privacy first</span>
-            <span>Option to annotate</span>
-            <span>Screenshots</span>
-            <span>Control + Option capture</span>
-            <span>Copied text</span>
-            <span>Drag from notch</span>
-            <span>Local library</span>
-            <span>Delete history items</span>
-          </div>
+        <div className="hero-video-frame">
+          <video
+            className="hero-video"
+            src="https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/IMG_4597.mov"
+            aria-label="Assist working from the Mac notch"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+          />
         </div>
       </section>
-
-      <section className="feature-showcase" aria-label="Assist feature tour">
-        <article className="feature-panel feature-panel-wide">
-          <div className="feature-copy-block">
-            <p className="feature-kicker">Notch shelf</p>
-            <h3>Drag and drop from notch</h3>
-            <p>
-              Keep your last captures close and drop them straight into the
-              app that needs them.
-            </p>
+      <section id="features" className="capability-section">
+        <div className="trusted-by" aria-label="Companies where Assist users work">
+          <p>Trusted by people at</p>
+          <div className="trusted-companies">
+            <span><img src="/brands/apple.svg" alt="" />Apple</span>
+            <span><img src="/brands/microsoft.svg" alt="" />Microsoft</span>
+            <span><img src="/brands/meta.svg" alt="" />Meta</span>
+            <span><img src="/brands/amazon.svg" alt="" />Amazon</span>
+            <span><img src="/brands/tiktok.svg" alt="" />TikTok</span>
+            <span className="character-ai">(character.ai)</span>
+            <span><img src="/brands/mistral-ai.svg" alt="" />Mistral AI</span>
+            <span><img src="/brands/doordash.svg" alt="" />DoorDash</span>
           </div>
-          <div className="feature-visual feature-video-visual" aria-hidden="true">
-            <FeatureVideo src={featureVideos.dragDrop} />
-          </div>
-        </article>
+        </div>
 
-        <div className="feature-grid">
-          <article className="feature-panel">
-            <div className="feature-copy-block">
-              <p className="feature-kicker">Fast markup</p>
-              <h3>Annotate anywhere</h3>
-              <p>
-                Hold Option, draw with your pointer, and release to save the
-                annotated screenshot.
-              </p>
-            </div>
-            <div className="feature-visual feature-video-visual" aria-hidden="true">
-              <FeatureVideo src={featureVideos.annotate} />
-            </div>
+        <div className="capability-grid" aria-label="Assist capabilities">
+          <article className="capability-card">
+            <h3>Live task monitor</h3>
+            <p>See Codex and Claude Code work in a vertical stack, with up to three active tasks visible at once.</p>
           </article>
-
-          <article className="feature-panel">
-            <div className="feature-copy-block">
-              <p className="feature-kicker">Full screen memory</p>
-              <h3>Take full screen screenshots</h3>
-              <p>
-                Press Control + Option to capture the whole desktop in one
-                motion, without starting annotation.
-              </p>
-            </div>
-            <div className="feature-visual feature-video-visual" aria-hidden="true">
-              <FeatureVideo src={featureVideos.fullScreen} />
-            </div>
+          <article className="capability-card">
+            <h3>Approve in place</h3>
+            <p>Allow or deny agent permission requests directly from the island instead of finding the right terminal.</p>
+          </article>
+          <article className="capability-card">
+            <h3>Answer from the notch</h3>
+            <p>Respond when a coding agent asks for direction, without leaving the app or task already in front of you.</p>
+          </article>
+          <article className="capability-card">
+            <h3>Know your runway</h3>
+            <p>Keep Claude and Codex usage windows visible in both the collapsed and expanded island.</p>
+          </article>
+          <article className="capability-card">
+            <h3>Screenshot capture</h3>
+            <p>Press Control + Option to save a clean full-screen screenshot straight to your recent context.</p>
+          </article>
+          <article className="capability-card">
+            <h3>Point out what matters</h3>
+            <p>Hold Option, draw over the screen, and release to save an annotated screenshot instantly.</p>
+          </article>
+          <article className="capability-card">
+            <h3>Copied text, remembered</h3>
+            <p>Keep recent copied text beside screenshots so the exact detail you need is ready to reuse.</p>
+          </article>
+          <article className="capability-card">
+            <h3>Move context anywhere</h3>
+            <p>Drag recent items from the notch into agent prompts, documents, chats, and design tools.</p>
+          </article>
+          <article className="capability-card">
+            <h3>Local by design</h3>
+            <p>Your agent events, screenshots, annotations, and copied text stay connected locally on your Mac.</p>
           </article>
         </div>
       </section>
 
       <section id="pricing" className="pricing-section">
         <div className="section-heading">
-          <p className="section-kicker">Limited offer for early users</p>
-          <h2>One price. Lifetime access.</h2>
-          <p>
-            Get Assist for your Mac with every capture, markup, notch shelf,
-            copied text item, and local history feature unlocked from day one.
-          </p>
+          <h2>Ready to upgrade your workflow?</h2>
+          <p>One-time purchase. No subscriptions.</p>
         </div>
 
         <div className="pricing-card">
-          <div className="pricing-card-header">
-            <span className="pricing-pill">Assist app for macOS</span>
-            <div className="pricing-options" aria-label="Pricing options">
-              <div className="pricing-option pricing-option-active">
-                <span>1 device</span>
-              </div>
-            </div>
-          </div>
+          <h3>Assist License</h3>
 
           <div className="pricing-price" aria-label="$12">
-            <span>$</span>
-            <strong>12</strong>
+            <strong>$12</strong>
           </div>
 
-          <div className="pricing-offer">
-            <span>Limited offer for early users</span>
-            <strong>Early access price</strong>
-          </div>
+          <p className="pricing-license-note">1 Mac · one-time purchase</p>
 
           <ul className="pricing-features" aria-label="Included features">
-            <li>One-time payment</li>
-            <li>All features unlocked from day one</li>
-            <li>Full screen screenshot capture</li>
-            <li>Option-hold annotation</li>
-            <li>Control + Option clean screenshots</li>
-            <li>Drag and drop from notch</li>
+            <li>Codex and Claude Code monitoring</li>
+            <li>Approvals and question answering</li>
+            <li>Screenshot capture and annotation</li>
             <li>Copied text and screenshot history</li>
-            <li>Lifetime updates included</li>
-            <li>Native macOS app</li>
+            <li>Native, local-first macOS app</li>
           </ul>
 
           <a className="pricing-button" href={checkoutHref}>
-            <span aria-hidden="true"></span>
-            <span>Download for Mac</span>
+            <span>Get Assist</span>
           </a>
-
-          <p className="pricing-note">
-            Prices are in USD. Early access licenses include all current
-            Assist features and future 1.x updates. Requires macOS 14 or
-            later.
-          </p>
         </div>
       </section>
 
       <section id="faq" className="faq-section">
-        <div className="section-heading">
-          <p className="section-kicker">FAQ</p>
-          <h2>Frequently Asked Questions</h2>
+        <div className="faq-intro">
+          <h2>Frequently asked questions</h2>
           <p>
-            Everything you need to know before using Assist, from local storage
-            to screenshots, annotations, and device support.
+            How agent monitoring, approvals, capture, privacy, and licensing
+            work in Assist.
           </p>
         </div>
 
@@ -311,7 +261,7 @@ export default function Home() {
             <details className="faq-item" key={item.question} open={index === 0}>
               <summary>
                 <span>{item.question}</span>
-                <span className="faq-icon" aria-hidden="true" />
+                <span className="faq-state" aria-hidden="true" />
               </summary>
               <p>{item.answer}</p>
             </details>
@@ -320,27 +270,6 @@ export default function Home() {
       </section>
 
       <footer className="site-footer">
-        <div className="footer-app-card">
-          <div className="footer-app-label">
-            <span className="footer-app-dot">
-              <img src="/assist-icon.svg" alt="" width="30" height="30" />
-            </span>
-            <span>macOS app</span>
-          </div>
-          <h2>
-            <span>Context</span>
-            <span>captured.</span>
-          </h2>
-          <p>
-            Keep screenshots, annotations, and copied text ready whenever
-            your workflow needs them.
-          </p>
-          <a className="footer-download-button" href={checkoutHref}>
-            <span aria-hidden="true"></span>
-            <span>Download</span>
-          </a>
-        </div>
-
         <div className="footer-links-wrap">
           <div className="footer-brand-block">
             <a className="footer-brand" href="#top" aria-label="Assist home">
@@ -349,7 +278,7 @@ export default function Home() {
               </span>
               <span>Assist</span>
             </a>
-            <p>Native capture memory for Mac builders.</p>
+            <p>Coding agents, approvals, screenshots, and context—right from your Mac notch.</p>
           </div>
 
           <nav className="footer-link-grid" aria-label="Footer navigation">
