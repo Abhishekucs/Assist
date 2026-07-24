@@ -39,8 +39,10 @@ export default function TermsPage() {
         <p>
           These Terms of Use govern your access to and use of the official Assist macOS builds,
           assistapp.dev, purchase and license services, updates, and support (together, the
-          “Services”). “Assist,” “we,” “us,” and “our” refer to the developer and operator of
-          the Services, reachable at the contact address below.
+          “Services”). “Assist,” “we,” “us,” and “our” refer to Thinking Sound Lab Private
+          Limited, an Indian private limited company (CIN U62013BR2025PTC079572) with its
+          registered office at C/O Kumari Puspa, Ashok Vihar Colony, A.P. Colony, Gaya, Bihar
+          823001, India.
         </p>
         <p>
           By purchasing, downloading, activating, or using the Services, you agree to these
@@ -282,9 +284,8 @@ export default function TermsPage() {
         <h2>15. Applicable law and disputes</h2>
         <p>
           Before starting formal proceedings, please contact us and allow 30 days to try to
-          resolve the dispute informally. These terms are governed by the laws applicable in the
-          jurisdiction where the operator of Assist is established, without regard to
-          conflict-of-law principles. Courts with jurisdiction over the operator will have
+          resolve the dispute informally. These terms are governed by the laws of India, without
+          regard to conflict-of-law principles. The courts in Gaya, Bihar will have exclusive
           jurisdiction, except where mandatory consumer law gives you the right to bring a claim
           elsewhere or requires a different law or forum.
         </p>
@@ -314,6 +315,12 @@ export default function TermsPage() {
           Questions about these terms can be sent to Assist at{" "}
           <a href="mailto:abhishek@thinkingsoundlab.com">abhishek@thinkingsoundlab.com</a>.
         </p>
+        <address>
+          Thinking Sound Lab Private Limited<br />
+          CIN U62013BR2025PTC079572<br />
+          C/O Kumari Puspa, Ashok Vihar Colony, A.P. Colony<br />
+          Gaya, Bihar 823001, India
+        </address>
       </section>
     </LegalDocument>
   );

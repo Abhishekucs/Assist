@@ -1541,6 +1541,14 @@ p {
   margin: 0;
 }
 
+.legal-document address {
+  margin-top: 22px;
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 15px;
+  font-style: normal;
+  line-height: 1.7;
+}
+
 .legal-document p + p,
 .legal-document .legal-callout + p,
 .legal-document .legal-fact-grid + p,

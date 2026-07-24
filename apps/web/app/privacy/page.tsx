@@ -51,6 +51,12 @@ export default function PrivacyPage() {
           not govern Codex, Claude Code, GitHub, or other third-party products you choose to
           use with Assist.
         </p>
+        <p>
+          Thinking Sound Lab Private Limited (CIN U62013BR2025PTC079572), with its registered
+          office at C/O Kumari Puspa, Ashok Vihar Colony, A.P. Colony, Gaya, Bihar 823001,
+          India, is the operator of Assist and the controller of personal information described
+          in this policy, except where a service provider acts as an independent controller.
+        </p>
       </section>
 
       <section id="information">
@@ -96,9 +102,15 @@ export default function PrivacyPage() {
                 <td>Purchase records</td>
                 <td>
                   Name, email, product and payment identifiers, payment status, amount, currency,
-                  license key, purchase date, and download activity
+                  license key, purchase and download activity, billing address, phone number,
+                  cardholder name, card last four digits, card network and type, payment method,
+                  tax, invoice, refund and dispute details, and custom checkout responses when
+                  Dodo includes them in its payment or webhook records
                 </td>
-                <td>Processed by Dodo Payments and stored in Assist&apos;s Supabase database</td>
+                <td>
+                  Processed by Dodo Payments; Assist stores purchase fields and copies of Dodo
+                  payment and webhook event payloads in its Supabase database
+                </td>
               </tr>
               <tr>
                 <td>Website and support data</td>
@@ -324,6 +336,12 @@ export default function PrivacyPage() {
           Questions or privacy requests can be sent to Assist at{" "}
           <a href="mailto:abhishek@thinkingsoundlab.com">abhishek@thinkingsoundlab.com</a>.
         </p>
+        <address>
+          Thinking Sound Lab Private Limited<br />
+          CIN U62013BR2025PTC079572<br />
+          C/O Kumari Puspa, Ashok Vihar Colony, A.P. Colony<br />
+          Gaya, Bihar 823001, India
+        </address>
       </section>
     </LegalDocument>
   );
