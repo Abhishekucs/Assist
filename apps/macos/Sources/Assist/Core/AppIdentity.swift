@@ -27,7 +27,7 @@ enum AppIdentity {
     static let repositoryURL = URL(string: "https://github.com/Abhishekucs/Assist")!
     static let releasesAPIURL = URL(string: "https://api.github.com/repos/Abhishekucs/Assist/releases?per_page=20")!
     static let supportEmail = "abhishek@thinkingsoundlab.com"
-    static let privacyPolicyURL = URL(string: "https://assist.thinkingsoundlab.com/privacy")!
+    static let privacyPolicyURL = URL(string: "https://assistapp.dev/privacy")!
     static var licenseVerificationURL: URL {
         if let urlString = Bundle.main.object(forInfoDictionaryKey: "AssistLicenseVerificationURL") as? String,
            let url = URL(string: urlString) {
