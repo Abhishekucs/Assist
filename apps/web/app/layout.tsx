@@ -11,13 +11,15 @@ const inter = Inter({
 });
 
 const siteUrl = "https://assistapp.dev";
+const siteTitle = "Assist — Coding Agents, Screenshots & Annotation for Mac";
+const socialImageUrl = `${siteUrl}/assist-social-preview.png`;
 const siteDescription =
   "Assist is a Dynamic Island for Codex and Claude Code on macOS. Monitor tasks, approve requests, answer agent questions, and reuse screenshots and copied text from the notch.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Assist — Dynamic Island for Your Coding Agents",
+    default: siteTitle,
     template: "%s — Assist"
   },
   description: siteDescription,
@@ -29,25 +31,31 @@ export const metadata: Metadata = {
     apple: "/assist-icon.png"
   },
   openGraph: {
-    title: "Assist — Dynamic Island for Your Coding Agents",
+    title: siteTitle,
     description: siteDescription,
     url: siteUrl,
     siteName: "Assist",
+    locale: "en_US",
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: socialImageUrl,
         width: 1200,
         height: 630,
-        alt: "Assist showing coding-agent tasks and recent context in the Mac notch"
+        alt: "Assist for Mac monitoring coding agents from the notch"
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Assist — Dynamic Island for Your Coding Agents",
+    title: siteTitle,
     description: siteDescription,
-    images: ["/og-image.png"]
+    images: [
+      {
+        url: socialImageUrl,
+        alt: "Assist for Mac monitoring coding agents from the notch"
+      }
+    ]
   }
 };
 

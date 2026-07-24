@@ -17,3 +17,5 @@ Key facts:
 ## Pages
 
 - [Home](https://assistapp.dev/): product overview, feature tour, pricing, and FAQ
+- [Privacy Policy](https://assistapp.dev/privacy): how Assist handles local app content, purchase and license records, website analytics, and third-party services
+- [Terms of Use](https://assistapp.dev/terms): license, acceptable use, purchases, updates, warranties, and other terms for using Assist

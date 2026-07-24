@@ -3,12 +3,16 @@
 import { useState } from "react";
 
 const menuItems = [
-  { href: "#features", label: "Features" },
-  { href: "#faq", label: "FAQ" },
-  { href: "#pricing", label: "Pricing" },
+  { hash: "#features", label: "Features" },
+  { hash: "#faq", label: "FAQ" },
+  { hash: "#pricing", label: "Pricing" },
 ];
 
-export default function MobileMenu() {
+type MobileMenuProps = {
+  sectionPrefix?: string;
+};
+
+export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -29,8 +33,8 @@ export default function MobileMenu() {
       <div className="mobile-menu-panel" aria-hidden={!isOpen}>
         {menuItems.map((item) => (
           <a
-            key={item.href}
-            href={item.href}
+            key={item.hash}
+            href={`${sectionPrefix}${item.hash}`}
             onClick={() => setIsOpen(false)}
           >
             {item.label}

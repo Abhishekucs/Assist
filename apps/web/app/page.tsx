@@ -291,12 +291,12 @@ export default function Home() {
             </div>
             <div>
               <h3>Company</h3>
-              <a href="#top">Contact</a>
+              <a href="mailto:abhishek@thinkingsoundlab.com">Contact</a>
             </div>
             <div>
               <h3>Legal</h3>
-              <a href="#top">Privacy policy</a>
-              <a href="#top">Terms of service</a>
+              <a href="/privacy">Privacy policy</a>
+              <a href="/terms">Terms of use</a>
             </div>
           </nav>
         </div>
