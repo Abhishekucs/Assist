@@ -93,18 +93,18 @@ final class WindowManager {
     }
 
     func showOverlay(on screen: NSScreen, stroke: Stroke) {
-        overlayView.stroke = stroke
+        overlayView.begin(stroke: stroke)
         overlayPanel.setFrame(screen.frame, display: true)
         overlayPanel.orderFrontRegardless()
     }
 
     func updateOverlay(stroke: Stroke) {
-        overlayView.stroke = stroke
+        overlayView.update(stroke: stroke)
     }
 
     func hideOverlay() {
         overlayPanel.orderOut(nil)
-        overlayView.stroke = nil
+        overlayView.clear()
     }
 
     func restorePillToFront(reason: String) {

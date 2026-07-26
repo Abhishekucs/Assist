@@ -10,6 +10,16 @@ enum DebugLogger {
     }
 
     static func log(_ event: String, _ fields: [String: String] = [:]) {
+        write(event, fields)
+    }
+
+    nonisolated static func logFromAnyThread(_ event: String, _ fields: [String: String] = [:]) {
+        Task { @MainActor in
+            write(event, fields)
+        }
+    }
+
+    private static func write(_ event: String, _ fields: [String: String]) {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 

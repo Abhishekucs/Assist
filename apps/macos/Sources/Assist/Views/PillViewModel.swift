@@ -4,12 +4,14 @@ import Combine
 @MainActor
 final class PillViewModel: ObservableObject {
     let settings: PillSettings
+    let voiceContextService: VoiceContextService
 
     @Published var latestItem: CaptureItem?
     @Published var items: [CaptureItem] = []
     @Published var textItems: [TextClipItem] = []
     @Published var selectedHistoryItem: ClipboardHistoryItem?
     @Published private(set) var thumbnailImages: [UUID: NSImage] = [:]
+    @Published private(set) var captureContextMarkdown: [UUID: String] = [:]
     @Published var statusText = "Hold Opt / Ctrl+Opt"
     @Published var isExpanded = false
     @Published var isExpandedContentVisible = false
@@ -53,8 +55,9 @@ final class PillViewModel: ObservableObject {
     var onResolveAgentQuestion: ((UUID, [CodingAgentQuestionAnswer]) -> Void)?
     var onCodingAgentStateChange: (() -> Void)?
 
-    init(settings: PillSettings) {
+    init(settings: PillSettings, voiceContextService: VoiceContextService) {
         self.settings = settings
+        self.voiceContextService = voiceContextService
     }
 
     deinit {
@@ -588,6 +591,72 @@ final class PillViewModel: ObservableObject {
               copyImageItem(item) else { return }
     }
 
+    func copyLatestContext() {
+        guard case let .screenshot(item) = selectedItem else { return }
+
+        do {
+            try ContextPasteboardWriter().write(item) { [weak self] in
+                self?.onWillWritePasteboard?()
+            }
+            statusText = "Copied context + image"
+            diagnosticMessage = "Copied the saved Markdown context and screenshot. Attachment support depends on the destination."
+            showCopyFeedback(badge: "Copied", preview: "Context + image")
+            DebugLogger.log("clipboard.context.copy", [
+                "id": item.id.uuidString,
+                "success": "true"
+            ])
+        } catch {
+            statusText = "Copy failed"
+            diagnosticMessage = error.localizedDescription
+            DebugLogger.log("clipboard.context.copy", [
+                "id": item.id.uuidString,
+                "success": "false",
+                "description": error.localizedDescription
+            ])
+        }
+    }
+
+    func copyContextMarkdown(_ item: CaptureItem) {
+        selectScreenshot(item)
+
+        do {
+            try ContextPasteboardWriter().writeMarkdownOnly(item) { [weak self] in
+                self?.onWillWritePasteboard?()
+            }
+            statusText = "Copied context.md"
+            diagnosticMessage = "Copied the exact saved Markdown context."
+            showCopyFeedback(badge: "Copied", preview: "context.md")
+            DebugLogger.log("clipboard.context-markdown.copy", [
+                "id": item.id.uuidString,
+                "success": "true"
+            ])
+        } catch {
+            statusText = "Copy failed"
+            diagnosticMessage = error.localizedDescription
+            DebugLogger.log("clipboard.context-markdown.copy", [
+                "id": item.id.uuidString,
+                "success": "false",
+                "description": error.localizedDescription
+            ])
+        }
+    }
+
+    func contextPreview(for item: CaptureItem) -> String {
+        guard let markdown = captureContextMarkdown[item.id] else {
+            return item.contextFileURL == nil
+                ? "Legacy capture — no context.md file"
+                : "context.md is unavailable"
+        }
+
+        return CaptureContextMarkdown.preview(from: markdown)
+    }
+
+    func canCopyContextMarkdown(_ item: CaptureItem) -> Bool {
+        item.contextFileURL != nil
+            && item.context.dictation?.status != .transcribing
+            && captureContextMarkdown[item.id] != nil
+    }
+
     var historyItems: [ClipboardHistoryItem] {
         (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
             .sorted { $0.createdAt > $1.createdAt }
@@ -608,6 +677,28 @@ final class PillViewModel: ObservableObject {
         }
 
         return false
+    }
+
+    var showsCopySelectedContext: Bool {
+        guard case let .screenshot(item) = selectedItem else { return false }
+
+        if item.contextFileURL != nil {
+            return true
+        }
+
+        guard let dictation = item.context.dictation else { return false }
+        return dictation.status == .ready && !dictation.transcript.isEmpty
+    }
+
+    var canCopySelectedContext: Bool {
+        guard case let .screenshot(item) = selectedItem else { return false }
+
+        if item.contextFileURL != nil {
+            return item.context.dictation?.status != .transcribing
+        }
+
+        guard let dictation = item.context.dictation else { return false }
+        return dictation.status == .ready && !dictation.transcript.isEmpty
     }
 
     var canRevealSelectedScreenshot: Bool {
@@ -717,6 +808,7 @@ final class PillViewModel: ObservableObject {
         case let .screenshot(capture):
             items.removeAll { $0.id == capture.id }
             thumbnailImages.removeValue(forKey: capture.id)
+            captureContextMarkdown.removeValue(forKey: capture.id)
             if latestItem?.id == capture.id {
                 latestItem = items.first
             }
@@ -766,6 +858,48 @@ final class PillViewModel: ObservableObject {
         cacheThumbnails(for: nextItems)
     }
 
+    func updateScreenshot(_ item: CaptureItem) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        items[index] = item
+
+        if latestItem?.id == item.id {
+            latestItem = item
+        }
+        if selectedHistoryItem?.id == item.id {
+            selectedHistoryItem = .screenshot(item)
+        }
+        cacheContextMarkdown(for: item)
+    }
+
+    func setUpVoiceContext() {
+        Task { [weak self] in
+            guard let self else { return }
+            if voiceContextService.modelState == .ready,
+               voiceContextService.microphoneAccessState == .denied {
+                let url = URL(
+                    string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+                )!
+                NSWorkspace.shared.open(url)
+                diagnosticMessage = "Opened Microphone privacy settings."
+                return
+            }
+
+            let installed = await voiceContextService.installModel()
+            guard installed else {
+                settings.voiceContextEnabled = false
+                return
+            }
+
+            let microphoneAuthorized = await voiceContextService.requestMicrophoneAccess()
+            settings.voiceContextEnabled = microphoneAuthorized
+            if microphoneAuthorized {
+                diagnosticMessage = "Voice context is ready. Speech stays local and audio is never saved."
+            } else {
+                diagnosticMessage = "The model is installed, but microphone access was denied."
+            }
+        }
+    }
+
     func insertTextItem(_ item: TextClipItem) {
         var nextItems = textItems.filter { $0.id != item.id }
         nextItems.insert(item, at: 0)
@@ -776,6 +910,7 @@ final class PillViewModel: ObservableObject {
     func cacheThumbnails(for items: [CaptureItem]) {
         let validIDs = Set(items.map(\.id))
         var nextImages = thumbnailImages.filter { validIDs.contains($0.key) }
+        var nextMarkdown: [UUID: String] = [:]
 
         for item in items.prefix(40) where nextImages[item.id] == nil {
             if let image = warmedImage(at: item.thumbnailPath) {
@@ -783,7 +918,14 @@ final class PillViewModel: ObservableObject {
             }
         }
 
+        for item in items.prefix(40) {
+            if let markdown = readContextMarkdown(for: item) {
+                nextMarkdown[item.id] = markdown
+            }
+        }
+
         thumbnailImages = nextImages
+        captureContextMarkdown = nextMarkdown
     }
 
     func thumbnail(for item: CaptureItem) -> NSImage? {
@@ -798,6 +940,19 @@ final class PillViewModel: ObservableObject {
         _ = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil)
 
         return image
+    }
+
+    private func cacheContextMarkdown(for item: CaptureItem) {
+        if let markdown = readContextMarkdown(for: item) {
+            captureContextMarkdown[item.id] = markdown
+        } else {
+            captureContextMarkdown.removeValue(forKey: item.id)
+        }
+    }
+
+    private func readContextMarkdown(for item: CaptureItem) -> String? {
+        guard let contextFileURL = item.contextFileURL else { return nil }
+        return try? String(contentsOf: contextFileURL, encoding: .utf8)
     }
 
     private func openSystemSettingsPane(_ urlString: String) {

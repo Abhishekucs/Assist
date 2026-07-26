@@ -556,10 +556,14 @@ struct ExpandedIslandView: View {
                                                 CaptureGalleryCard(
                                                     item: capture,
                                                     thumbnail: viewModel.thumbnail(for: capture),
+                                                    contextPreview: viewModel.contextPreview(for: capture),
+                                                    canCopyContext: viewModel.canCopyContextMarkdown(capture),
                                                     isSelected: item.id == selectedID,
                                                     onDragChanged: onDragChanged
                                                 ) {
                                                     viewModel.copyImageItem(capture)
+                                                } copyContextAction: {
+                                                    viewModel.copyContextMarkdown(capture)
                                                 } deleteAction: {
                                                     viewModel.delete(item)
                                                 }
@@ -1165,6 +1169,18 @@ private struct ExpandedIslandHeader: View {
                 viewModel.openControls()
             }
 
+            if viewModel.showsCopySelectedContext {
+                IslandIconButton(
+                    icon: .copy,
+                    tooltip: viewModel.canCopySelectedContext
+                        ? "Copy saved Markdown context and screenshot"
+                        : "Context is still transcribing",
+                    isEnabled: viewModel.canCopySelectedContext
+                ) {
+                    viewModel.copyLatestContext()
+                }
+            }
+
             if viewModel.canCopySelectedImage {
                 IslandIconButton(icon: .image, tooltip: "Copy selected screenshot image") {
                     viewModel.copyLatestImage()
@@ -1332,21 +1348,27 @@ private struct CaptureIssueActionButton: View {
 private struct IslandIconButton: View {
     let icon: HugeIconKind
     let tooltip: String
+    var isEnabled = true
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HugeIcon(icon, size: 14, color: .white.opacity(isHovered ? 0.96 : 0.7))
+            HugeIcon(
+                icon,
+                size: 14,
+                color: .white.opacity(isEnabled ? (isHovered ? 0.96 : 0.7) : 0.34)
+            )
                 .frame(width: 30, height: 30)
                 .background(
-                    Color.white.opacity(isHovered ? 0.14 : 0),
+                    Color.white.opacity(isEnabled && isHovered ? 0.14 : 0),
                     in: RoundedRectangle(cornerRadius: 8, style: .continuous)
                 )
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
         .help(tooltip)
         .accessibilityLabel(tooltip)
-        .pointingHandCursor()
+        .pointingHandCursor(isEnabled: isEnabled)
         .overlay(alignment: .bottomTrailing) {
             if isHovered {
                 Text(tooltip)
@@ -1422,9 +1444,12 @@ private struct DebugActionButton: View {
 private struct CaptureGalleryCard: View {
     let item: CaptureItem
     let thumbnail: NSImage?
+    let contextPreview: String
+    let canCopyContext: Bool
     let isSelected: Bool
     let onDragChanged: (Bool) -> Void
     let action: () -> Void
+    let copyContextAction: () -> Void
     let deleteAction: () -> Void
     @State private var isHovered = false
     @State private var isDeleteHovered = false
@@ -1446,34 +1471,117 @@ private struct CaptureGalleryCard: View {
                 onClick: action,
                 onDragChanged: onDragChanged
             ) {
-                ZStack {
-                    if let image = thumbnail {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 142, height: 142)
-                            .clipped()
-                    } else {
-                        HugeIcon(.image, size: 26, color: .white.opacity(0.58))
-                            .help("Screenshot thumbnail")
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.white.opacity(isSelected ? 0.22 : 0.11))
+                        .frame(width: 58, height: 18)
+
+                    VStack(spacing: 0) {
+                        ZStack {
+                            if let image = thumbnail {
+                                Image(nsImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 142, height: 84)
+                                    .clipped()
+                            } else {
+                                HugeIcon(.image, size: 24, color: .white.opacity(0.52))
+                                    .help("Screenshot thumbnail")
+                            }
+                        }
+                        .frame(width: 142, height: 84)
+
+                        HStack(alignment: .top, spacing: 5) {
+                            HugeIcon(.document, size: 11, color: .white.opacity(0.48))
+                                .padding(.top, 1)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("context.md")
+                                    .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.48))
+
+                                Text(contextPreview)
+                                    .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.82))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                            }
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 7)
+                        .frame(width: 142, height: 50, alignment: .topLeading)
+                        .background(Color.black.opacity(0.26))
                     }
+                    .frame(width: 142, height: 134, alignment: .top)
+                    .background(Color.white.opacity(isSelected ? 0.18 : 0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(isSelected ? Color.white.opacity(0.72) : .clear, lineWidth: 1)
+                    }
+                    .offset(y: 8)
                 }
-                .frame(width: 142, height: 142, alignment: .center)
-                .background(Color.white.opacity(isSelected ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(isSelected ? Color.white.opacity(0.72) : .clear, lineWidth: 1)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .frame(width: 142, height: 142, alignment: .topLeading)
             }
             .help("Click card to copy screenshot")
-            .accessibilityLabel("Screenshot")
+            .accessibilityLabel("Capture folder. \(contextPreview)")
             .accessibilityAddTraits(.isButton)
 
-            DeleteCardButton(isVisible: isDeleteVisible, isHovered: $isDeleteHovered, action: deleteAction)
-                .padding(5)
+            HStack(spacing: 0) {
+                DeleteCardButton(
+                    isVisible: isDeleteVisible,
+                    isHovered: $isDeleteHovered,
+                    action: deleteAction
+                )
+
+                CaptureContextCopyButton(
+                    isEnabled: canCopyContext,
+                    action: copyContextAction
+                )
+            }
+            .padding(.top, 4)
+            .padding(.trailing, 4)
         }
         .onHover { isHovered = $0 }
+    }
+}
+
+private struct CaptureContextCopyButton: View {
+    let isEnabled: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    private var tooltip: String {
+        isEnabled ? "Copy context.md" : "context.md is not ready to copy"
+    }
+
+    var body: some View {
+        ZStack {
+            Color.clear
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+
+            Button(action: action) {
+                HugeIcon(
+                    .copy,
+                    size: 12,
+                    color: .white.opacity(isEnabled ? (isHovered ? 0.96 : 0.76) : 0.32)
+                )
+                .frame(width: 24, height: 24)
+                .background(
+                    Color.white.opacity(isEnabled && isHovered ? 0.14 : 0),
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(!isEnabled)
+            .help(tooltip)
+            .accessibilityLabel(tooltip)
+        }
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovered)
     }
 }
 

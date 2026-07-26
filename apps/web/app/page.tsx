@@ -27,12 +27,12 @@ const faqItems = [
   {
     question: "Where is my captured context stored?",
     answer:
-      "Screenshot metadata and history are stored locally on your Mac. Assist also uses local Vision OCR for its first-pass screenshot context instead of sending the image to a remote vision model."
+      "Screenshots, history, and optional Whisper transcripts are stored locally on your Mac. Assist does not OCR or interpret screenshots; Copy Context explicitly passes the original annotated image and transcript to the destination you choose."
   },
   {
     question: "Does Assist require any macOS permissions?",
     answer:
-      "Screen and System Audio Recording is required for capture. Accessibility or Input Monitoring lets Assist detect the global Option and Control + Option shortcuts."
+      "Screen and System Audio Recording is required for capture. Accessibility or Input Monitoring detects the global shortcuts. Microphone access is optional and requested only when you set up voice context."
   },
   {
     question: "Is Assist a subscription?",

@@ -986,6 +986,12 @@ private struct CaptureSettingsPane: View {
                 ShortcutRow(title: "Clean screenshot", keys: ["Control", "Option"], detail: "Capture the active display without annotation.")
             }
 
+            VoiceContextSettings(
+                settings: viewModel.settings,
+                viewModel: viewModel,
+                service: viewModel.voiceContextService
+            )
+
             SettingsSection("Diagnostics") {
                 VStack(spacing: 10) {
                     SettingsActionButton(title: "Test screenshot", icon: .camera) {
@@ -1002,6 +1008,118 @@ private struct CaptureSettingsPane: View {
                 }
                 .padding(12)
             }
+        }
+    }
+}
+
+private struct VoiceContextSettings: View {
+    @ObservedObject var settings: PillSettings
+    @ObservedObject var viewModel: PillViewModel
+    @ObservedObject var service: VoiceContextService
+    @Environment(\.assistTheme) private var theme
+
+    var body: some View {
+        SettingsSection("Voice context") {
+            VStack(alignment: .leading, spacing: 12) {
+                if service.canRecord {
+                    SettingToggleRow(
+                        title: "Dictate while annotating",
+                        detail: "Records only while Option is held, transcribes locally in English, and never saves audio.",
+                        isOn: $settings.voiceContextEnabled
+                    )
+                } else {
+                    HStack(alignment: .center, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(modelStatusTitle)
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(theme.foreground)
+                            Text(modelStatusDetail)
+                                .font(.caption)
+                                .foregroundStyle(theme.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer(minLength: 12)
+
+                        if canStartSetup {
+                            SettingsActionButton(title: setupButtonTitle, icon: .refresh) {
+                                viewModel.setUpVoiceContext()
+                            }
+                        }
+                    }
+
+                    if case let .downloading(progress) = service.modelState {
+                        ProgressView(value: progress)
+                            .progressViewStyle(.linear)
+                    } else if service.modelState == .preparing {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+
+                Text("Assist does not inspect, summarize, redact, or upload screenshot contents. Copying is always an explicit action.")
+                    .font(.caption)
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Every new capture stores a Markdown context beside its screenshot. Copy Context sends that exact Markdown and the original image to macOS. Each destination decides whether it accepts multiple pasteboard items; Copy Screenshot remains the manual fallback.")
+                    .font(.caption)
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(14)
+        }
+    }
+
+    private var canStartSetup: Bool {
+        switch service.modelState {
+        case .notInstalled, .failed, .ready:
+            true
+        case .unsupported, .downloading, .preparing:
+            false
+        }
+    }
+
+    private var setupButtonTitle: String {
+        if service.modelState == .ready {
+            return service.microphoneAccessState == .denied
+                ? "Open microphone settings"
+                : "Allow microphone"
+        }
+        return "Set up (~487 MB)"
+    }
+
+    private var modelStatusTitle: String {
+        switch service.modelState {
+        case .unsupported:
+            "Apple Silicon required"
+        case .notInstalled:
+            "Voice context is not set up"
+        case let .downloading(progress):
+            "Downloading Whisper… \(Int(progress * 100))%"
+        case .preparing:
+            "Preparing Whisper…"
+        case .ready:
+            "Microphone access needed"
+        case .failed:
+            "Voice context setup failed"
+        }
+    }
+
+    private var modelStatusDetail: String {
+        switch service.modelState {
+        case .unsupported:
+            "This first release supports Apple Silicon Macs only."
+        case .notInstalled:
+            "Downloads Hugging Face openai_whisper-small.en to Assist's Application Support folder before enabling the feature."
+        case .downloading:
+            "The pinned model is stored locally under Application Support/Assist/Models."
+        case .preparing:
+            "Core ML is loading the downloaded model locally."
+        case .ready:
+            "The model is installed. Allow microphone access to finish setup."
+        case let .failed(detail):
+            detail
         }
     }
 }

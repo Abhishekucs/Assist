@@ -7,11 +7,12 @@ The first version is intentionally small:
 - Hold `Option` anywhere on macOS to start an annotated capture.
 - Move the pointer while holding `Option` to annotate.
 - Release `Option` to save the annotated screenshot.
+- Optionally dictate while annotating and transcribe locally with WhisperKit.
 - Press `Control + Option` to save a clean full-display screenshot without annotation.
 - Hover the top-center pill to preview the latest capture.
-- Copy the screenshot or local structured context from the pill.
+- Copy a deterministic Markdown context plus the original annotated image from the pill.
 - Screenshot metadata is stored in a local SQLite database.
-- Vision OCR runs locally to create the first-pass context.
+- Screenshot interpretation is left to the destination coding model; Assist performs no OCR.
 - Built-in diagnostic actions help isolate overlay and capture issues.
 
 ## Why Native Swift
@@ -21,6 +22,7 @@ This app depends on macOS-level behavior: global modifier-key tracking, transpar
 ## Requirements
 
 - macOS 14 or newer
+- Apple Silicon for voice context
 - Xcode 26 or newer, or a Swift toolchain that supports Swift 6
 
 ## Build
@@ -85,6 +87,7 @@ a stale TCC row from an earlier signature is usually the cause. Reset with:
 tccutil reset ScreenCapture com.thinkingsoundlab.assist.dev
 tccutil reset Accessibility com.thinkingsoundlab.assist.dev
 tccutil reset ListenEvent com.thinkingsoundlab.assist.dev
+tccutil reset Microphone com.thinkingsoundlab.assist.dev
 ```
 
 Create a local release DMG with:
@@ -165,6 +168,12 @@ Assist asks for:
 
 - Screen Recording, to capture the screen.
 - Accessibility/Input Monitoring, to detect the global `Option` and `Control + Option` shortcuts.
+- Microphone, only when voice context is explicitly set up and enabled.
+
+Voice context downloads the pinned `openai_whisper-small.en` Core ML model
+(approximately 487 MB) from Hugging Face into Assist's Application Support
+folder. Audio is kept in memory for at most 90 seconds and is never persisted.
+Only the transcript and transcription status are stored.
 
 If capture or the global gesture does not work after granting permissions, quit and reopen the app.
 
@@ -234,9 +243,11 @@ Sources/Assist
 ├── Services
 │   ├── CaptureService.swift
 │   ├── CaptureStore.swift
+│   ├── CaptureContextMarkdown.swift
 │   ├── ControlGestureMonitor.swift
+│   ├── ContextPasteboardWriter.swift
 │   ├── DebugLogger.swift
-│   ├── VisionAnalysisService.swift
+│   ├── VoiceContextService.swift
 │   └── WindowManager.swift
 └── Views
     ├── AnnotationOverlayView.swift
@@ -249,13 +260,16 @@ The main flow is:
 ```text
 Option down
 → show transparent annotation overlay
+→ begin in-memory 16 kHz microphone recording when voice context is enabled
 → record pointer path
 → Option up
-→ hide overlay and capture the active display
+→ stop audio and hide overlay
+→ capture the active display
 → composite annotation onto screenshot
-→ save PNG and thumbnail
-→ run local Vision OCR
-→ update pill preview
+→ save screenshot, thumbnail, and context.md in the capture folder immediately
+→ transcribe queued audio locally with WhisperKit
+→ atomically update context.md when transcription finishes
+→ enable Copy Context after transcription reaches a terminal state
 ```
 
 Capture implementation:
@@ -271,17 +285,21 @@ Captures are stored in:
 ```text
 ~/Library/Application Support/Assist/
 ├── captures.sqlite
-└── Captures/
-    ├── <capture-id>.png
-    └── <capture-id>-thumb.png
+├── Captures/
+│   └── <capture-id>/
+│       ├── screenshot.png
+│       ├── thumbnail.png
+│       └── context.md
+└── Models/
+    └── models/argmaxinc/whisperkit-coreml/openai_whisper-small.en/
 ```
 
-The database stores capture metadata, paths, timestamps, and structured context. PNG files stay on disk so the database remains small and easy to inspect.
+The database stores capture metadata, paths, timestamps, and structured context. Each new capture folder is self-contained, and Copy Context reads the exact persisted `context.md`. Legacy flat capture files remain supported and are not reorganized.
 
 ## Current Limitations
 
 - The first version captures the display under the pointer, not a stitched multi-display canvas.
-- Context generation is local Vision OCR, not a remote multimodal model yet.
+- Assist does not interpret screenshot pixels. Copy Context includes the full-resolution image and a local path; the destination decides whether it accepts the image attachment.
 - The annotation gesture uses `Option` directly; future versions should add a setting to customize shortcuts.
 
 ## Roadmap

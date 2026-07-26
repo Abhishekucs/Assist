@@ -57,6 +57,9 @@ final class PillSettings: ObservableObject {
     @Published var codingAgentIntegrationEnabled: Bool {
         didSet { defaults.set(codingAgentIntegrationEnabled, forKey: Keys.codingAgentIntegrationEnabled) }
     }
+    @Published var voiceContextEnabled: Bool {
+        didSet { defaults.set(voiceContextEnabled, forKey: Keys.voiceContextEnabled) }
+    }
     @Published var claudeCodeConfigDirectory: String {
         didSet { defaults.set(claudeCodeConfigDirectory, forKey: Keys.claudeCodeConfigDirectory) }
     }
@@ -106,6 +109,7 @@ final class PillSettings: ObservableObject {
             defaults: defaults
         )
         codingAgentIntegrationEnabled = resolvedCodingAgentIntegrationEnabled
+        voiceContextEnabled = Self.bool(for: Keys.voiceContextEnabled, default: false, defaults: defaults)
         if defaults.object(forKey: Keys.codingAgentIntegrationEnabled) == nil,
            defaults.object(forKey: Keys.legacyCodexAgentIntegrationEnabled) != nil {
             defaults.set(resolvedCodingAgentIntegrationEnabled, forKey: Keys.codingAgentIntegrationEnabled)
@@ -165,6 +169,7 @@ private enum Keys {
     static let showClaudeCodeRateLimit = "rateLimits.showClaudeCode"
     static let showCodexRateLimit = "rateLimits.showCodex"
     static let codingAgentIntegrationEnabled = "agents.coding.enabled"
+    static let voiceContextEnabled = "capture.voiceContextEnabled"
     static let legacyCodexAgentIntegrationEnabled = "agents.codex.enabled"
     static let claudeCodeConfigDirectory = "agents.claude.configDirectory"
     static let downloadUpdatesAutomatically = "updates.downloadAutomatically"

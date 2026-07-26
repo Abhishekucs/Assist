@@ -22,10 +22,27 @@ fi
 INSTALLED_PATH_FILE="$ROOT_DIR/.build/installed_app_path"
 
 APP_DIR="$INSTALL_ROOT/$APP_BUNDLE_NAME.app"
+APP_EXECUTABLE="$APP_DIR/Contents/MacOS/$APP_NAME"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 cd "$ROOT_DIR"
 swift build -c "$CONFIGURATION"
+
+RUNNING_PIDS="$(pgrep -f -x "$APP_EXECUTABLE" || true)"
+if [[ -n "$RUNNING_PIDS" ]]; then
+  echo "Stopping running $APP_BUNDLE_NAME before replacement"
+  kill $RUNNING_PIDS
+
+  STOP_ATTEMPTS=0
+  while pgrep -f -x "$APP_EXECUTABLE" >/dev/null; do
+    if (( STOP_ATTEMPTS >= 50 )); then
+      echo "error: $APP_BUNDLE_NAME did not stop; refusing to replace a running app bundle." >&2
+      exit 1
+    fi
+    sleep 0.1
+    STOP_ATTEMPTS=$((STOP_ATTEMPTS + 1))
+  done
+fi
 
 if [[ -d "$APP_DIR" ]]; then
   "$LSREGISTER" -u "$APP_DIR" >/dev/null 2>&1 || true

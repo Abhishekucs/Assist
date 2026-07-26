@@ -40,5 +40,7 @@
 	<string>Copyright © 2026 Assist contributors.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Assist captures your screen only when you use its Option or Control + Option shortcuts so it can save screenshots.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Assist records speech only while you hold Option during an annotation so it can transcribe your request locally.</string>
 </dict>
 </plist>

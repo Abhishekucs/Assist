@@ -7,6 +7,21 @@ struct CaptureItem: Codable, Identifiable, Equatable {
     let imagePath: String
     let thumbnailPath: String
     var context: ScreenshotContext
+
+    var captureDirectoryURL: URL? {
+        let imageURL = URL(fileURLWithPath: imagePath).standardizedFileURL
+        let directoryURL = imageURL.deletingLastPathComponent()
+        guard imageURL.lastPathComponent == "screenshot.png",
+              directoryURL.lastPathComponent.caseInsensitiveCompare(id.uuidString) == .orderedSame else {
+            return nil
+        }
+
+        return directoryURL
+    }
+
+    var contextFileURL: URL? {
+        captureDirectoryURL?.appendingPathComponent("context.md", isDirectory: false)
+    }
 }
 
 struct TextClipItem: Codable, Identifiable, Equatable {
@@ -192,6 +207,7 @@ struct ScreenshotContext: Codable, Equatable {
     var uiElements: [String]
     var entities: [String]
     var sensitiveDataWarnings: [String]
+    var dictation: DictationContext? = nil
 
     static let saved = ScreenshotContext(
         summary: "Screenshot saved.",
@@ -199,8 +215,25 @@ struct ScreenshotContext: Codable, Equatable {
         appsDetected: [],
         uiElements: [],
         entities: [],
-        sensitiveDataWarnings: []
+        sensitiveDataWarnings: [],
+        dictation: nil
     )
+}
+
+enum DictationStatus: String, Codable, Equatable, Sendable {
+    case transcribing
+    case ready
+    case noSpeech
+    case failed
+}
+
+struct DictationContext: Codable, Equatable, Sendable {
+    var status: DictationStatus
+    var transcript: String
+    var language: String
+    var modelIdentifier: String
+    var modelRevision: String
+    var errorDetails: String?
 }
 
 struct Stroke: Codable, Equatable {
