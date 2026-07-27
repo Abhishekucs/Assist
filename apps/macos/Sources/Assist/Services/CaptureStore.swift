@@ -161,8 +161,6 @@ final class CaptureStore {
     }
 
     func delete(item: CaptureItem) throws {
-        try removeCaptureFiles(for: item)
-
         try withDatabase { database in
             let sql = "DELETE FROM captures WHERE id = ?"
 
@@ -179,6 +177,14 @@ final class CaptureStore {
             }
         }
 
+        do {
+            try removeCaptureFiles(for: item)
+        } catch {
+            // Keep the index and files consistent when filesystem deletion fails.
+            // The database row is restored before the original error is surfaced.
+            try? upsert(item: item)
+            throw error
+        }
     }
 
     func save(text: String) throws -> TextClipItem {

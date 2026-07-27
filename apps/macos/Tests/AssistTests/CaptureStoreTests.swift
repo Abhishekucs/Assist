@@ -1,4 +1,5 @@
 import AppKit
+import SQLite3
 import XCTest
 @testable import Assist
 
@@ -100,6 +101,38 @@ final class CaptureStoreTests: XCTestCase {
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: captureDirectory.path))
         XCTAssertTrue(store.loadItems().isEmpty)
+    }
+
+    func testDatabaseDeleteFailurePreservesCaptureFolder() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        let item = try store.save(image: makeImage(), context: .saved)
+        let captureDirectory = try XCTUnwrap(item.captureDirectoryURL)
+        let databaseURL = supportDirectory.appendingPathComponent("captures.sqlite")
+        var database: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(databaseURL.path, &database), SQLITE_OK)
+        defer { sqlite3_close(database) }
+        XCTAssertEqual(
+            sqlite3_exec(
+                database,
+                """
+                CREATE TRIGGER prevent_capture_delete
+                BEFORE DELETE ON captures
+                BEGIN
+                    SELECT RAISE(ABORT, 'forced delete failure');
+                END;
+                """,
+                nil,
+                nil,
+                nil
+            ),
+            SQLITE_OK
+        )
+
+        XCTAssertThrowsError(try store.delete(item: item))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: captureDirectory.path))
+        XCTAssertEqual(store.loadItems().map(\.id), [item.id])
     }
 
     func testLegacyFlatFilesAreNotReorganized() throws {

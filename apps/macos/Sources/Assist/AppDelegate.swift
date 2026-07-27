@@ -40,6 +40,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator?.stop()
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        pillViewModel?.applicationDidBecomeActive()
+    }
+
     private func validateLicenseAndStart() async {
         DebugLogger.log("license.validation.start")
 

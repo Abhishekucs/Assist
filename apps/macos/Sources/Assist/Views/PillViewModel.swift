@@ -54,6 +54,7 @@ final class PillViewModel: ObservableObject {
     var onResolveAgentApproval: ((UUID, CodingAgentApprovalDecision) -> Void)?
     var onResolveAgentQuestion: ((UUID, [CodingAgentQuestionAnswer]) -> Void)?
     var onCodingAgentStateChange: (() -> Void)?
+    private var isAwaitingMicrophoneSettings = false
 
     init(settings: PillSettings, voiceContextService: VoiceContextService) {
         self.settings = settings
@@ -876,9 +877,16 @@ final class PillViewModel: ObservableObject {
             guard let self else { return }
             if voiceContextService.modelState == .ready,
                voiceContextService.microphoneAccessState == .denied {
+                if voiceContextService.refreshMicrophoneAccessState() {
+                    settings.voiceContextEnabled = true
+                    diagnosticMessage = "Voice context is ready. Speech stays local and audio is never saved."
+                    return
+                }
+
                 let url = URL(
                     string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
                 )!
+                isAwaitingMicrophoneSettings = true
                 NSWorkspace.shared.open(url)
                 diagnosticMessage = "Opened Microphone privacy settings."
                 return
@@ -898,6 +906,17 @@ final class PillViewModel: ObservableObject {
                 diagnosticMessage = "The model is installed, but microphone access was denied."
             }
         }
+    }
+
+    func applicationDidBecomeActive() {
+        guard isAwaitingMicrophoneSettings else { return }
+        isAwaitingMicrophoneSettings = false
+
+        let microphoneAuthorized = voiceContextService.refreshMicrophoneAccessState()
+        settings.voiceContextEnabled = microphoneAuthorized
+        diagnosticMessage = microphoneAuthorized
+            ? "Voice context is ready. Speech stays local and audio is never saved."
+            : "Microphone access is still denied."
     }
 
     func insertTextItem(_ item: TextClipItem) {

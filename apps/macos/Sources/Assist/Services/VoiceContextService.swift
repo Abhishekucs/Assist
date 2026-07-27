@@ -351,6 +351,21 @@ final class VoiceContextService: ObservableObject {
         return granted
     }
 
+    @discardableResult
+    func refreshMicrophoneAccessState() -> Bool {
+        microphoneAccessState = Self.currentMicrophoneAccessState()
+        guard microphoneAccessState.isAuthorized else { return false }
+
+        do {
+            try audioRecorder.prepare()
+        } catch {
+            DebugLogger.log("voice.recording.prepare.error", [
+                "description": error.localizedDescription
+            ])
+        }
+        return true
+    }
+
     func startRecording(sessionID: UUID) throws {
         guard modelState.isReady else { throw VoiceContextError.modelNotReady }
         guard microphoneAccessState.isAuthorized else { throw VoiceContextError.microphoneAccessDenied }
@@ -485,12 +500,12 @@ final class VoiceContextService: ObservableObject {
     }
 
     private static func currentMicrophoneAccessState() -> MicrophoneAccessState {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
             .authorized
-        case .notDetermined:
+        case .undetermined:
             .notDetermined
-        case .denied, .restricted:
+        case .denied:
             .denied
         @unknown default:
             .denied
