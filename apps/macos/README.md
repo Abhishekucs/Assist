@@ -172,7 +172,8 @@ Assist asks for:
 
 Voice context downloads the pinned `openai_whisper-small.en` Core ML model
 (approximately 487 MB) from Hugging Face into Assist's Application Support
-folder. Audio is kept in memory for at most 90 seconds and is never persisted.
+folder. Recording stops after 90 seconds. Raw audio remains only in memory until its
+queued local transcription completes or Assist closes, and is never persisted.
 Only the transcript and transcription status are stored.
 
 If capture or the global gesture does not work after granting permissions, quit and reopen the app.

@@ -120,11 +120,11 @@ enum VoiceContextError: LocalizedError {
 
 @MainActor
 protocol VoiceAudioRecording: AnyObject {
-    var audioSamples: ContiguousArray<Float> { get }
     func prepare() throws
     func start(callback: @escaping ([Float]) -> Void) throws
     func pause()
     func stop()
+    func takeSamples() -> ContiguousArray<Float>
 }
 
 @MainActor
@@ -133,10 +133,6 @@ private final class WhisperAudioRecorder: VoiceAudioRecording {
     private var audioEngine: AVAudioEngine?
     private var inputFormat: AVAudioFormat?
     private var converter: AVAudioConverter?
-
-    var audioSamples: ContiguousArray<Float> {
-        bufferStore.snapshot()
-    }
 
     func prepare() throws {
         guard audioEngine == nil else { return }
@@ -202,6 +198,10 @@ private final class WhisperAudioRecorder: VoiceAudioRecording {
         bufferStore.finish()
         audioEngine.prepare()
     }
+
+    func takeSamples() -> ContiguousArray<Float> {
+        bufferStore.takeSamples()
+    }
 }
 
 enum VoiceAudioTapBlockFactory {
@@ -248,6 +248,15 @@ final class LockedAudioBuffer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return samples
+    }
+
+    func takeSamples() -> ContiguousArray<Float> {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let capturedSamples = samples
+        samples = []
+        return capturedSamples
     }
 
     func finish() {
@@ -399,7 +408,7 @@ final class VoiceContextService: ObservableObject {
         guard activeRecordingSessionID == sessionID else { return nil }
 
         audioRecorder.stop()
-        let samples = Array(audioRecorder.audioSamples.prefix(Self.maximumSampleCount))
+        let samples = Array(audioRecorder.takeSamples().prefix(Self.maximumSampleCount))
         DebugLogger.log("voice.recording.stopped", [
             "durationSeconds": String(format: "%.3f", Double(samples.count) / Double(Self.sampleRate)),
             "samples": "\(samples.count)",
@@ -414,6 +423,7 @@ final class VoiceContextService: ObservableObject {
     func cancelRecording(sessionID: UUID) {
         guard activeRecordingSessionID == sessionID else { return }
         audioRecorder.stop()
+        _ = audioRecorder.takeSamples()
         activeRecordingSessionID = nil
         recordedSampleCount = 0
         didReachRecordingLimit = false

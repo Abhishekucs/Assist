@@ -68,6 +68,30 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertTrue(failedMarkdown.contains(exactFailure))
     }
 
+    func testStartupRecoveryMarksInterruptedTranscriptionAsFailed() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        var pendingContext = ScreenshotContext.saved
+        pendingContext.dictation = dictation(status: .transcribing)
+        let pendingItem = try store.save(image: makeImage(), context: pendingContext)
+
+        XCTAssertEqual(try store.recoverInterruptedTranscriptions(), 1)
+
+        let recoveredItem = try XCTUnwrap(store.loadItems().first)
+        XCTAssertEqual(recoveredItem.id, pendingItem.id)
+        XCTAssertEqual(recoveredItem.context.dictation?.status, .failed)
+        XCTAssertEqual(
+            recoveredItem.context.dictation?.errorDetails,
+            CaptureStore.interruptedTranscriptionError
+        )
+        let contextFileURL = try XCTUnwrap(recoveredItem.contextFileURL)
+        let markdown = try read(contextFileURL)
+        XCTAssertEqual(markdown, CaptureContextMarkdown.render(item: recoveredItem))
+        XCTAssertTrue(markdown.contains(CaptureStore.interruptedTranscriptionError))
+        XCTAssertEqual(try store.recoverInterruptedTranscriptions(), 0)
+    }
+
     func testConsecutiveCaptureUpdatesCannotMismatchContextFiles() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }

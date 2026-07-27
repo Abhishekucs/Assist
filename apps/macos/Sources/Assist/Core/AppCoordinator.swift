@@ -120,6 +120,18 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 }
             }
 
+        do {
+            let recoveredCount = try store.recoverInterruptedTranscriptions()
+            if recoveredCount > 0 {
+                DebugLogger.log("voice.transcription.interrupted-recovered", [
+                    "count": "\(recoveredCount)"
+                ])
+            }
+        } catch {
+            pillViewModel.diagnosticMessage = error.localizedDescription
+            DebugLogger.log("voice.transcription.interrupted-recovery.error", errorFields(error))
+        }
+
         syncHistoryFromStore()
         pillViewModel.clearCaptureIssue()
         pillViewModel.startUsageLimitUpdates()

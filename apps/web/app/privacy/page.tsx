@@ -80,6 +80,14 @@ export default function PrivacyPage() {
                 <td>Stored locally in your Mac&apos;s Assist application-support folder</td>
               </tr>
               <tr>
+                <td>Temporary voice audio</td>
+                <td>Up to 90 seconds of speech recorded during an enabled annotation</td>
+                <td>
+                  Held only in memory until local transcription completes or Assist closes; never
+                  saved to disk or uploaded by Assist
+                </td>
+              </tr>
+              <tr>
                 <td>Coding-agent context</td>
                 <td>
                   Provider and session identifiers, task status, working directory, model or
@@ -152,8 +160,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Microphone</strong>{" "}to record speech only while you hold Option during an
-            annotation when voice context is enabled. Audio stays in memory for no more than 90
-            seconds and is not saved.
+            annotation when voice context is enabled. Recording stops after 90 seconds. Raw audio
+            stays only in memory until its queued local transcription completes or Assist closes;
+            it is never saved to disk or uploaded by Assist.
           </li>
           <li>
             <strong>Clipboard access</strong>{" "}to keep recent copied text available for reuse.

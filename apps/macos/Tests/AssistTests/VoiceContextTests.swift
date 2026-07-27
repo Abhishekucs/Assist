@@ -44,6 +44,7 @@ final class VoiceContextTests: XCTestCase {
         let recording = try XCTUnwrap(service.stopRecording(sessionID: firstSession))
         XCTAssertEqual(recording.sessionID, firstSession)
         XCTAssertEqual(recording.samples, [0.1, 0.2, 0.3])
+        XCTAssertTrue(recorder.audioSamples.isEmpty)
         XCTAssertEqual(recorder.stopCount, 1)
 
         try service.startRecording(sessionID: laterSession)
@@ -69,6 +70,25 @@ final class VoiceContextTests: XCTestCase {
         XCTAssertEqual(recorder.pauseCount, 1)
         let recording = try XCTUnwrap(service.stopRecording(sessionID: sessionID))
         XCTAssertEqual(recording.samples.count, 1_440_000)
+        XCTAssertTrue(recorder.audioSamples.isEmpty)
+    }
+
+    @MainActor
+    func testCancellingRecordingClearsBufferedAudio() throws {
+        let recorder = VoiceAudioRecorderSpy()
+        let service = VoiceContextService(
+            audioRecorder: recorder,
+            modelStateOverride: .ready,
+            microphoneAccessStateOverride: .authorized
+        )
+        let sessionID = UUID()
+        try service.startRecording(sessionID: sessionID)
+        recorder.append([0.1, 0.2, 0.3])
+
+        service.cancelRecording(sessionID: sessionID)
+
+        XCTAssertTrue(recorder.audioSamples.isEmpty)
+        XCTAssertEqual(recorder.stopCount, 1)
     }
 
     func testQuietSpeechLevelPassesEnergyVAD() {
@@ -402,6 +422,12 @@ private final class VoiceAudioRecorderSpy: VoiceAudioRecording {
     func stop() {
         stopCount += 1
         callback = nil
+    }
+
+    func takeSamples() -> ContiguousArray<Float> {
+        let capturedSamples = audioSamples
+        audioSamples = []
+        return capturedSamples
     }
 }
 

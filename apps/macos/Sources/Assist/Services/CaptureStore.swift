@@ -2,6 +2,9 @@ import AppKit
 import SQLite3
 
 final class CaptureStore {
+    static let interruptedTranscriptionError =
+        "Transcription was interrupted because Assist closed before local transcription completed."
+
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -158,6 +161,21 @@ final class CaptureStore {
             try writeContext(for: item)
         }
         try upsert(item: item)
+    }
+
+    @discardableResult
+    func recoverInterruptedTranscriptions() throws -> Int {
+        let interruptedItems = loadItems().filter {
+            $0.context.dictation?.status == .transcribing
+        }
+
+        for var item in interruptedItems {
+            item.context.dictation?.status = .failed
+            item.context.dictation?.errorDetails = Self.interruptedTranscriptionError
+            try update(item: item)
+        }
+
+        return interruptedItems.count
     }
 
     func delete(item: CaptureItem) throws {
