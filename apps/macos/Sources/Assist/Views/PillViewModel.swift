@@ -883,6 +883,13 @@ final class PillViewModel: ObservableObject {
                     return
                 }
 
+                if voiceContextService.microphoneAccessState == .authorized {
+                    settings.voiceContextEnabled = false
+                    diagnosticMessage = voiceContextService.audioInputError
+                        ?? "Assist could not prepare the microphone input."
+                    return
+                }
+
                 let url = URL(
                     string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
                 )!
@@ -903,7 +910,8 @@ final class PillViewModel: ObservableObject {
             if microphoneAuthorized {
                 diagnosticMessage = "Voice context is ready. Speech stays local and audio is never saved."
             } else {
-                diagnosticMessage = "The model is installed, but microphone access was denied."
+                diagnosticMessage = voiceContextService.audioInputError
+                    ?? "The model is installed, but microphone access was denied."
             }
         }
     }
@@ -916,7 +924,7 @@ final class PillViewModel: ObservableObject {
         settings.voiceContextEnabled = microphoneAuthorized
         diagnosticMessage = microphoneAuthorized
             ? "Voice context is ready. Speech stays local and audio is never saved."
-            : "Microphone access is still denied."
+            : voiceContextService.audioInputError ?? "Microphone access is still denied."
     }
 
     func insertTextItem(_ item: TextClipItem) {

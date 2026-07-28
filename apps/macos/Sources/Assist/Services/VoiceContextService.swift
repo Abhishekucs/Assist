@@ -26,6 +26,21 @@ enum MicrophoneAccessState: Equatable {
     }
 }
 
+enum AudioInputState: Equatable {
+    case unavailable
+    case ready
+    case failed(String)
+
+    var isReady: Bool {
+        self == .ready
+    }
+
+    var errorDetails: String? {
+        guard case let .failed(details) = self else { return nil }
+        return details
+    }
+}
+
 struct VoiceRecording: Sendable {
     let sessionID: UUID
     let samples: [Float]
@@ -274,6 +289,7 @@ final class VoiceContextService: ObservableObject {
 
     @Published private(set) var modelState: VoiceModelState
     @Published private(set) var microphoneAccessState: MicrophoneAccessState
+    @Published private(set) var audioInputState: AudioInputState
 
     private static let modelRepository = "argmaxinc/whisperkit-coreml"
     private static let modelFolderName = "openai_whisper-small.en"
@@ -301,6 +317,7 @@ final class VoiceContextService: ObservableObject {
         manifestURL = modelsDirectory.appendingPathComponent("voice-context-model.json")
         self.audioRecorder = audioRecorder ?? WhisperAudioRecorder()
         microphoneAccessState = microphoneAccessStateOverride ?? Self.currentMicrophoneAccessState()
+        audioInputState = .unavailable
 
         #if arch(arm64)
         modelState = modelStateOverride
@@ -310,12 +327,17 @@ final class VoiceContextService: ObservableObject {
         #endif
 
         if modelState.isReady, microphoneAccessState.isAuthorized {
-            try? self.audioRecorder.prepare()
+            prepareAudioInput()
         }
     }
 
     var canRecord: Bool {
-        modelState.isReady && microphoneAccessState.isAuthorized
+        modelState.isReady && microphoneAccessState.isAuthorized && audioInputState.isReady
+    }
+
+    var audioInputError: String? {
+        guard let details = audioInputState.errorDetails else { return nil }
+        return VoiceContextError.audioInputFailed(details).localizedDescription
     }
 
     var modelFolderURL: URL? {
@@ -348,36 +370,48 @@ final class VoiceContextService: ObservableObject {
     func requestMicrophoneAccess() async -> Bool {
         let granted = await AudioProcessor.requestRecordPermission()
         microphoneAccessState = granted ? .authorized : .denied
-        if granted {
-            do {
-                try audioRecorder.prepare()
-            } catch {
-                DebugLogger.log("voice.recording.prepare.error", [
-                    "description": error.localizedDescription
-                ])
-            }
+        guard granted else {
+            audioInputState = .unavailable
+            return false
         }
-        return granted
+        return prepareAudioInput()
     }
 
     @discardableResult
     func refreshMicrophoneAccessState() -> Bool {
         microphoneAccessState = Self.currentMicrophoneAccessState()
-        guard microphoneAccessState.isAuthorized else { return false }
+        guard microphoneAccessState.isAuthorized else {
+            audioInputState = .unavailable
+            return false
+        }
 
+        return prepareAudioInput()
+    }
+
+    @discardableResult
+    func prepareAudioInput() -> Bool {
         do {
             try audioRecorder.prepare()
+            audioInputState = .ready
+            return true
         } catch {
+            let details = error.localizedDescription
+            audioInputState = .failed(details)
             DebugLogger.log("voice.recording.prepare.error", [
-                "description": error.localizedDescription
+                "description": VoiceContextError.audioInputFailed(details).localizedDescription
             ])
+            return false
         }
-        return true
     }
 
     func startRecording(sessionID: UUID) throws {
         guard modelState.isReady else { throw VoiceContextError.modelNotReady }
         guard microphoneAccessState.isAuthorized else { throw VoiceContextError.microphoneAccessDenied }
+        guard audioInputState.isReady else {
+            throw VoiceContextError.audioInputFailed(
+                audioInputState.errorDetails ?? "The audio input is not prepared."
+            )
+        }
         guard activeRecordingSessionID == nil else { throw VoiceContextError.recordingAlreadyActive }
 
         activeRecordingSessionID = sessionID

@@ -1082,9 +1082,10 @@ private struct VoiceContextSettings: View {
 
     private var setupButtonTitle: String {
         if service.modelState == .ready {
-            return service.microphoneAccessState == .denied
-                ? "Open microphone settings"
-                : "Allow microphone"
+            if service.microphoneAccessState == .denied {
+                return "Open microphone settings"
+            }
+            return service.audioInputError == nil ? "Allow microphone" : "Retry audio input"
         }
         return "Set up (~487 MB)"
     }
@@ -1100,7 +1101,7 @@ private struct VoiceContextSettings: View {
         case .preparing:
             "Preparing Whisper…"
         case .ready:
-            "Microphone access needed"
+            service.audioInputError == nil ? "Microphone access needed" : "Audio input unavailable"
         case .failed:
             "Voice context setup failed"
         }
@@ -1117,7 +1118,8 @@ private struct VoiceContextSettings: View {
         case .preparing:
             "Core ML is loading the downloaded model locally."
         case .ready:
-            "The model is installed. Allow microphone access to finish setup."
+            service.audioInputError
+                ?? "The model is installed. Allow microphone access to finish setup."
         case let .failed(detail):
             detail
         }

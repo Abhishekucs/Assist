@@ -91,6 +91,31 @@ final class VoiceContextTests: XCTestCase {
         XCTAssertEqual(recorder.stopCount, 1)
     }
 
+    @MainActor
+    func testPreparationFailureKeepsVoiceContextUnavailable() throws {
+        let recorder = VoiceAudioRecorderSpy()
+        recorder.prepareError = VoiceRecorderTestError.noInputDevice
+
+        let service = VoiceContextService(
+            audioRecorder: recorder,
+            modelStateOverride: .ready,
+            microphoneAccessStateOverride: .authorized
+        )
+
+        XCTAssertFalse(service.canRecord)
+        XCTAssertFalse(service.prepareAudioInput())
+        XCTAssertEqual(
+            service.audioInputError,
+            "Microphone recording failed: No test audio input device."
+        )
+        XCTAssertThrowsError(try service.startRecording(sessionID: UUID())) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Microphone recording failed: No test audio input device."
+            )
+        }
+    }
+
     func testQuietSpeechLevelPassesEnergyVAD() {
         let quietSpeech = Array(repeating: Float(0.006), count: 4_800)
 
@@ -401,9 +426,14 @@ private final class VoiceAudioRecorderSpy: VoiceAudioRecording {
     private(set) var audioSamples: ContiguousArray<Float> = []
     private(set) var pauseCount = 0
     private(set) var stopCount = 0
+    var prepareError: Error?
     private var callback: (([Float]) -> Void)?
 
-    func prepare() throws {}
+    func prepare() throws {
+        if let prepareError {
+            throw prepareError
+        }
+    }
 
     func start(callback: @escaping ([Float]) -> Void) throws {
         audioSamples = []
@@ -428,6 +458,14 @@ private final class VoiceAudioRecorderSpy: VoiceAudioRecording {
         let capturedSamples = audioSamples
         audioSamples = []
         return capturedSamples
+    }
+}
+
+private enum VoiceRecorderTestError: LocalizedError {
+    case noInputDevice
+
+    var errorDescription: String? {
+        "No test audio input device."
     }
 }
 
