@@ -157,10 +157,45 @@ final class CaptureStore {
     }
 
     func update(item: CaptureItem) throws {
-        if item.contextFileURL != nil {
-            try writeContext(for: item)
+        guard let contextFileURL = item.contextFileURL else {
+            try upsert(item: item)
+            return
         }
-        try upsert(item: item)
+
+        let previousContextData: Data?
+        if fileManager.fileExists(atPath: contextFileURL.path) {
+            do {
+                previousContextData = try Data(contentsOf: contextFileURL)
+            } catch {
+                throw StoreError.contextRead(
+                    path: contextFileURL.path,
+                    message: error.localizedDescription
+                )
+            }
+        } else {
+            previousContextData = nil
+        }
+
+        try writeContext(for: item)
+        do {
+            try upsert(item: item)
+        } catch {
+            let updateError = error
+            do {
+                if let previousContextData {
+                    try previousContextData.write(to: contextFileURL, options: .atomic)
+                } else if fileManager.fileExists(atPath: contextFileURL.path) {
+                    try fileManager.removeItem(at: contextFileURL)
+                }
+            } catch {
+                throw StoreError.contextRollback(
+                    path: contextFileURL.path,
+                    updateMessage: updateError.localizedDescription,
+                    rollbackMessage: error.localizedDescription
+                )
+            }
+            throw updateError
+        }
     }
 
     @discardableResult
@@ -511,15 +546,21 @@ final class CaptureStore {
 
 private enum StoreError: LocalizedError {
     case encodingFailed
+    case contextRead(path: String, message: String)
     case contextWrite(path: String, message: String)
+    case contextRollback(path: String, updateMessage: String, rollbackMessage: String)
     case sqlite(message: String)
 
     var errorDescription: String? {
         switch self {
         case .encodingFailed:
             "Unable to encode screenshot details."
+        case let .contextRead(path, message):
+            "Unable to read the existing context file at \(path) before updating it: \(message)"
         case let .contextWrite(path, message):
             "Unable to write context file at \(path): \(message)"
+        case let .contextRollback(path, updateMessage, rollbackMessage):
+            "Context update failed (\(updateMessage)), and Assist could not restore \(path): \(rollbackMessage)"
         case let .sqlite(message):
             "Database error: \(message)"
         }

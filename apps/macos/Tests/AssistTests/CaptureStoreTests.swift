@@ -159,6 +159,48 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.loadItems().map(\.id), [item.id])
     }
 
+    func testDatabaseUpdateFailureRestoresPreviousContextFile() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        var pendingContext = ScreenshotContext.saved
+        pendingContext.dictation = dictation(status: .transcribing)
+        var item = try store.save(image: makeImage(), context: pendingContext)
+        let contextFileURL = try XCTUnwrap(item.contextFileURL)
+        let pendingMarkdown = try read(contextFileURL)
+        let databaseURL = supportDirectory.appendingPathComponent("captures.sqlite")
+        var database: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(databaseURL.path, &database), SQLITE_OK)
+        defer { sqlite3_close(database) }
+        XCTAssertEqual(
+            sqlite3_exec(
+                database,
+                """
+                CREATE TRIGGER prevent_capture_update
+                BEFORE UPDATE ON captures
+                BEGIN
+                    SELECT RAISE(ABORT, 'forced update failure');
+                END;
+                """,
+                nil,
+                nil,
+                nil
+            ),
+            SQLITE_OK
+        )
+        item.context.dictation = dictation(
+            status: .ready,
+            transcript: "This transcript must not survive only in context.md."
+        )
+
+        XCTAssertThrowsError(try store.update(item: item))
+
+        XCTAssertEqual(try read(contextFileURL), pendingMarkdown)
+        let persistedItem = try XCTUnwrap(store.loadItems().first)
+        XCTAssertEqual(persistedItem.context.dictation?.status, .transcribing)
+        XCTAssertFalse(try read(contextFileURL).contains(item.context.dictation?.transcript ?? ""))
+    }
+
     func testLegacyFlatFilesAreNotReorganized() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }
