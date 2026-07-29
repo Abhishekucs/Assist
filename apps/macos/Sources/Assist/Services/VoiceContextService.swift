@@ -197,7 +197,12 @@ private final class WhisperAudioRecorder: VoiceAudioRecording {
             try audioEngine.start()
         } catch {
             inputNode.removeTap(onBus: 0)
+            audioEngine.stop()
             bufferStore.finish()
+            _ = bufferStore.takeSamples()
+            self.audioEngine = nil
+            self.inputFormat = nil
+            self.converter = nil
             throw error
         }
     }
@@ -433,8 +438,16 @@ final class VoiceContextService: ObservableObject {
                 )
             ])
         } catch {
+            let details = error.localizedDescription
             activeRecordingSessionID = nil
-            throw VoiceContextError.audioInputFailed(error.localizedDescription)
+            recordedSampleCount = 0
+            didReachRecordingLimit = false
+            audioInputState = .failed(details)
+            DebugLogger.log("voice.recording.start.error", [
+                "description": VoiceContextError.audioInputFailed(details).localizedDescription,
+                "session": sessionID.uuidString
+            ])
+            throw VoiceContextError.audioInputFailed(details)
         }
     }
 

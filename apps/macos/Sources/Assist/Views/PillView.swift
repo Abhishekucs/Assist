@@ -1442,6 +1442,8 @@ private struct DebugActionButton: View {
 }
 
 private struct CaptureGalleryCard: View {
+    private static let folderBlue = Color(hex: 0x118AF3)
+
     let item: CaptureItem
     let thumbnail: NSImage?
     let contextPreview: String
@@ -1473,7 +1475,7 @@ private struct CaptureGalleryCard: View {
             ) {
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(Color.white.opacity(isSelected ? 0.22 : 0.11))
+                        .fill(Self.folderBlue)
                         .frame(width: 58, height: 18)
 
                     VStack(spacing: 0) {
@@ -1515,7 +1517,7 @@ private struct CaptureGalleryCard: View {
                         .background(Color.black.opacity(0.26))
                     }
                     .frame(width: 142, height: 134, alignment: .top)
-                    .background(Color.white.opacity(isSelected ? 0.18 : 0.08))
+                    .background(Self.folderBlue)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)

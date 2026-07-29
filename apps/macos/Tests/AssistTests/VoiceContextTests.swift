@@ -116,6 +116,34 @@ final class VoiceContextTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testRecordingStartFailureInvalidatesAudioReadinessUntilRetry() throws {
+        let recorder = VoiceAudioRecorderSpy()
+        let service = VoiceContextService(
+            audioRecorder: recorder,
+            modelStateOverride: .ready,
+            microphoneAccessStateOverride: .authorized
+        )
+        recorder.startError = VoiceRecorderTestError.noInputDevice
+
+        XCTAssertThrowsError(try service.startRecording(sessionID: UUID())) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Microphone recording failed: No test audio input device."
+            )
+        }
+        XCTAssertFalse(service.canRecord)
+        XCTAssertEqual(service.audioInputState, .failed("No test audio input device."))
+        XCTAssertEqual(
+            service.audioInputError,
+            "Microphone recording failed: No test audio input device."
+        )
+
+        recorder.startError = nil
+        XCTAssertTrue(service.prepareAudioInput())
+        XCTAssertTrue(service.canRecord)
+    }
+
     func testQuietSpeechLevelPassesEnergyVAD() {
         let quietSpeech = Array(repeating: Float(0.006), count: 4_800)
 
@@ -427,6 +455,7 @@ private final class VoiceAudioRecorderSpy: VoiceAudioRecording {
     private(set) var pauseCount = 0
     private(set) var stopCount = 0
     var prepareError: Error?
+    var startError: Error?
     private var callback: (([Float]) -> Void)?
 
     func prepare() throws {
@@ -436,6 +465,9 @@ private final class VoiceAudioRecorderSpy: VoiceAudioRecording {
     }
 
     func start(callback: @escaping ([Float]) -> Void) throws {
+        if let startError {
+            throw startError
+        }
         audioSamples = []
         self.callback = callback
     }
