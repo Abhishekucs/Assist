@@ -1,43 +1,69 @@
+import FeatureVideo from "./FeatureVideo";
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
 const siteUrl = "https://assistapp.dev";
+const currentPrice = 15;
+const originalPrice = 19;
+const featureVideos = {
+  annotation:
+    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/annotationedit.mp4",
+  screenshot:
+    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/fullscreenedit.mp4",
+  codingAgents:
+    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/IMG_4597.mov"
+};
 
 const faqItems = [
   {
+    question: "What does Assist for Mac do?",
+    answer:
+      "Assist combines three Mac workflows in the notch: voice-powered screen annotation, clean full-screen screenshots, and live Claude Code and Codex monitoring. Recent screenshots, annotations, transcripts, and copied text stay ready to reuse."
+  },
+  {
+    question: "How does voice-powered screen annotation work?",
+    answer:
+      "Hold Option anywhere on macOS, draw over the screen, and speak while you point things out. Release Option to save the annotated screenshot with its optional local transcript, ready to copy as structured context."
+  },
+  {
+    question: "Does Assist send my voice recording to the cloud?",
+    answer:
+      "No. Voice transcription runs locally with WhisperKit on Apple silicon. Raw audio stays in memory only while transcription finishes and is never saved; Assist stores only the resulting transcript and its status."
+  },
+  {
+    question: "How do I take a full-screen screenshot?",
+    answer:
+      "Press Control + Option to capture the full display immediately without entering annotation mode. The screenshot appears in Recent Items, where you can preview, copy, or drag it into another app."
+  },
+  {
     question: "Which coding agents does Assist support?",
     answer:
-      "Assist currently connects to Codex and terminal Claude Code. It shows active tasks, their latest status, and the detected Claude Code version directly in the island."
+      "Assist currently connects to OpenAI Codex and terminal Claude Code. It shows active tasks, prompt or question summaries, current status, provider, Claude Code version, and enabled usage windows in the island."
   },
   {
-    question: "Can I approve requests and answer agents from the island?",
+    question: "Can I approve requests and answer coding agents from the notch?",
     answer:
-      "Yes. Codex and Claude Code permission requests appear in the island, where you can allow or deny them. Agent questions also expand in place so you can respond without finding the terminal."
+      "Yes. Codex and Claude Code permission requests appear in the island so you can allow or deny them. Answerable agent questions expand in place with their choices and an optional custom response."
   },
   {
-    question: "How many agent tasks can I see at once?",
+    question: "Where does Assist store my screenshots and context?",
     answer:
-      "The expanded island shows up to three active tasks in a vertical stack. Claude and Codex usage windows remain available in both the collapsed and expanded states."
+      "Screenshots, copied text, history, and optional transcripts are stored locally on your Mac. Assist does not OCR or interpret screenshots; you choose when to copy or drag the original context into another app."
   },
   {
-    question: "What can I capture and reuse?",
+    question: "What are the Mac requirements?",
     answer:
-      "Press Control + Option for a clean full-screen screenshot, or hold Option to draw and save an annotated screenshot. Assist also keeps recent copied text ready to reuse or drag into another app."
+      "Assist requires macOS 14 Sonoma or later. Screen capture and coding-agent monitoring work on supported Macs; optional local voice transcription requires Apple silicon and a one-time Whisper model download."
   },
   {
-    question: "Where is my captured context stored?",
+    question: "Which macOS permissions does Assist need?",
     answer:
-      "Screenshots, history, and optional Whisper transcripts are stored locally on your Mac. Assist does not OCR or interpret screenshots; Copy Context explicitly passes the original annotated image and transcript to the destination you choose."
-  },
-  {
-    question: "Does Assist require any macOS permissions?",
-    answer:
-      "Screen and System Audio Recording is required for capture. Accessibility or Input Monitoring detects the global shortcuts. Microphone access is optional and requested only when you set up voice context."
+      "Screen Recording is required for screenshots. Accessibility or Input Monitoring lets Assist detect the Option and Control + Option shortcuts. Microphone access is optional and requested only when you enable voice context."
   },
   {
     question: "Is Assist a subscription?",
     answer:
-      "No. Assist is $12 for one Mac as a one-time purchase. There is no recurring subscription."
+      `No. Assist is $${currentPrice} for one Mac as a one-time purchase. There is no recurring subscription.`
   }
 ];
 
@@ -51,25 +77,29 @@ const structuredData = {
       operatingSystem: "macOS 14 or later",
       applicationCategory: "UtilitiesApplication",
       description:
-        "Assist is a native macOS app for monitoring Codex and Claude Code, approving agent requests, answering questions, and reusing screenshots, annotations, and copied text from the Mac notch.",
+        "Assist is a native Mac app for voice-powered screen annotation, full-screen screenshots, and live Claude Code and Codex task monitoring from the notch.",
       url: siteUrl,
-      image: `${siteUrl}/og-image.png`,
+      image: `${siteUrl}/assist-social-preview.png`,
+      softwareRequirements:
+        "macOS 14 or later; Apple silicon is required for local voice transcription",
       offers: {
         "@type": "Offer",
-        price: "12",
+        price: String(currentPrice),
         priceCurrency: "USD",
         category: "one-time purchase",
         availability: "https://schema.org/InStock"
       },
       featureList: [
-        "Codex and Claude Code task monitoring",
-        "Agent permission approvals",
-        "Agent question answering",
-        "Coding-agent usage windows",
-        "Full screen screenshot capture",
-        "Option-hold annotation",
-        "Drag and drop from notch",
-        "Copied text and screenshot history",
+        "Voice-powered screen annotation",
+        "Local Whisper transcription on Apple silicon",
+        "Full-screen screenshot capture with Control and Option",
+        "OpenAI Codex and terminal Claude Code task monitoring",
+        "Permission approvals from the Mac notch",
+        "Coding-agent question answering",
+        "Claude Code and Codex usage windows",
+        "Up to three active coding-agent tasks",
+        "Screenshot and copied-text history",
+        "Drag and drop from the notch",
         "Local-first storage"
       ]
     },
@@ -133,28 +163,27 @@ export default function Home() {
       <section id="top" className="hero">
         <div className="hero-content">
           <h1 className="hero-title">
-            <span>Dynamic Island for Your</span>
-            <span>Coding Agents</span>
+            <span>Show it. Say it.</span>
+            <span>Keep agents moving.</span>
           </h1>
           <p className="hero-copy">
-            Assist helps you monitor coding agents, approve requests, capture
-            screenshots, and annotate—right from the notch.
+            Assist is a native Mac app for voice-powered screen annotation,
+            instant screenshots, and live Claude Code and Codex monitoring—right
+            from the notch.
           </p>
           <div className="hero-actions">
             <a className="hero-download-button" href={checkoutHref}>
               <span aria-hidden="true"></span>
               <span>Download for Mac</span>
             </a>
-            <a className="hero-price-button" href="#pricing">
-              <span>$12 · One-time →</span>
-            </a>
           </div>
+          <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
         </div>
         <div className="hero-video-frame">
           <video
             className="hero-video"
-            src="https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/IMG_4597.mov"
-            aria-label="Assist working from the Mac notch"
+            src={featureVideos.codingAgents}
+            aria-label="Assist showing Claude Code and Codex tasks in the Mac notch"
             autoPlay
             loop
             muted
@@ -178,66 +207,154 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="capability-grid" aria-label="Assist capabilities">
+        <div className="capability-intro">
+          <p className="section-kicker">One notch. Three focused workflows.</p>
+          <h2>The context layer for work on your Mac.</h2>
+          <p>
+            Capture what you see, add what you mean, and stay close to the coding
+            agents doing the work.
+          </p>
+        </div>
+
+        <div className="capability-grid" aria-label="Assist main features">
           <article className="capability-card">
-            <h3>Live task monitor</h3>
-            <p>See Codex and Claude Code work in a vertical stack, with up to three active tasks visible at once.</p>
+            <h3>Voice-powered annotation</h3>
+            <p>Hold Option to draw on the screen and speak your intent into the same locally prepared capture.</p>
           </article>
           <article className="capability-card">
-            <h3>Approve in place</h3>
-            <p>Allow or deny agent permission requests directly from the island instead of finding the right terminal.</p>
+            <h3>Instant full-screen screenshots</h3>
+            <p>Press Control + Option to save a clean screenshot, then preview, copy, or drag it from Recent Items.</p>
           </article>
           <article className="capability-card">
-            <h3>Answer from the notch</h3>
-            <p>Respond when a coding agent asks for direction, without leaving the app or task already in front of you.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Know your runway</h3>
-            <p>Keep Claude and Codex usage windows visible in both the collapsed and expanded island.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Screenshot capture</h3>
-            <p>Press Control + Option to save a clean full-screen screenshot straight to your recent context.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Point out what matters</h3>
-            <p>Hold Option, draw over the screen, and release to save an annotated screenshot instantly.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Copied text, remembered</h3>
-            <p>Keep recent copied text beside screenshots so the exact detail you need is ready to reuse.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Move context anywhere</h3>
-            <p>Drag recent items from the notch into agent prompts, documents, chats, and design tools.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Local by design</h3>
-            <p>Your agent events, screenshots, annotations, and copied text stay connected locally on your Mac.</p>
+            <h3>Claude Code and Codex view</h3>
+            <p>Monitor active tasks, approve requests, answer questions, and check usage without hunting for a terminal.</p>
           </article>
         </div>
       </section>
 
+      <section className="feature-showcase" aria-labelledby="feature-tour-title">
+        <div className="feature-showcase-intro">
+          <p className="section-kicker">A closer look</p>
+          <h2 id="feature-tour-title">Three workflows, fully connected.</h2>
+          <p>
+            Assist turns the Mac notch into a shortcut-first place for visual
+            context and coding-agent control.
+          </p>
+        </div>
+
+        <article className="feature-panel feature-panel-wide">
+          <div className="feature-copy-block">
+            <p className="feature-kicker">Voice annotation for Mac</p>
+            <h3>Point at the screen. Say what you mean.</h3>
+            <p className="feature-description">
+              Hold Option anywhere on macOS to draw over what you see. Speak while
+              you annotate and Assist adds a local transcript to the same capture,
+              so the image and your intent stay together.
+            </p>
+            <ul className="feature-detail-list">
+              <li>
+                <strong>Draw with one hold</strong>
+                <span>Hold Option, move the pointer, and release to save the annotated screenshot.</span>
+              </li>
+              <li>
+                <strong>Transcribe locally</strong>
+                <span>Optional Whisper transcription runs on Apple silicon, and raw audio is never saved.</span>
+              </li>
+              <li>
+                <strong>Copy useful context</strong>
+                <span>Reuse the original image and structured Markdown in coding agents, chats, and documents.</span>
+              </li>
+            </ul>
+          </div>
+          <div className="feature-visual feature-video-visual" aria-hidden="true">
+            <FeatureVideo src={featureVideos.annotation} />
+          </div>
+        </article>
+
+        <article className="feature-panel feature-panel-wide">
+          <div className="feature-copy-block">
+            <p className="feature-kicker">Full-screen screenshots</p>
+            <h3>Capture the screen before the moment passes.</h3>
+            <p className="feature-description">
+              Press Control + Option for a clean screenshot of the full display.
+              There is no crop dialog and no annotation step—just a saved capture
+              ready in the notch.
+            </p>
+            <ul className="feature-detail-list">
+              <li>
+                <strong>One global shortcut</strong>
+                <span>Capture the full screen from any app without breaking your current flow.</span>
+              </li>
+              <li>
+                <strong>Recent Items in the notch</strong>
+                <span>Preview screenshots, annotations, and copied text without opening a library window.</span>
+              </li>
+              <li>
+                <strong>Drag into any workflow</strong>
+                <span>Drop recent captures into agent prompts, messages, documents, or design tools.</span>
+              </li>
+            </ul>
+          </div>
+          <div className="feature-visual feature-video-visual" aria-hidden="true">
+            <FeatureVideo src={featureVideos.screenshot} />
+          </div>
+        </article>
+
+        <article className="feature-panel feature-panel-wide">
+          <div className="feature-copy-block">
+            <p className="feature-kicker">Claude Code and Codex monitor</p>
+            <h3>Know when your coding agents need you.</h3>
+            <p className="feature-description">
+              Keep terminal Claude Code and OpenAI Codex tasks visible in the
+              island. See what is working, what is waiting, and where your input
+              can unblock progress.
+            </p>
+            <ul className="feature-detail-list">
+              <li>
+                <strong>Live task view</strong>
+                <span>See up to three active tasks with their provider, status, and prompt or question summary.</span>
+              </li>
+              <li>
+                <strong>Approve and answer</strong>
+                <span>Allow or deny permission requests and respond to supported agent questions in place.</span>
+              </li>
+              <li>
+                <strong>Usage at a glance</strong>
+                <span>Keep enabled five-hour and seven-day Claude Code and Codex usage windows visible.</span>
+              </li>
+            </ul>
+          </div>
+          <div className="feature-visual feature-video-visual agent-feature-video" aria-hidden="true">
+            <FeatureVideo src={featureVideos.codingAgents} />
+          </div>
+        </article>
+      </section>
+
       <section id="pricing" className="pricing-section">
         <div className="section-heading">
-          <h2>Ready to upgrade your workflow?</h2>
-          <p>One-time purchase. No subscriptions.</p>
+          <h2>One Mac. All three workflows.</h2>
+          <p>Pay once for the complete Assist experience. No subscription.</p>
         </div>
 
         <div className="pricing-card">
           <h3>Assist License</h3>
 
-          <div className="pricing-price" aria-label="$12">
-            <strong>$12</strong>
+          <div
+            className="pricing-price"
+            aria-label={`$${currentPrice}, reduced from $${originalPrice}`}
+          >
+            <strong>${currentPrice}</strong>
+            <del>${originalPrice}</del>
           </div>
 
           <p className="pricing-license-note">1 Mac · one-time purchase</p>
 
           <ul className="pricing-features" aria-label="Included features">
-            <li>Codex and Claude Code monitoring</li>
-            <li>Approvals and question answering</li>
-            <li>Screenshot capture and annotation</li>
-            <li>Copied text and screenshot history</li>
+            <li>Voice-powered screen annotation</li>
+            <li>Full-screen screenshot capture</li>
+            <li>Claude Code and Codex monitoring</li>
+            <li>Agent approvals and question answering</li>
+            <li>Recent screenshots and copied text</li>
             <li>Native, local-first macOS app</li>
           </ul>
 
@@ -251,8 +368,8 @@ export default function Home() {
         <div className="faq-intro">
           <h2>Frequently asked questions</h2>
           <p>
-            How agent monitoring, approvals, capture, privacy, and licensing
-            work in Assist.
+            Voice annotation, screenshots, coding agents, privacy, Mac
+            requirements, and licensing.
           </p>
         </div>
 
@@ -278,7 +395,7 @@ export default function Home() {
               </span>
               <span>Assist</span>
             </a>
-            <p>Coding agents, approvals, screenshots, and context—right from your Mac notch.</p>
+            <p>Voice annotation, screenshots, and coding-agent control—right from your Mac notch.</p>
           </div>
 
           <nav className="footer-link-grid" aria-label="Footer navigation">
@@ -303,7 +420,7 @@ export default function Home() {
 
         <div className="footer-bottom">
           <p>© 2026 Assist. All rights reserved.</p>
-          <p>Built for focused Mac workflows.</p>
+          <p>Built for visual context and agentic work on Mac.</p>
         </div>
       </footer>
     </main>
