@@ -2,23 +2,14 @@ import AppKit
 import SQLite3
 
 final class CaptureStore {
+    static let interruptedTranscriptionError =
+        "Transcription was interrupted because Assist closed before local transcription completed."
+
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
-
-    private var supportDirectory: URL {
-        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent(AppIdentity.supportDirectoryName, isDirectory: true)
-    }
-
-    private var legacySupportDirectory: URL? {
-        guard let legacySupportDirectoryName = AppIdentity.legacySupportDirectoryName else {
-            return nil
-        }
-
-        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent(legacySupportDirectoryName, isDirectory: true)
-    }
+    private let supportDirectory: URL
+    private let legacySupportDirectory: URL?
 
     private var capturesDirectory: URL {
         supportDirectory.appendingPathComponent("Captures", isDirectory: true)
@@ -32,7 +23,18 @@ final class CaptureStore {
         supportDirectory.appendingPathComponent("captures.json")
     }
 
-    init() {
+    init(applicationSupportDirectory: URL? = nil) {
+        if let applicationSupportDirectory {
+            supportDirectory = applicationSupportDirectory
+            legacySupportDirectory = nil
+        } else {
+            let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            supportDirectory = base.appendingPathComponent(AppIdentity.supportDirectoryName, isDirectory: true)
+            legacySupportDirectory = AppIdentity.legacySupportDirectoryName.map {
+                base.appendingPathComponent($0, isDirectory: true)
+            }
+        }
+
         encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -82,7 +84,7 @@ final class CaptureStore {
 
             if !staleItems.isEmpty {
                 try deleteCaptureRows(staleItems.map(\.id), in: database)
-                staleItems.forEach { removeFileIfPresent(at: $0.thumbnailPath) }
+                staleItems.forEach { try? removeCaptureFiles(for: $0) }
                 let staleCount = staleItems.count
                 Task { @MainActor in
                     DebugLogger.log("store.stale-captures.pruned", [
@@ -122,11 +124,9 @@ final class CaptureStore {
 
     func save(image: NSImage, context: ScreenshotContext) throws -> CaptureItem {
         let id = UUID()
-        let imageURL = capturesDirectory.appendingPathComponent("\(id.uuidString).png")
-        let thumbURL = capturesDirectory.appendingPathComponent("\(id.uuidString)-thumb.png")
-
-        try writePNG(image, to: imageURL)
-        try writePNG(image.thumbnail(maxDimension: 480), to: thumbURL)
+        let captureDirectoryURL = capturesDirectory.appendingPathComponent(id.uuidString, isDirectory: true)
+        let imageURL = captureDirectoryURL.appendingPathComponent("screenshot.png", isDirectory: false)
+        let thumbURL = captureDirectoryURL.appendingPathComponent("thumbnail.png", isDirectory: false)
 
         let item = CaptureItem(
             id: id,
@@ -136,12 +136,81 @@ final class CaptureStore {
             context: context
         )
 
-        try upsert(item: item)
-        return item
+        var didCreateCaptureDirectory = false
+        do {
+            try fileManager.createDirectory(
+                at: captureDirectoryURL,
+                withIntermediateDirectories: false
+            )
+            didCreateCaptureDirectory = true
+            try writePNG(image, to: imageURL)
+            try writePNG(image.thumbnail(maxDimension: 480), to: thumbURL)
+            try writeContext(for: item)
+            try upsert(item: item)
+            return item
+        } catch {
+            if didCreateCaptureDirectory {
+                try? fileManager.removeItem(at: captureDirectoryURL)
+            }
+            throw error
+        }
     }
 
-    func update(item: CaptureItem) {
-        try? upsert(item: item)
+    func update(item: CaptureItem) throws {
+        guard let contextFileURL = item.contextFileURL else {
+            try upsert(item: item)
+            return
+        }
+
+        let previousContextData: Data?
+        if fileManager.fileExists(atPath: contextFileURL.path) {
+            do {
+                previousContextData = try Data(contentsOf: contextFileURL)
+            } catch {
+                throw StoreError.contextRead(
+                    path: contextFileURL.path,
+                    message: error.localizedDescription
+                )
+            }
+        } else {
+            previousContextData = nil
+        }
+
+        try writeContext(for: item)
+        do {
+            try upsert(item: item)
+        } catch {
+            let updateError = error
+            do {
+                if let previousContextData {
+                    try previousContextData.write(to: contextFileURL, options: .atomic)
+                } else if fileManager.fileExists(atPath: contextFileURL.path) {
+                    try fileManager.removeItem(at: contextFileURL)
+                }
+            } catch {
+                throw StoreError.contextRollback(
+                    path: contextFileURL.path,
+                    updateMessage: updateError.localizedDescription,
+                    rollbackMessage: error.localizedDescription
+                )
+            }
+            throw updateError
+        }
+    }
+
+    @discardableResult
+    func recoverInterruptedTranscriptions() throws -> Int {
+        let interruptedItems = loadItems().filter {
+            $0.context.dictation?.status == .transcribing
+        }
+
+        for var item in interruptedItems {
+            item.context.dictation?.status = .failed
+            item.context.dictation?.errorDetails = Self.interruptedTranscriptionError
+            try update(item: item)
+        }
+
+        return interruptedItems.count
     }
 
     func delete(item: CaptureItem) throws {
@@ -161,8 +230,14 @@ final class CaptureStore {
             }
         }
 
-        removeFileIfPresent(at: item.imagePath)
-        removeFileIfPresent(at: item.thumbnailPath)
+        do {
+            try removeCaptureFiles(for: item)
+        } catch {
+            // Keep the index and files consistent when filesystem deletion fails.
+            // The database row is restored before the original error is surfaced.
+            try? upsert(item: item)
+            throw error
+        }
     }
 
     func save(text: String) throws -> TextClipItem {
@@ -440,20 +515,52 @@ final class CaptureStore {
         try data.write(to: url, options: .atomic)
     }
 
-    private func removeFileIfPresent(at path: String) {
-        guard fileManager.fileExists(atPath: path) else { return }
-        try? fileManager.removeItem(atPath: path)
+    private func writeContext(for item: CaptureItem) throws {
+        guard let contextFileURL = item.contextFileURL else { return }
+
+        do {
+            try Data(CaptureContextMarkdown.render(item: item).utf8)
+                .write(to: contextFileURL, options: .atomic)
+        } catch {
+            throw StoreError.contextWrite(
+                path: contextFileURL.path,
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func removeCaptureFiles(for item: CaptureItem) throws {
+        if let captureDirectoryURL = item.captureDirectoryURL {
+            if fileManager.fileExists(atPath: captureDirectoryURL.path) {
+                try fileManager.removeItem(at: captureDirectoryURL)
+            }
+            return
+        }
+
+        for path in Set([item.imagePath, item.thumbnailPath])
+        where fileManager.fileExists(atPath: path) {
+            try fileManager.removeItem(atPath: path)
+        }
     }
 }
 
 private enum StoreError: LocalizedError {
     case encodingFailed
+    case contextRead(path: String, message: String)
+    case contextWrite(path: String, message: String)
+    case contextRollback(path: String, updateMessage: String, rollbackMessage: String)
     case sqlite(message: String)
 
     var errorDescription: String? {
         switch self {
         case .encodingFailed:
             "Unable to encode screenshot details."
+        case let .contextRead(path, message):
+            "Unable to read the existing context file at \(path) before updating it: \(message)"
+        case let .contextWrite(path, message):
+            "Unable to write context file at \(path): \(message)"
+        case let .contextRollback(path, updateMessage, rollbackMessage):
+            "Context update failed (\(updateMessage)), and Assist could not restore \(path): \(rollbackMessage)"
         case let .sqlite(message):
             "Database error: \(message)"
         }

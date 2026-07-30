@@ -9,13 +9,18 @@ protocol ClipboardTextMonitorDelegate: AnyObject {
 final class ClipboardTextMonitor {
     weak var delegate: ClipboardTextMonitorDelegate?
 
-    private let pasteboard = NSPasteboard.general
+    private let pasteboard: NSPasteboard
     private var timer: Timer?
-    private var lastChangeCount = NSPasteboard.general.changeCount
+    private var lastChangeCount: Int
     private var lastSeenText: String?
     private var lastDeliveredText: String?
     private var lastDeliveredAt: Date?
     private var shouldIgnoreNextTextChange = false
+
+    init(pasteboard: NSPasteboard = .general) {
+        self.pasteboard = pasteboard
+        lastChangeCount = pasteboard.changeCount
+    }
 
     func start() {
         lastChangeCount = pasteboard.changeCount
@@ -42,7 +47,7 @@ final class ClipboardTextMonitor {
         shouldIgnoreNextTextChange = true
     }
 
-    private func pollPasteboard() {
+    func pollPasteboard() {
         let changeCount = pasteboard.changeCount
         guard changeCount != lastChangeCount else { return }
         lastChangeCount = changeCount

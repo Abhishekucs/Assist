@@ -27,7 +27,7 @@ export default function PrivacyPage() {
     <LegalDocument
       title="Privacy Policy"
       description={description}
-      lastUpdated="July 24, 2026"
+      lastUpdated="July 25, 2026"
       sections={sections}
     >
       <section id="overview">
@@ -73,8 +73,19 @@ export default function PrivacyPage() {
             <tbody>
               <tr>
                 <td>Captured content</td>
-                <td>Screenshots, annotations, thumbnails, copied text, and capture metadata</td>
+                <td>
+                  Screenshots, annotations, thumbnails, copied text, optional local voice
+                  transcripts, and capture metadata
+                </td>
                 <td>Stored locally in your Mac&apos;s Assist application-support folder</td>
+              </tr>
+              <tr>
+                <td>Temporary voice audio</td>
+                <td>Up to 90 seconds of speech recorded during an enabled annotation</td>
+                <td>
+                  Held only in memory until local transcription completes or Assist closes; never
+                  saved to disk or uploaded by Assist
+                </td>
               </tr>
               <tr>
                 <td>Coding-agent context</td>
@@ -148,6 +159,12 @@ export default function PrivacyPage() {
             keyboard gestures.
           </li>
           <li>
+            <strong>Microphone</strong>{" "}to record speech only while you hold Option during an
+            annotation when voice context is enabled. Recording stops after 90 seconds. Raw audio
+            stays only in memory until its queued local transcription completes or Assist closes;
+            it is never saved to disk or uploaded by Assist.
+          </li>
+          <li>
             <strong>Clipboard access</strong>{" "}to keep recent copied text available for reuse.
           </li>
           <li>
@@ -156,7 +173,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Network access</strong>{" "}to validate a license, check or download updates from
-            GitHub, and open the purchase or support experience.
+            GitHub, download the optional pinned Whisper model from Hugging Face during explicit
+            setup, and open the purchase or support experience.
           </li>
         </ul>
         <p>

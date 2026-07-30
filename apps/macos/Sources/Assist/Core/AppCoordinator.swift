@@ -8,6 +8,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private let captureService: CaptureService
     private let store: CaptureStore
     private let pillViewModel: PillViewModel
+    private let voiceContextService: VoiceContextService
     private let monitor = ControlGestureMonitor()
     private let clipboardMonitor = ClipboardTextMonitor()
     private let codingAgentBridge = CodingAgentBridgeService()
@@ -18,6 +19,9 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private var activeStroke: Stroke?
     private var isCapturing = false
     private var annotationSessionID: UUID?
+    private var annotationVoiceError: String?
+    private var annotationVoiceWasRequested = false
+    private var transcriptionQueue: Task<Void, Never>?
     private var debugOverlayWorkItems: [DispatchWorkItem] = []
     private var codingAgentIntegrationSettingsCancellable: AnyCancellable?
     private var isCodingAgentBridgeRunning = false
@@ -27,12 +31,14 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         windowManager: WindowManager,
         captureService: CaptureService,
         store: CaptureStore,
-        pillViewModel: PillViewModel
+        pillViewModel: PillViewModel,
+        voiceContextService: VoiceContextService
     ) {
         self.windowManager = windowManager
         self.captureService = captureService
         self.store = store
         self.pillViewModel = pillViewModel
+        self.voiceContextService = voiceContextService
     }
 
     func start() {
@@ -114,6 +120,18 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 }
             }
 
+        do {
+            let recoveredCount = try store.recoverInterruptedTranscriptions()
+            if recoveredCount > 0 {
+                DebugLogger.log("voice.transcription.interrupted-recovered", [
+                    "count": "\(recoveredCount)"
+                ])
+            }
+        } catch {
+            pillViewModel.diagnosticMessage = error.localizedDescription
+            DebugLogger.log("voice.transcription.interrupted-recovery.error", errorFields(error))
+        }
+
         syncHistoryFromStore()
         pillViewModel.clearCaptureIssue()
         pillViewModel.startUsageLimitUpdates()
@@ -132,6 +150,11 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     func stop() {
         DebugLogger.log("app.stop")
+        if let annotationSessionID {
+            voiceContextService.cancelRecording(sessionID: annotationSessionID)
+        }
+        transcriptionQueue?.cancel()
+        transcriptionQueue = nil
         monitor.stop()
         clipboardMonitor.stop()
         pillViewModel.stopUsageLimitUpdates()
@@ -432,9 +455,21 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
         let sessionID = UUID()
         annotationSessionID = sessionID
+        annotationVoiceError = nil
+        annotationVoiceWasRequested = pillViewModel.settings.voiceContextEnabled
         isCapturing = true
         pillViewModel.isBusy = true
         pillViewModel.statusText = "Annotating..."
+
+        if annotationVoiceWasRequested {
+            do {
+                try voiceContextService.startRecording(sessionID: sessionID)
+                pillViewModel.statusText = "Listening…"
+            } catch {
+                annotationVoiceError = error.localizedDescription
+                DebugLogger.log("voice.recording.start.error", errorFields(error))
+            }
+        }
 
         let startPoint = screen.localTopLeftPoint(forGlobalPoint: globalPoint)
         let stroke = Stroke(points: [startPoint], colorHex: "#FF3B30", width: 5)
@@ -475,9 +510,17 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             DebugLogger.log("annotation.end.no-active-stroke", [
                 "point": DebugLogger.describe(globalPoint)
             ])
+            if let annotationSessionID {
+                voiceContextService.cancelRecording(sessionID: annotationSessionID)
+            }
             resetCaptureState(reason: "annotation.no-active-stroke")
             return
         }
+
+        let sessionID = annotationSessionID
+        let recording = sessionID.flatMap { voiceContextService.stopRecording(sessionID: $0) }
+        let voiceError = annotationVoiceError
+        let voiceContextWasEnabled = annotationVoiceWasRequested
 
         let point = screen.localTopLeftPoint(forGlobalPoint: globalPoint)
         if stroke.points.last != point {
@@ -497,7 +540,6 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             "screenFrame": DebugLogger.describe(screen.frame)
         ])
 
-        let sessionID = annotationSessionID
         let sessionLogID = sessionID?.uuidString ?? "unknown"
         Task {
             do {
@@ -522,7 +564,18 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                     "session": sessionLogID,
                     "imageSize": "\(Int(finalImage.size.width))x\(Int(finalImage.size.height))"
                 ])
-                saveCapture(image: finalImage, statusText: "Saving capture...")
+                let context = self.initialContextForAnnotatedCapture(
+                    recording: recording,
+                    voiceError: voiceError,
+                    voiceContextWasEnabled: voiceContextWasEnabled
+                )
+                if let item = saveCapture(
+                    image: finalImage,
+                    statusText: "Saving capture...",
+                    context: context
+                ), let recording {
+                    enqueueTranscription(recording, for: item)
+                }
                 windowManager.restorePillToFront(reason: "annotation.finished")
                 resetCaptureState(reason: "annotation.finished")
             } catch {
@@ -564,7 +617,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             do {
                 let captured = try await captureService.capture(screen: screen)
                 let image = captureService.image(from: captured)
-                saveCapture(image: image, statusText: "Saving screenshot...")
+                saveCapture(image: image, statusText: "Saving screenshot...", context: .saved)
             } catch {
                 DebugLogger.log("clean-screenshot.capture.error", errorFields(error))
                 handleCaptureError(error)
@@ -572,7 +625,12 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
     }
 
-    private func saveCapture(image: NSImage, statusText: String) {
+    @discardableResult
+    private func saveCapture(
+        image: NSImage,
+        statusText: String,
+        context: ScreenshotContext
+    ) -> CaptureItem? {
         pillViewModel.statusText = statusText
         pillViewModel.isBusy = true
         DebugLogger.log("capture.save.start", [
@@ -582,7 +640,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
         do {
             pillViewModel.clearCaptureIssue()
-            let item = try store.save(image: image, context: .saved)
+            let item = try store.save(image: image, context: context)
             insertOrUpdate(item)
             pillViewModel.diagnosticMessage = "Saved \(URL(fileURLWithPath: item.imagePath).lastPathComponent)"
             DebugLogger.log("capture.save.success", [
@@ -593,16 +651,133 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 "id": item.id.uuidString,
                 "imagePath": item.imagePath
             ])
-            pillViewModel.statusText = "Ready"
-            pillViewModel.isBusy = false
+            if let dictation = context.dictation {
+                switch dictation.status {
+                case .transcribing:
+                    pillViewModel.statusText = "Transcribing…"
+                    pillViewModel.isBusy = true
+                case .failed:
+                    pillViewModel.statusText = dictation.errorDetails ?? "Transcription failed"
+                    pillViewModel.isBusy = false
+                case .ready, .noSpeech:
+                    pillViewModel.statusText = "Ready"
+                    pillViewModel.isBusy = false
+                }
+            } else {
+                pillViewModel.statusText = "Ready"
+                pillViewModel.isBusy = false
+            }
             pillViewModel.showCopyFeedback(badge: "Saved", preview: "Screenshot")
+            return item
         } catch {
             DebugLogger.log("capture.save.failure", errorFields(error))
             DebugLogger.log("capture.save.error", errorFields(error))
             pillViewModel.statusText = error.localizedDescription
             pillViewModel.isBusy = false
             pillViewModel.showCaptureIssue(.captureFailed(detail: error.localizedDescription))
+            return nil
         }
+    }
+
+    private func initialContextForAnnotatedCapture(
+        recording: VoiceRecording?,
+        voiceError: String?,
+        voiceContextWasEnabled: Bool
+    ) -> ScreenshotContext {
+        var context = ScreenshotContext.saved
+        guard voiceContextWasEnabled else { return context }
+
+        if let voiceError {
+            context.dictation = dictationContext(status: .failed, errorDetails: voiceError)
+        } else if recording != nil {
+            context.dictation = dictationContext(status: .transcribing)
+        } else {
+            context.dictation = dictationContext(
+                status: .failed,
+                errorDetails: "No microphone recording was attached to this annotation."
+            )
+        }
+        return context
+    }
+
+    private func enqueueTranscription(_ recording: VoiceRecording, for item: CaptureItem) {
+        let previousTask = transcriptionQueue
+        transcriptionQueue = Task { [weak self] in
+            _ = await previousTask?.result
+            guard let self, !Task.isCancelled else { return }
+
+            var updatedItem = item
+            do {
+                if let transcript = try await voiceContextService.transcribe(recording) {
+                    updatedItem.context.dictation = dictationContext(
+                        status: .ready,
+                        transcript: transcript.text,
+                        language: transcript.language
+                    )
+                } else {
+                    updatedItem.context.dictation = dictationContext(status: .noSpeech)
+                }
+            } catch {
+                updatedItem.context.dictation = dictationContext(
+                    status: .failed,
+                    errorDetails: error.localizedDescription
+                )
+                DebugLogger.log("voice.transcription.error", errorFields(error).merging([
+                    "captureID": item.id.uuidString,
+                    "session": recording.sessionID.uuidString
+                ]) { current, _ in current })
+            }
+
+            guard pillViewModel.items.contains(where: { $0.id == updatedItem.id }) else {
+                return
+            }
+            do {
+                try store.update(item: updatedItem)
+            } catch {
+                DebugLogger.log("capture.context.update.error", errorFields(error).merging([
+                    "captureID": item.id.uuidString
+                ]) { current, _ in current })
+                pillViewModel.diagnosticMessage = error.localizedDescription
+                guard !isCapturing,
+                      pillViewModel.items.first?.id == updatedItem.id else { return }
+                pillViewModel.isBusy = false
+                pillViewModel.statusText = "Context save failed"
+                return
+            }
+            pillViewModel.updateScreenshot(updatedItem)
+
+            guard !isCapturing,
+                  pillViewModel.items.first?.id == updatedItem.id,
+                  let dictation = updatedItem.context.dictation else { return }
+            pillViewModel.isBusy = false
+            switch dictation.status {
+            case .ready:
+                pillViewModel.statusText = "Ready"
+            case .noSpeech:
+                pillViewModel.statusText = "No speech detected"
+                pillViewModel.diagnosticMessage = "Screenshot saved. No speech was detected in the microphone recording."
+            case .failed:
+                pillViewModel.statusText = dictation.errorDetails ?? "Transcription failed"
+            case .transcribing:
+                pillViewModel.statusText = "Transcribing…"
+            }
+        }
+    }
+
+    private func dictationContext(
+        status: DictationStatus,
+        transcript: String = "",
+        language: String = "en",
+        errorDetails: String? = nil
+    ) -> DictationContext {
+        DictationContext(
+            status: status,
+            transcript: transcript,
+            language: language,
+            modelIdentifier: VoiceContextService.modelIdentifier,
+            modelRevision: VoiceContextService.modelRevision,
+            errorDetails: errorDetails
+        )
     }
 
     private func handleCaptureError(_ error: Error) {
@@ -659,12 +834,18 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             return
         }
 
-        let start = screen.localTopLeftPoint(forGlobalPoint: point)
+        let pointer = screen.localTopLeftPoint(forGlobalPoint: point)
+        let radius: CGFloat = 58
+        let center = CGPoint(
+            x: min(max(pointer.x, radius + 20), screen.frame.width - radius - 20),
+            y: min(max(pointer.y, radius + 20), screen.frame.height - radius - 20)
+        )
+        let start = CGPoint(x: center.x + radius, y: center.y)
         var stroke = Stroke(points: [start], colorHex: "#FF3B30", width: 6)
 
         pillViewModel.statusText = "Overlay test"
         pillViewModel.isBusy = true
-        pillViewModel.diagnosticMessage = "Showing overlay test path..."
+        pillViewModel.diagnosticMessage = "Showing the two-second fluid trail..."
         DebugLogger.log("debug.overlay-test.start", [
             "point": DebugLogger.describe(point),
             "localPoint": DebugLogger.describe(start),
@@ -673,12 +854,14 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
         windowManager.showOverlay(on: screen, stroke: stroke)
 
-        for index in 1...24 {
+        let pointCount = 144
+        for index in 1...pointCount {
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self else { return }
+                let angle = CGFloat(index) / CGFloat(pointCount) * .pi * 6
                 let nextPoint = CGPoint(
-                    x: start.x + CGFloat(index * 12),
-                    y: start.y + sin(CGFloat(index) * 0.45) * 38
+                    x: center.x + cos(angle) * radius,
+                    y: center.y + sin(angle) * radius
                 )
                 stroke.points.append(nextPoint)
                 self.windowManager.updateOverlay(stroke: stroke)
@@ -692,12 +875,12 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             self.windowManager.hideOverlay()
             self.pillViewModel.statusText = "Ready"
             self.pillViewModel.isBusy = false
-            self.pillViewModel.diagnosticMessage = "Overlay test completed. Check if red path appeared."
+            self.pillViewModel.diagnosticMessage = "Overlay test completed. The live circle should fade while the saved annotation remains complete."
             DebugLogger.log("debug.overlay-test.end", ["points": "\(stroke.points.count)"])
             self.debugOverlayWorkItems.removeAll()
         }
         debugOverlayWorkItems.append(hideWorkItem)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.15, execute: hideWorkItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.8, execute: hideWorkItem)
     }
 
     private func cancelDebugOverlayTest() {
@@ -741,10 +924,15 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             "hadActiveStroke": "\(activeStroke != nil)",
             "session": annotationSessionID?.uuidString ?? "none"
         ])
+        if let annotationSessionID {
+            voiceContextService.cancelRecording(sessionID: annotationSessionID)
+        }
         isCapturing = false
         activeScreen = nil
         activeStroke = nil
         annotationSessionID = nil
+        annotationVoiceError = nil
+        annotationVoiceWasRequested = false
     }
 }
 

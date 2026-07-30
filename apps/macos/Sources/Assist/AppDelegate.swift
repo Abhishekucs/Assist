@@ -40,6 +40,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator?.stop()
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        pillViewModel?.applicationDidBecomeActive()
+    }
+
     private func validateLicenseAndStart() async {
         DebugLogger.log("license.validation.start")
 
@@ -98,14 +102,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let store = CaptureStore()
         let settings = PillSettings()
-        let pillViewModel = PillViewModel(settings: settings)
+        let voiceContextService = VoiceContextService()
+        let pillViewModel = PillViewModel(
+            settings: settings,
+            voiceContextService: voiceContextService
+        )
         let windowManager = WindowManager(pillViewModel: pillViewModel, settings: settings)
         let controlPanelController = ControlPanelWindowController(settings: settings, pillViewModel: pillViewModel)
         let coordinator = AppCoordinator(
             windowManager: windowManager,
             captureService: CaptureService(),
             store: store,
-            pillViewModel: pillViewModel
+            pillViewModel: pillViewModel,
+            voiceContextService: voiceContextService
         )
 
         pillViewModel.onOpenControls = { [weak controlPanelController] in

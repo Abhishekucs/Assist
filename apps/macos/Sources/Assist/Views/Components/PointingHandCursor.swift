@@ -2,12 +2,13 @@ import AppKit
 import SwiftUI
 
 private struct PointingHandCursorModifier: ViewModifier {
+    let isEnabled: Bool
     @State private var isCursorPushed = false
 
     func body(content: Content) -> some View {
         content
             .onHover { isHovering in
-                if isHovering {
+                if isHovering && isEnabled {
                     guard !isCursorPushed else { return }
                     NSCursor.pointingHand.push()
                     isCursorPushed = true
@@ -25,7 +26,7 @@ private struct PointingHandCursorModifier: ViewModifier {
 }
 
 extension View {
-    func pointingHandCursor() -> some View {
-        modifier(PointingHandCursorModifier())
+    func pointingHandCursor(isEnabled: Bool = true) -> some View {
+        modifier(PointingHandCursorModifier(isEnabled: isEnabled))
     }
 }
