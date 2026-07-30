@@ -1,7 +1,7 @@
 @preconcurrency import AVFoundation
 import Combine
 import Foundation
-import WhisperKit
+@preconcurrency import WhisperKit
 
 enum VoiceModelState: Equatable {
     case unsupported
