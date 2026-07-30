@@ -131,6 +131,13 @@ enum VoiceContextError: LocalizedError {
             "Local transcription failed: \(detail)"
         }
     }
+
+    static func transcriptionError(from error: Error) -> VoiceContextError {
+        if let voiceContextError = error as? VoiceContextError {
+            return voiceContextError
+        }
+        return .transcriptionFailed(error.localizedDescription)
+    }
 }
 
 @MainActor
@@ -505,7 +512,7 @@ final class VoiceContextService: ObservableObject {
         } catch let error as VoiceContextError {
             throw error
         } catch {
-            throw VoiceContextError.transcriptionFailed(error.localizedDescription)
+            throw VoiceContextError.transcriptionError(from: error)
         }
     }
 
@@ -704,7 +711,7 @@ private actor WhisperTranscriber {
             }
             return LocalTranscript(text: text, language: results.first?.language ?? "en")
         } catch {
-            throw VoiceContextError.transcriptionFailed(error.localizedDescription)
+            throw VoiceContextError.transcriptionError(from: error)
         }
     }
 

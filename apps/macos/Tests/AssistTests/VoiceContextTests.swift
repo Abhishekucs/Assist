@@ -24,6 +24,19 @@ final class VoiceContextTests: XCTestCase {
         XCTAssertEqual(context.summary, "Screenshot saved.")
     }
 
+    func testExistingTranscriptionErrorIsNotWrappedTwice() {
+        let original = VoiceContextError.transcriptionFailed(
+            "Whisper returned an empty transcript for audio that contained speech."
+        )
+
+        let normalized = VoiceContextError.transcriptionError(from: original)
+
+        XCTAssertEqual(
+            normalized.localizedDescription,
+            "Local transcription failed: Whisper returned an empty transcript for audio that contained speech."
+        )
+    }
+
     @MainActor
     func testRecordingCannotAttachToAnotherAnnotationSession() throws {
         let recorder = VoiceAudioRecorderSpy()
