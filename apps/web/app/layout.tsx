@@ -11,10 +11,10 @@ const inter = Inter({
 });
 
 const siteUrl = "https://assistapp.dev";
-const siteTitle = "Assist — Coding Agents, Screenshots & Annotation for Mac";
-const socialImageUrl = `${siteUrl}/assist-social-preview.png`;
+const siteTitle = "Assist for Mac — Voice Annotation, Screenshots & Coding Agents";
+const socialImageUrl = `${siteUrl}/assist-social-preview-v2.png`;
 const siteDescription =
-  "Assist is a Dynamic Island for Codex and Claude Code on macOS. Monitor tasks, approve requests, answer agent questions, and reuse screenshots and copied text from the notch.";
+  "Annotate your Mac screen with voice, capture full-screen screenshots, and monitor Claude Code and Codex tasks, approvals, questions, and usage from the notch.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -23,6 +23,18 @@ export const metadata: Metadata = {
     template: "%s — Assist"
   },
   description: siteDescription,
+  applicationName: "Assist",
+  category: "Productivity",
+  keywords: [
+    "Mac screenshot app",
+    "screen annotation Mac",
+    "voice annotation",
+    "Claude Code monitor",
+    "Codex monitor",
+    "coding agent manager",
+    "macOS productivity app",
+    "Mac notch app"
+  ],
   alternates: {
     canonical: "/"
   },
@@ -42,7 +54,7 @@ export const metadata: Metadata = {
         url: socialImageUrl,
         width: 1200,
         height: 630,
-        alt: "Assist for Mac monitoring coding agents from the notch"
+        alt: "Assist for Mac with voice annotation, screenshots, and Claude Code and Codex monitoring"
       }
     ]
   },
@@ -53,7 +65,7 @@ export const metadata: Metadata = {
     images: [
       {
         url: socialImageUrl,
-        alt: "Assist for Mac monitoring coding agents from the notch"
+        alt: "Assist for Mac with voice annotation, screenshots, and Claude Code and Codex monitoring"
       }
     ]
   }

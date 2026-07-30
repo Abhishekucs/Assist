@@ -382,6 +382,13 @@ p {
   gap: 10px;
 }
 
+.hero-platform-note {
+  margin: 14px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .hero-download-button {
   display: inline-flex;
   align-items: center;
@@ -405,34 +412,6 @@ p {
     background 160ms ease;
 }
 
-.hero-price-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 50px;
-  min-width: 142px;
-  padding: 0 18px;
-  color: #ffffff;
-  background: rgba(5, 5, 5, 0.48);
-  border: 0;
-  border-radius: 15px;
-  box-shadow: 0 22px 60px rgba(3, 20, 70, 0.2);
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
-  transition:
-    transform 160ms ease,
-    background 160ms ease;
-}
-
-.hero-price-button span {
-  display: block;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-
 .hero-download-button:hover {
   background: #111111;
   box-shadow:
@@ -441,13 +420,7 @@ p {
   transform: translateY(-1px);
 }
 
-.hero-price-button:hover {
-  background: rgba(5, 5, 5, 0.66);
-  transform: translateY(-1px);
-}
-
-.hero-download-button:focus-visible,
-.hero-price-button:focus-visible {
+.hero-download-button:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.9);
   outline-offset: 4px;
 }
@@ -499,7 +472,7 @@ p {
 
 .trusted-by {
   width: min(1060px, 100%);
-  margin-bottom: 52px;
+  margin-bottom: 72px;
 }
 
 .trusted-by > p {
@@ -542,6 +515,32 @@ p {
   letter-spacing: -0.025em;
 }
 
+.capability-intro {
+  width: min(760px, 100%);
+  margin: 0 auto 36px;
+}
+
+.capability-intro h2,
+.feature-showcase-intro h2 {
+  margin: 0;
+  color: #050505;
+  font-size: clamp(38px, 5vw, 62px);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.capability-intro > p:last-child,
+.feature-showcase-intro > p:last-child {
+  max-width: 680px;
+  margin: 20px auto 0;
+  color: rgba(0, 0, 0, 0.56);
+  font-size: 17px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
 .capability-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -580,9 +579,15 @@ p {
   display: flex;
   flex-direction: column;
   gap: 64px;
-  padding: 112px 24px 120px;
+  padding: 112px 24px 72px;
   color: #050505;
   background: #ffffff;
+}
+
+.feature-showcase-intro {
+  width: min(800px, 100%);
+  margin: 0 auto 4px;
+  text-align: center;
 }
 
 .feature-panel {
@@ -591,12 +596,12 @@ p {
   margin: 0 auto;
   overflow: hidden;
   background: #f5f5f5;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: 28px;
+  border: 0;
+  border-radius: 12px;
 }
 
 .feature-panel-wide {
-  padding: 44px 40px 0;
+  padding: 48px 40px 0;
 }
 
 .feature-grid {
@@ -617,7 +622,7 @@ p {
 .feature-copy-block {
   position: relative;
   z-index: 2;
-  max-width: 760px;
+  max-width: 880px;
   margin: 0 auto;
   text-align: center;
 }
@@ -650,7 +655,7 @@ p {
   line-height: 0.96;
 }
 
-.feature-copy-block p:last-child {
+.feature-description {
   max-width: 720px;
   margin: 20px auto 0;
   color: rgba(0, 0, 0, 0.56);
@@ -659,10 +664,46 @@ p {
   text-wrap: pretty;
 }
 
-.feature-grid .feature-copy-block p:last-child {
+.feature-grid .feature-description {
   max-width: 720px;
   font-size: 17px;
   line-height: 1.48;
+}
+
+.feature-detail-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 30px 0 0;
+  list-style: none;
+  text-align: left;
+}
+
+.feature-detail-list li {
+  padding: 18px;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+.feature-detail-list strong,
+.feature-detail-list span {
+  display: block;
+}
+
+.feature-detail-list strong {
+  color: #050505;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.feature-detail-list span {
+  margin-top: 7px;
+  color: rgba(0, 0, 0, 0.52);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .feature-visual {
@@ -1071,6 +1112,10 @@ p {
   object-fit: cover;
 }
 
+.agent-feature-video .feature-video {
+  object-position: center top;
+}
+
 .pricing-section,
 .faq-section {
   position: relative;
@@ -1177,6 +1222,9 @@ p {
 }
 
 .pricing-price {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
   margin-top: 18px;
   color: #050505;
   line-height: 1;
@@ -1186,6 +1234,14 @@ p {
   font-size: 52px;
   font-weight: 500;
   letter-spacing: -0.055em;
+}
+
+.pricing-price del {
+  color: rgba(0, 0, 0, 0.38);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  text-decoration-thickness: 1.5px;
 }
 
 .pricing-license-note {
@@ -1930,10 +1986,6 @@ p {
     padding-top: 84px;
   }
 
-  .capability-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .trusted-companies {
     flex-wrap: wrap;
     gap: 20px 26px;
@@ -1941,12 +1993,12 @@ p {
 
   .feature-showcase {
     gap: 52px;
-    padding: 92px 18px 96px;
+    padding: 92px 18px 72px;
   }
 
   .feature-panel,
   .feature-panel-wide {
-    border-radius: 24px;
+    border-radius: 12px;
   }
 
   .feature-panel-wide {
@@ -2164,15 +2216,6 @@ p {
     font-size: 14px;
   }
 
-  .hero-price-button {
-    min-width: 128px;
-    padding: 0 12px;
-  }
-
-  .hero-price-button span {
-    font-size: 12px;
-  }
-
   .hero-video-frame {
     margin-top: 46px;
     padding: 5px;
@@ -2216,17 +2259,33 @@ p {
     padding: 22px;
   }
 
+  .capability-intro {
+    margin-bottom: 30px;
+  }
+
+  .capability-intro h2,
+  .feature-showcase-intro h2 {
+    font-size: clamp(36px, 11vw, 48px);
+    line-height: 1;
+  }
+
+  .capability-intro > p:last-child,
+  .feature-showcase-intro > p:last-child {
+    margin-top: 16px;
+    font-size: 15px;
+  }
+
   .capability-section + .pricing-section {
     padding-top: 72px;
   }
 
   .feature-showcase {
     gap: 36px;
-    padding: 76px 14px;
+    padding: 76px 14px 54px;
   }
 
   .feature-panel {
-    border-radius: 20px;
+    border-radius: 10px;
   }
 
   .feature-panel-wide,
@@ -2241,9 +2300,19 @@ p {
     line-height: 1;
   }
 
-  .feature-copy-block p:last-child,
-  .feature-grid .feature-copy-block p:last-child {
+  .feature-description,
+  .feature-grid .feature-description {
     font-size: 15px;
+  }
+
+  .feature-detail-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 24px;
+  }
+
+  .feature-detail-list li {
+    padding: 16px;
   }
 
   .feature-visual {
