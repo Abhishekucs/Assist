@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 const siteUrl = "https://assistapp.dev";
-const socialImageUrl = `${siteUrl}/assist-social-preview.png`;
+const socialImageUrl = `${siteUrl}/assist-social-preview-v2.png`;
 
 export function createLegalMetadata(
   title: string,

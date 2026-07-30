@@ -79,7 +79,7 @@ const structuredData = {
       description:
         "Assist is a native Mac app for voice-powered screen annotation, full-screen screenshots, and live Claude Code and Codex task monitoring from the notch.",
       url: siteUrl,
-      image: `${siteUrl}/assist-social-preview.png`,
+      image: `${siteUrl}/assist-social-preview-v2.png`,
       softwareRequirements:
         "macOS 14 or later; Apple silicon is required for local voice transcription",
       offers: {

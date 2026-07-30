@@ -12,7 +12,7 @@ const inter = Inter({
 
 const siteUrl = "https://assistapp.dev";
 const siteTitle = "Assist for Mac — Voice Annotation, Screenshots & Coding Agents";
-const socialImageUrl = `${siteUrl}/assist-social-preview.png`;
+const socialImageUrl = `${siteUrl}/assist-social-preview-v2.png`;
 const siteDescription =
   "Annotate your Mac screen with voice, capture full-screen screenshots, and monitor Claude Code and Codex tasks, approvals, questions, and usage from the notch.";
 
