@@ -305,6 +305,7 @@ final class VoiceContextService: ObservableObject {
     private let manifestURL: URL
     private let transcriber = WhisperTranscriber()
     private let audioRecorder: any VoiceAudioRecording
+    private var activeModelInstallationID: UUID?
     private var activeRecordingSessionID: UUID?
     private var recordedSampleCount = 0
     private var didReachRecordingLimit = false
@@ -509,6 +510,9 @@ final class VoiceContextService: ObservableObject {
     }
 
     private func performModelInstallation() async -> Bool {
+        let installationID = UUID()
+        activeModelInstallationID = installationID
+
         do {
             try FileManager.default.createDirectory(
                 at: modelsDirectory,
@@ -522,10 +526,17 @@ final class VoiceContextService: ObservableObject {
                 revision: Self.modelRevision
             ) { [weak self] fractionCompleted in
                 Task { @MainActor [weak self] in
-                    self?.modelState = .downloading(fractionCompleted)
+                    guard let self,
+                          Self.shouldAcceptModelDownloadProgress(
+                              activeInstallationID: self.activeModelInstallationID,
+                              callbackInstallationID: installationID,
+                              modelState: self.modelState
+                          ) else { return }
+                    self.modelState = .downloading(fractionCompleted)
                 }
             }
 
+            activeModelInstallationID = nil
             modelState = .preparing
             try await transcriber.prepareModel(at: modelFolder)
             try Self.writeManifest(
@@ -539,11 +550,26 @@ final class VoiceContextService: ObservableObject {
             modelState = .ready
             return true
         } catch {
+            if activeModelInstallationID == installationID {
+                activeModelInstallationID = nil
+            }
             let detail = error.localizedDescription
             modelState = .failed(detail)
             DebugLogger.log("voice.model.setup.error", ["description": detail])
             return false
         }
+    }
+
+    static func shouldAcceptModelDownloadProgress(
+        activeInstallationID: UUID?,
+        callbackInstallationID: UUID,
+        modelState: VoiceModelState
+    ) -> Bool {
+        guard activeInstallationID == callbackInstallationID,
+              case .downloading = modelState else {
+            return false
+        }
+        return true
     }
 
     private func didReceiveAudio(_ sampleCount: Int, sessionID: UUID) {

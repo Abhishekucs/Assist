@@ -144,6 +144,41 @@ final class VoiceContextTests: XCTestCase {
         XCTAssertTrue(service.canRecord)
     }
 
+    @MainActor
+    func testModelProgressIsRejectedAfterInstallationLeavesDownloadingState() {
+        let installationID = UUID()
+
+        XCTAssertTrue(
+            VoiceContextService.shouldAcceptModelDownloadProgress(
+                activeInstallationID: installationID,
+                callbackInstallationID: installationID,
+                modelState: .downloading(0.5)
+            )
+        )
+
+        for terminalState in [
+            VoiceModelState.preparing,
+            .ready,
+            .failed("Download failed.")
+        ] {
+            XCTAssertFalse(
+                VoiceContextService.shouldAcceptModelDownloadProgress(
+                    activeInstallationID: nil,
+                    callbackInstallationID: installationID,
+                    modelState: terminalState
+                )
+            )
+        }
+
+        XCTAssertFalse(
+            VoiceContextService.shouldAcceptModelDownloadProgress(
+                activeInstallationID: UUID(),
+                callbackInstallationID: installationID,
+                modelState: .downloading(0)
+            )
+        )
+    }
+
     func testQuietSpeechLevelPassesEnergyVAD() {
         let quietSpeech = Array(repeating: Float(0.006), count: 4_800)
 
