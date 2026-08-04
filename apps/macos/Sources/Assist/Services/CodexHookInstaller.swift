@@ -17,6 +17,7 @@ enum CodexHookInstallerError: LocalizedError {
 
 struct CodexHookInstaller {
     private static let commandMarker = "--codex-hook"
+    private static let agentHookMarker = "--agent-hook=codex"
     private static let ownerMarkerPrefix = "--assist-hook-owner="
     private static let standardLegacyExecutablePaths = [
         "/Applications/Assist.app/Contents/MacOS/Assist",
@@ -91,7 +92,7 @@ struct CodexHookInstaller {
         var root = try loadRoot()
         var hooks = root["hooks"] as? [String: Any] ?? [:]
         let executablePath = executableURL.standardizedFileURL.path
-        let command = "\(Self.shellQuote(executablePath)) \(Self.commandMarker) \(ownerMarker)"
+        let command = "\(Self.shellQuote(executablePath)) \(Self.agentHookMarker) \(ownerMarker)"
 
         for event in Self.managedEvents {
             if let existing = hooks[event], !(existing is [[String: Any]]) {
@@ -246,13 +247,16 @@ struct CodexHookInstaller {
     }
 
     private func isOwnedAssistHandler(_ handler: [String: Any]) -> Bool {
-        guard let command = handler["command"] as? String else { return false }
+        guard let command = handler["command"] as? String,
+              command.contains(Self.commandMarker) || command.contains(Self.agentHookMarker) else {
+            return false
+        }
         return command.split(whereSeparator: \.isWhitespace).contains(Substring(ownerMarker))
     }
 
     private func isAnyOwnedAssistHandler(_ handler: [String: Any]) -> Bool {
         guard let command = handler["command"] as? String,
-              command.contains(Self.commandMarker) else {
+              command.contains(Self.commandMarker) || command.contains(Self.agentHookMarker) else {
             return false
         }
         return command.split(whereSeparator: \.isWhitespace).contains { argument in
@@ -266,7 +270,7 @@ struct CodexHookInstaller {
     ) -> Bool {
         guard let executablePath = executablePath ?? legacyExecutablePath,
               let command = handler["command"] as? String,
-              command.contains(Self.commandMarker),
+              (command.contains(Self.commandMarker) || command.contains(Self.agentHookMarker)),
               !command.contains(Self.ownerMarkerPrefix) else {
             return false
         }

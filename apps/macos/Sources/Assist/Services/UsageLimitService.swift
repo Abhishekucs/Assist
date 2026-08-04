@@ -1,68 +1,61 @@
 import Foundation
 
 enum UsageLimitService {
-    static func loadSnapshots(claudeCodeConfigDirectory: String = "") async -> [UsageLimitSnapshot] {
+    static func loadSnapshots(
+        registry: CodingAgentAdaptorRegistry,
+        claudeCodeConfigDirectory: String = ""
+    ) async -> [UsageLimitSnapshot] {
         await Task.detached(priority: .utility) {
-            [
-                ClaudeCodeUsageAdapter(
-                    claudeHome: CodingAgentConfiguration.claudeHome(
-                        configuredDirectory: claudeCodeConfigDirectory
-                    )
-                ).loadSnapshot(),
-                CodexUsageAdapter().loadSnapshot()
+            registry.adaptors.compactMap { adaptor -> UsageLimitSnapshot? in
+                if let claudeAdaptor = adaptor as? ClaudeCodeAdaptor {
+                    claudeAdaptor.updateConfigDirectory(claudeCodeConfigDirectory)
+                }
+                return adaptor.loadUsageSnapshot()
+            }
+        }.value
+    }
+
+    static func loadSnapshotsLegacy(
+        claudeCodeConfigDirectory: String = ""
+    ) async -> [UsageLimitSnapshot] {
+        await Task.detached(priority: .utility) {
+            let claudeHome = CodingAgentConfiguration.claudeHome(
+                configuredDirectory: claudeCodeConfigDirectory
+            )
+            let codexHome = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".codex", isDirectory: true)
+
+            return [
+                LocalRateLimitReader.loadSnapshot(
+                    provider: .claudeCode,
+                    source: .claudeStatusLine,
+                    roots: [
+                        claudeHome.appendingPathComponent("projects", isDirectory: true),
+                        claudeHome.appendingPathComponent("sessions", isDirectory: true),
+                        claudeHome.appendingPathComponent("tasks", isDirectory: true)
+                    ],
+                    maxFiles: 80
+                ),
+                LocalRateLimitReader.loadSnapshot(
+                    provider: .codex,
+                    source: .codexSessionLog,
+                    roots: [
+                        codexHome.appendingPathComponent("sessions", isDirectory: true),
+                        codexHome.appendingPathComponent("archived_sessions", isDirectory: true)
+                    ],
+                    maxFiles: 120
+                )
             ]
         }.value
     }
 }
 
-private struct ClaudeCodeUsageAdapter: Sendable {
-    let claudeHome: URL
-
-    func loadSnapshot() -> UsageLimitSnapshot {
-        return LocalRateLimitReader.loadSnapshot(
-            provider: .claudeCode,
-            source: .claudeStatusLine,
-            roots: [
-                claudeHome.appendingPathComponent("projects", isDirectory: true),
-                claudeHome.appendingPathComponent("sessions", isDirectory: true),
-                claudeHome.appendingPathComponent("tasks", isDirectory: true)
-            ],
-            maxFiles: 80
-        )
-    }
-}
-
-private struct CodexUsageAdapter: Sendable {
-    func loadSnapshot() -> UsageLimitSnapshot {
-        let codexHome = Self.codexHome()
-
-        return LocalRateLimitReader.loadSnapshot(
-            provider: .codex,
-            source: .codexSessionLog,
-            roots: [
-                codexHome.appendingPathComponent("sessions", isDirectory: true),
-                codexHome.appendingPathComponent("archived_sessions", isDirectory: true)
-            ],
-            maxFiles: 120
-        )
-    }
-
-    private static func codexHome() -> URL {
-        if let path = ProcessInfo.processInfo.environment["CODEX_HOME"],
-           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
-        }
-
-        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex", isDirectory: true)
-    }
-}
-
-private enum LocalRateLimitReader {
+enum LocalRateLimitReader {
     private static let acceptedExtensions = Set(["jsonl", "json"])
     private static let maxTailBytes = 512 * 1_024
 
     static func loadSnapshot(
-        provider: UsageLimitProvider,
+        provider: CodingAgentProvider,
         source: UsageLimitSource,
         roots: [URL],
         maxFiles: Int

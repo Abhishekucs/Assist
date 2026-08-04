@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct UsageProviderLogo: View {
-    let provider: UsageLimitProvider
+    let provider: CodingAgentProvider
     let size: CGFloat
 
     var body: some View {
@@ -24,14 +24,15 @@ struct UsageProviderLogo: View {
 
 @MainActor
 private enum UsageProviderLogoImageStore {
-    private static var cache: [UsageLimitProvider: NSImage] = [:]
+    private static var cache: [CodingAgentProvider: NSImage] = [:]
 
-    static func image(for provider: UsageLimitProvider) -> NSImage? {
+    static func image(for provider: CodingAgentProvider) -> NSImage? {
         if let cachedImage = cache[provider] {
             return cachedImage
         }
 
-        guard let url = logoURL(for: provider),
+        guard let logoResourceName = provider.logoResourceName,
+              let url = logoURL(for: logoResourceName),
               let image = NSImage(contentsOf: url) else {
             return nil
         }
@@ -41,9 +42,9 @@ private enum UsageProviderLogoImageStore {
         return image
     }
 
-    private static func logoURL(for provider: UsageLimitProvider) -> URL? {
+    private static func logoURL(for resourceName: String) -> URL? {
         if let url = Bundle.main.url(
-            forResource: provider.logoResourceName,
+            forResource: resourceName,
             withExtension: "svg",
             subdirectory: "Brand"
         ) {
@@ -51,7 +52,7 @@ private enum UsageProviderLogoImageStore {
         }
 
         if let url = Bundle.module.url(
-            forResource: provider.logoResourceName,
+            forResource: resourceName,
             withExtension: "svg",
             subdirectory: "Brand"
         ) {
@@ -59,16 +60,5 @@ private enum UsageProviderLogoImageStore {
         }
 
         return nil
-    }
-}
-
-private extension UsageLimitProvider {
-    var logoResourceName: String {
-        switch self {
-        case .claudeCode:
-            "claude-code-logo"
-        case .codex:
-            "codex-logo"
-        }
     }
 }

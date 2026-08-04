@@ -37,7 +37,7 @@ enum CodingAgentActivity: String, Sendable {
 }
 
 struct CodingAgentSession: Identifiable, Equatable, Sendable {
-    let provider: UsageLimitProvider
+    let provider: CodingAgentProvider
     let sessionID: String
     var cwd: String
     var model: String?
@@ -49,7 +49,7 @@ struct CodingAgentSession: Identifiable, Equatable, Sendable {
     var updatedAt: Date
 
     var id: String {
-        "\(provider.rawValue):\(sessionID)"
+        "\(provider.id):\(sessionID)"
     }
 
     var projectName: String {
@@ -70,7 +70,7 @@ enum CodingAgentApprovalInvalidationReason: Sendable {
 
 struct CodingAgentApprovalRequest: Identifiable, Equatable, Sendable {
     let id: UUID
-    let provider: UsageLimitProvider
+    let provider: CodingAgentProvider
     let sessionID: String
     let turnID: String?
     let cwd: String
@@ -81,7 +81,7 @@ struct CodingAgentApprovalRequest: Identifiable, Equatable, Sendable {
     let receivedAt: Date
 
     var sessionKey: String {
-        "\(provider.rawValue):\(sessionID)"
+        "\(provider.id):\(sessionID)"
     }
 
     var projectName: String {
@@ -127,7 +127,7 @@ struct CodingAgentQuestionAnswer: Equatable, Sendable {
 
 struct CodingAgentQuestionRequest: Identifiable, Equatable, Sendable {
     let id: UUID
-    let provider: UsageLimitProvider
+    let provider: CodingAgentProvider
     let sessionID: String
     let turnID: String?
     let cwd: String
@@ -136,7 +136,7 @@ struct CodingAgentQuestionRequest: Identifiable, Equatable, Sendable {
     let receivedAt: Date
 
     var sessionKey: String {
-        "\(provider.rawValue):\(sessionID)"
+        "\(provider.id):\(sessionID)"
     }
 
     var projectName: String {
@@ -145,8 +145,8 @@ struct CodingAgentQuestionRequest: Identifiable, Equatable, Sendable {
     }
 }
 
-struct CodingAgentHookEvent: Sendable {
-    let provider: UsageLimitProvider
+struct CodingAgentEvent: Sendable {
+    let provider: CodingAgentProvider
     let name: String
     let sessionID: String
     let turnID: String?
@@ -174,7 +174,7 @@ struct CodingAgentHookEvent: Sendable {
     }
 
     var sessionKey: String {
-        "\(provider.rawValue):\(sessionID)"
+        "\(provider.id):\(sessionID)"
     }
 
     var startsQuestion: Bool {
@@ -194,13 +194,15 @@ struct CodingAgentHookEvent: Sendable {
     }
 }
 
-extension UsageLimitProvider {
+extension CodingAgentProvider {
     func isQuestionToolName(_ toolName: String?) -> Bool {
-        switch self {
-        case .claudeCode:
+        switch id {
+        case "claude-code":
             toolName == "AskUserQuestion"
-        case .codex:
+        case "codex":
             toolName == "request_user_input"
+        default:
+            false
         }
     }
 }

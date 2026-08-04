@@ -23,7 +23,7 @@ final class PillViewModel: ObservableObject {
     @Published var isCopyFeedbackVisible = false
     @Published var isCheckingForUpdates = false
     @Published var updateStatusText: String?
-    @Published private(set) var usageLimitSnapshots: [UsageLimitProvider: UsageLimitSnapshot] = PillViewModel.emptyUsageLimitSnapshots()
+    @Published private(set) var usageLimitSnapshots: [CodingAgentProvider: UsageLimitSnapshot] = PillViewModel.emptyUsageLimitSnapshots()
     @Published private(set) var isRefreshingUsageLimits = false
     @Published private(set) var codingAgentSessions: [String: CodingAgentSession] = [:]
     @Published private(set) var pendingAgentApprovals: [CodingAgentApprovalRequest] = []
@@ -93,14 +93,24 @@ final class PillViewModel: ObservableObject {
         }
     }
 
+    var usageLimitRegistry: CodingAgentAdaptorRegistry?
+
     private func refreshUsageLimits() async {
         guard !isRefreshingUsageLimits else { return }
 
         let claudeCodeConfigDirectory = settings.claudeCodeConfigDirectory
         isRefreshingUsageLimits = true
-        let snapshots = await UsageLimitService.loadSnapshots(
-            claudeCodeConfigDirectory: claudeCodeConfigDirectory
-        )
+        let snapshots: [UsageLimitSnapshot]
+        if let registry = usageLimitRegistry {
+            snapshots = await UsageLimitService.loadSnapshots(
+                registry: registry,
+                claudeCodeConfigDirectory: claudeCodeConfigDirectory
+            )
+        } else {
+            snapshots = await UsageLimitService.loadSnapshotsLegacy(
+                claudeCodeConfigDirectory: claudeCodeConfigDirectory
+            )
+        }
         guard settings.claudeCodeConfigDirectory == claudeCodeConfigDirectory else {
             isRefreshingUsageLimits = false
             refreshUsageLimitsSoon()
@@ -113,7 +123,7 @@ final class PillViewModel: ObservableObject {
     }
 
     @discardableResult
-    func receiveCodingAgentHookEvent(_ event: CodingAgentHookEvent) -> Bool {
+    func receiveCodingAgentHookEvent(_ event: CodingAgentEvent) -> Bool {
         let sessionKey = event.sessionKey
         agentSessionDismissWorkItems[sessionKey]?.cancel()
         agentSessionDismissWorkItems.removeValue(forKey: sessionKey)
@@ -574,14 +584,14 @@ final class PillViewModel: ObservableObject {
     }
 
     var orderedUsageLimitSnapshots: [UsageLimitSnapshot] {
-        UsageLimitProvider.allCases.map {
+        CodingAgentProvider.allCases.map {
             usageLimitSnapshots[$0] ?? .unavailable(provider: $0)
         }
     }
 
-    private static func emptyUsageLimitSnapshots() -> [UsageLimitProvider: UsageLimitSnapshot] {
+    private static func emptyUsageLimitSnapshots() -> [CodingAgentProvider: UsageLimitSnapshot] {
         Dictionary(
-            uniqueKeysWithValues: UsageLimitProvider.allCases.map {
+            uniqueKeysWithValues: CodingAgentProvider.allCases.map {
                 ($0, UsageLimitSnapshot.unavailable(provider: $0))
             }
         )

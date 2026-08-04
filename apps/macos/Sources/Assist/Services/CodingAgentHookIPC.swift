@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 
 enum CodingAgentHookIPC {
+    static let agentHookFlagPrefix = "--agent-hook="
     static let codexCommandLineFlag = "--codex-hook"
     static let claudeCodeCommandLineFlag = "--claude-code-hook"
     static let versionArgumentPrefix = "--assist-agent-version="
@@ -144,17 +145,26 @@ enum CodingAgentHookIPC {
 }
 
 enum CodingAgentHookCommand {
-    static func provider(in arguments: [String]) -> UsageLimitProvider? {
+    static func providerID(in arguments: [String]) -> String? {
+        if let agentHookArg = arguments.first(where: { $0.hasPrefix(CodingAgentHookIPC.agentHookFlagPrefix) }) {
+            let id = String(agentHookArg.dropFirst(CodingAgentHookIPC.agentHookFlagPrefix.count))
+            return id.isEmpty ? nil : id
+        }
         if arguments.contains(CodingAgentHookIPC.codexCommandLineFlag) {
-            return .codex
+            return CodingAgentProvider.codex.id
         }
         if arguments.contains(CodingAgentHookIPC.claudeCodeCommandLineFlag) {
-            return .claudeCode
+            return CodingAgentProvider.claudeCode.id
         }
         return nil
     }
 
-    static func run(provider: UsageLimitProvider, arguments: [String]) -> Int32 {
+    static func provider(in arguments: [String]) -> UsageLimitProvider? {
+        guard let providerID = providerID(in: arguments) else { return nil }
+        return CodingAgentProvider.allBuiltIn.first { $0.id == providerID }
+    }
+
+    static func run(providerID: String, arguments: [String]) -> Int32 {
         let payload = FileHandle.standardInput.readDataToEndOfFile()
         guard !payload.isEmpty,
               payload.count <= CodingAgentHookIPC.maximumPayloadBytes,
@@ -163,7 +173,9 @@ enum CodingAgentHookCommand {
             return 0
         }
 
-        let requiresEmptyJSONResponse = provider == .codex && eventName == "Stop"
+        let providerForEmptyResponse: CodingAgentProvider? = CodingAgentProvider.allBuiltIn
+            .first { $0.id == providerID }
+        let requiresEmptyJSONResponse = providerForEmptyResponse?.id == "codex" && eventName == "Stop"
         var wroteBridgeResponse = false
         defer {
             if requiresEmptyJSONResponse && !wroteBridgeResponse {
@@ -171,7 +183,7 @@ enum CodingAgentHookCommand {
             }
         }
 
-        event["_assist_provider"] = provider.rawValue
+        event["_assist_provider"] = providerID
         if let version = arguments
             .first(where: { $0.hasPrefix(CodingAgentHookIPC.versionArgumentPrefix) })?
             .dropFirst(CodingAgentHookIPC.versionArgumentPrefix.count),
@@ -204,5 +216,9 @@ enum CodingAgentHookCommand {
             FileHandle.standardOutput.write(Data([0x0A]))
         }
         return 0
+    }
+
+    static func run(provider: UsageLimitProvider, arguments: [String]) -> Int32 {
+        run(providerID: provider.id, arguments: arguments)
     }
 }

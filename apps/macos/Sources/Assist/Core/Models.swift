@@ -66,28 +66,11 @@ struct CopyFeedback: Equatable {
     let preview: String
 }
 
-enum UsageLimitProvider: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
-    case claudeCode
-    case codex
+typealias UsageLimitProvider = CodingAgentProvider
 
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .claudeCode:
-            "Claude"
-        case .codex:
-            "Codex"
-        }
-    }
-
-    var compactName: String {
-        switch self {
-        case .claudeCode:
-            "Claude"
-        case .codex:
-            "Codex"
-        }
+extension CodingAgentProvider: CaseIterable {
+    public static var allCases: [CodingAgentProvider] {
+        CodingAgentProvider.allBuiltIn
     }
 }
 
