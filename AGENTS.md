@@ -68,3 +68,17 @@ These rules apply to this repository. Follow them when adding or changing code.
 - Preserve existing user data and permissions behavior.
 - Build after code changes with `swift build`.
 - When changing launch, build, packaging, or resources, also verify `make run` or the relevant script path.
+
+## Cursor Cloud specific instructions
+
+This is a monorepo with two products (see root `README.md`):
+
+- `apps/macos/` — native macOS Swift app. It requires macOS 14+, Xcode/Swift 6, and Apple frameworks (AppKit, SwiftUI, ScreenCaptureKit). It CANNOT be built or run on the Linux cloud VM (`swift`/`xcodebuild` are absent and the Apple frameworks do not exist on Linux). CI builds and verifies it on `macos-15` GitHub runners (`.github/workflows/rebuild-macos.yml`); do not attempt `swift build` / `make build` here. Build/run/test it locally on a Mac per `apps/macos/README.md`.
+- `apps/web/` — Next.js marketing + Dodo Payments purchase site. This is the runnable/testable surface on the Linux cloud VM.
+
+Web app (`apps/web`) notes:
+
+- Standard scripts live in `apps/web/package.json`: `npm run dev`, `npm run build`, `npm run start`, `npm run typecheck`. There is no ESLint config or `lint` script; `npm run typecheck` (`tsc --noEmit`) is the type/lint gate.
+- Dodo Payments and Supabase secrets are read lazily at request time (via `requiredEnv` in `app/lib/dodo.ts`), so the dev server, landing page, and static routes (`/`, `/privacy`, `/terms`, sitemap/robots) render fully with no secrets configured.
+- The purchase/download flow (`/api/checkout`, `/api/download`, `/api/webhooks/dodo`, `/api/license/verify`, `/purchase/*`) needs real Dodo + Supabase credentials to work end to end. Without them these routes return `Missing required environment variable: ...` (500), which is expected. Configure `apps/web/.env.local` from `apps/web/.env.example` (documented in `apps/web/README.md`) to exercise the full flow.
+- The hero and coding-agent demo clips are hosted on external Vercel blob storage and one is a `.mov`; they may show as blank/black blocks in the cloud VM browser due to egress/format, which is not a code defect. The other `.mp4` feature videos play.
