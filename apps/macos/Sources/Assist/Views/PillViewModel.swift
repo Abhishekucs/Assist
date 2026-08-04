@@ -147,6 +147,23 @@ final class PillViewModel: ObservableObject {
             }
         }
 
+        // Assist passively mirrors coding-agent sessions. It surfaces a session
+        // only while the agent is actively working or waiting on the user, and
+        // never initiates a session card of its own. A session that merely
+        // started, returned to idle, or ended without ever becoming active is
+        // dropped instead of shown.
+        switch activity {
+        case .idle:
+            if codingAgentSessions.removeValue(forKey: sessionKey) != nil {
+                onCodingAgentStateChange?()
+            }
+            return false
+        case .completed where existingSession == nil:
+            return false
+        case .working, .waitingForApproval, .waitingForInput, .completed:
+            break
+        }
+
         let questionPrompt: String?
         if event.startsQuestion {
             questionPrompt = event.questionPrompt ?? "\(event.provider.displayName) needs your input."
