@@ -1,7 +1,7 @@
 import AppKit
 
-if let provider = CodingAgentHookCommand.provider(in: CommandLine.arguments) {
-    exit(CodingAgentHookCommand.run(provider: provider, arguments: CommandLine.arguments))
+if let providerID = CodingAgentHookCommand.providerID(in: CommandLine.arguments) {
+    exit(CodingAgentHookCommand.run(providerID: providerID, arguments: CommandLine.arguments))
 }
 
 let app = NSApplication.shared

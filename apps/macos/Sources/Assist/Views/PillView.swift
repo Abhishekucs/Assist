@@ -55,11 +55,13 @@ struct PillView: View {
 
     private var visibleUsageLimitSnapshots: [UsageLimitSnapshot] {
         viewModel.orderedUsageLimitSnapshots.filter { snapshot in
-            switch snapshot.provider {
-            case .claudeCode:
+            switch snapshot.provider.id {
+            case "claude-code":
                 settings.showClaudeCodeRateLimit
-            case .codex:
+            case "codex":
                 settings.showCodexRateLimit
+            default:
+                false
             }
         }
     }
@@ -1201,19 +1203,21 @@ private struct ExpandedIslandHeader: View {
 private enum UsageLimitPalette {
     static let codexPrimary = Color(red: 122.0 / 255.0, green: 157.0 / 255.0, blue: 1)
 
-    static func color(for provider: UsageLimitProvider) -> Color {
-        switch provider {
-        case .claudeCode:
+    static func color(for provider: CodingAgentProvider) -> Color {
+        switch provider.id {
+        case "claude-code":
             Color(red: 0.96, green: 0.47, blue: 0.22)
-        case .codex:
+        case "codex":
             codexPrimary
+        default:
+            Color.white.opacity(0.5)
         }
     }
 }
 
 private func agentActivityColor(
     _ activity: CodingAgentActivity,
-    provider: UsageLimitProvider
+    provider: CodingAgentProvider
 ) -> Color {
     switch activity {
     case .waitingForApproval:

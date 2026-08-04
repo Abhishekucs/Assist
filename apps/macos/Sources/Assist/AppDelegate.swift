@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsCancellable: AnyCancellable?
     private let licenseActivationStore = LicenseActivationStore()
     private let licenseValidationService = LicenseValidationService()
+    private let registry = CodingAgentAdaptorRegistry()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DebugLogger.log("app.launch", [
@@ -114,9 +115,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             captureService: CaptureService(),
             store: store,
             pillViewModel: pillViewModel,
-            voiceContextService: voiceContextService
+            voiceContextService: voiceContextService,
+            registry: registry
         )
 
+        pillViewModel.usageLimitRegistry = registry
         pillViewModel.onOpenControls = { [weak controlPanelController] in
             controlPanelController?.showWindow()
         }

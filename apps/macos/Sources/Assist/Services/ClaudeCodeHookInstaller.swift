@@ -17,6 +17,7 @@ enum ClaudeCodeHookInstallerError: LocalizedError {
 
 struct ClaudeCodeHookInstaller {
     private static let commandMarker = "--claude-code-hook"
+    private static let agentHookMarker = "--agent-hook=claude-code"
     private static let ownerMarkerPrefix = "--assist-hook-owner="
     private static let managedEvents = [
         "SessionStart",
@@ -87,7 +88,7 @@ struct ClaudeCodeHookInstaller {
         var root = try loadRoot()
         var hooks = root["hooks"] as? [String: Any] ?? [:]
         let executablePath = executableURL.standardizedFileURL.path
-        var command = "\(Self.shellQuote(executablePath)) \(Self.commandMarker) \(ownerMarker)"
+        var command = "\(Self.shellQuote(executablePath)) \(Self.agentHookMarker) \(ownerMarker)"
         if let version = installedClaudeCodeVersion() {
             command += " \(CodingAgentHookIPC.versionArgumentPrefix)\(Self.shellQuote(version))"
         }
@@ -213,7 +214,7 @@ struct ClaudeCodeHookInstaller {
 
     private func isOwnedAssistHandler(_ handler: [String: Any]) -> Bool {
         guard let command = handler["command"] as? String,
-              command.contains(Self.commandMarker) else {
+              command.contains(Self.commandMarker) || command.contains(Self.agentHookMarker) else {
             return false
         }
         return command.split(whereSeparator: \.isWhitespace).contains(Substring(ownerMarker))
@@ -221,7 +222,7 @@ struct ClaudeCodeHookInstaller {
 
     private func isAnyOwnedAssistHandler(_ handler: [String: Any]) -> Bool {
         guard let command = handler["command"] as? String,
-              command.contains(Self.commandMarker) else {
+              command.contains(Self.commandMarker) || command.contains(Self.agentHookMarker) else {
             return false
         }
         return command.split(whereSeparator: \.isWhitespace).contains { argument in
