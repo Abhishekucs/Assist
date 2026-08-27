@@ -1,16 +1,14 @@
 # Assist
 
-> Assist is a native Mac app for voice-powered screen annotation, full-screen screenshots, and Claude Code and Codex monitoring from the notch. Local-first: screenshots, transcripts, and history stay on your Mac.
+> Assist is a native Mac app for voice-powered screen annotation, full-screen screenshots, and clipboard history from the notch. Local-first: screenshots, transcripts, and history stay on your Mac.
 
 Key facts:
 
 - Platform: macOS 14 (Sonoma) or later
-- Main features: voice-powered annotation, full-screen screenshots, and Claude Code and Codex monitoring
+- Main features: voice-powered annotation, full-screen screenshots, and clipboard history
 - Price: $15 one-time purchase (reduced from $19), no subscription
 - License: one device per license, lifetime access with 1.x updates included
-- Agents: monitors OpenAI Codex and terminal Claude Code sessions
-- Interaction: approve or deny permission requests and answer supported agent questions from the island
-- Tasks: shows up to three active coding-agent tasks with status and prompt or question summaries
+- Clipboard: keeps copied text in local history alongside screenshots for copying, dragging, and reuse
 - Voice: optional local Whisper transcription on Apple silicon; raw audio is never persisted
 - Storage: local-first; screenshots, copied text, and transcripts stay on your Mac
 - Capture: Control + Option for a full-screen screenshot; hold Option to draw and optionally dictate before capture

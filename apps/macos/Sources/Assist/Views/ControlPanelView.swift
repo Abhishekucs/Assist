@@ -5,7 +5,7 @@ import SwiftUI
 struct ControlPanelView: View {
     @ObservedObject var settings: PillSettings
     @ObservedObject var viewModel: PillViewModel
-    @State private var selectedPage: SettingsPage = .general
+    @State private var selectedPage: SettingsPage = .capture
     @State private var isSettingsDialogPresented = false
     @State private var resolvedSystemColorScheme = SystemAppearanceResolver.currentColorScheme()
 
@@ -100,8 +100,6 @@ struct ControlPanelView: View {
     @ViewBuilder
     private var detailView: some View {
         switch selectedPage {
-        case .general:
-            GeneralSettingsPane(settings: settings, viewModel: viewModel)
         case .appearance:
             AppearanceSettingsPane(settings: settings)
         case .capture:
@@ -117,7 +115,6 @@ struct ControlPanelView: View {
 }
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
-    case general
     case appearance
     case capture
     case storage
@@ -128,8 +125,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general:
-            "General"
         case .appearance:
             "Appearance"
         case .capture:
@@ -145,8 +140,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
 
     var icon: HugeIconKind {
         switch self {
-        case .general:
-            .settings
         case .appearance:
             .appearance
         case .capture:
@@ -810,118 +803,6 @@ private struct SettingsActionButton: View {
 
     private var actionForeground: Color {
         theme.isDark ? Color.black.opacity(0.86) : Color.white
-    }
-}
-
-private struct GeneralSettingsPane: View {
-    @ObservedObject var settings: PillSettings
-    @ObservedObject var viewModel: PillViewModel
-
-    var body: some View {
-        SettingsDetailPage(
-            title: "General",
-            subtitle: "Connect coding agents and choose which rate limits appear on the island."
-        ) {
-            SettingsSection("Coding agents") {
-                VStack(alignment: .leading, spacing: 0) {
-                    SettingToggleRow(
-                        title: "Show activity and approvals",
-                        detail: "Connects Codex and terminal Claude Code sessions to the island.",
-                        isOn: $settings.codingAgentIntegrationEnabled
-                    )
-
-                    RowDivider()
-
-                    ClaudeConfigDirectoryRow(
-                        directory: $settings.claudeCodeConfigDirectory
-                    )
-
-                    RowDivider()
-
-                    SettingValueRow(
-                        title: "Connection",
-                        value: settings.codingAgentIntegrationEnabled ? "Enabled" : "Disabled",
-                        detail: viewModel.codingAgentIntegrationStatusText
-                    )
-                }
-            }
-
-            SettingsSection("Rate limits") {
-                VStack(alignment: .leading, spacing: 0) {
-                    SettingToggleRow(
-                        title: "Show Claude Code",
-                        isOn: $settings.showClaudeCodeRateLimit
-                    )
-
-                    RowDivider()
-
-                    SettingToggleRow(
-                        title: "Show Codex",
-                        isOn: $settings.showCodexRateLimit
-                    )
-                }
-            }
-        }
-    }
-}
-
-private struct ClaudeConfigDirectoryRow: View {
-    @Binding var directory: String
-    @State private var draftDirectory: String
-    @FocusState private var isFieldFocused: Bool
-    @Environment(\.assistTheme) private var theme
-
-    init(directory: Binding<String>) {
-        _directory = directory
-        _draftDirectory = State(initialValue: directory.wrappedValue)
-    }
-
-    var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Claude config directory")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(theme.foreground)
-
-                Text("Use the same directory as CLAUDE_CONFIG_DIR. Leave blank for ~/.claude.")
-                    .font(.caption)
-                    .foregroundStyle(theme.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 16)
-
-            TextField("~/.claude", text: $draftDirectory)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.caption, design: .monospaced))
-                .frame(width: 220)
-                .focused($isFieldFocused)
-                .onSubmit(commitDirectory)
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 64)
-        .onChange(of: isFieldFocused) { _, isFocused in
-            if !isFocused {
-                commitDirectory()
-            }
-        }
-        .onChange(of: directory) { _, newDirectory in
-            if !isFieldFocused {
-                draftDirectory = newDirectory
-            }
-        }
-        .onDisappear(perform: commitDirectory)
-    }
-
-    private func commitDirectory() {
-        let trimmedDirectory = draftDirectory
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if draftDirectory != trimmedDirectory {
-            draftDirectory = trimmedDirectory
-        }
-        if directory != trimmedDirectory {
-            directory = trimmedDirectory
-        }
     }
 }
 

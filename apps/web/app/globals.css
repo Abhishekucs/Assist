@@ -1112,8 +1112,14 @@ p {
   object-fit: cover;
 }
 
-.agent-feature-video .feature-video {
-  object-position: center top;
+.clipboard-feature-visual {
+  min-height: 0;
+}
+
+.clipboard-feature-image {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .pricing-section,

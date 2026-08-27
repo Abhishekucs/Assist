@@ -2,7 +2,7 @@ import LegalDocument from "../LegalDocument";
 import { createLegalMetadata } from "../legalMetadata";
 
 const description =
-  "How Assist handles screenshots, copied text, coding-agent activity, licenses, purchases, website analytics, and support information.";
+  "How Assist handles screenshots, voice annotations, copied text, licenses, purchases, website analytics, and support information.";
 
 export const metadata = createLegalMetadata("Privacy Policy", description, "/privacy");
 
@@ -27,17 +27,17 @@ export default function PrivacyPage() {
     <LegalDocument
       title="Privacy Policy"
       description={description}
-      lastUpdated="July 25, 2026"
+      lastUpdated="August 27, 2026"
       sections={sections}
     >
       <section id="overview">
         <h2>1. Overview</h2>
         <p>
-          Assist is a macOS utility for monitoring supported coding agents, responding to
-          their requests, capturing and annotating screenshots, and reusing copied text.
+          Assist is a macOS utility for capturing screenshots, adding visual and voice
+          annotations, and reusing copied text.
           The desktop app is designed so that your working context stays on your Mac. Assist
-          does not upload your screenshots, annotations, copied text, or coding-agent
-          activity to Assist&apos;s servers unless you deliberately send that material through
+          does not upload your screenshots, annotations, voice transcripts, or copied
+          text to Assist&apos;s servers unless you deliberately send that material through
           another service yourself.
         </p>
         <div className="legal-callout">
@@ -48,8 +48,7 @@ export default function PrivacyPage() {
         <p>
           This policy applies to the Assist desktop application, assistapp.dev, the purchase
           and license services offered through the site, and support communications. It does
-          not govern Codex, Claude Code, GitHub, or other third-party products you choose to
-          use with Assist.
+          not govern third-party applications or services you choose to use with Assist.
         </p>
         <p>
           Thinking Sound Lab Private Limited (CIN U62013BR2025PTC079572), with its registered
@@ -86,20 +85,6 @@ export default function PrivacyPage() {
                   Held only in memory until local transcription completes or Assist closes; never
                   saved to disk or uploaded by Assist
                 </td>
-              </tr>
-              <tr>
-                <td>Coding-agent context</td>
-                <td>
-                  Provider and session identifiers, task status, working directory, model or
-                  version, questions, answer options, approval requests, tool names, and command
-                  previews
-                </td>
-                <td>Processed locally to display and respond from the island</td>
-              </tr>
-              <tr>
-                <td>Usage-limit context</td>
-                <td>Claude and Codex usage-window information read from their local files</td>
-                <td>Processed locally on your Mac</td>
               </tr>
               <tr>
                 <td>License and device data</td>
@@ -168,10 +153,6 @@ export default function PrivacyPage() {
             <strong>Clipboard access</strong>{" "}to keep recent copied text available for reuse.
           </li>
           <li>
-            <strong>Local files and sockets</strong>{" "}to read supported agent usage information
-            and exchange events with integrations running under your macOS user account.
-          </li>
-          <li>
             <strong>Network access</strong>{" "}to validate a license, check or download updates from
             GitHub, download the optional pinned Whisper model from Hugging Face during explicit
             setup, and open the purchase or support experience.
@@ -181,13 +162,18 @@ export default function PrivacyPage() {
           You control system permissions in macOS Settings. Disabling a permission may prevent
           the corresponding feature from working.
         </p>
+        <p>
+          During an upgrade, Assist removes only integration configuration entries created by
+          older Assist versions. This cleanup does not read task or session logs and preserves
+          unrelated configuration.
+        </p>
       </section>
 
       <section id="uses">
         <h2>4. How we use information</h2>
         <p>We use the information described above to:</p>
         <ul>
-          <li>provide screenshot, clipboard, agent-monitoring, and response features;</li>
+          <li>provide voice annotation, screenshot, and clipboard features;</li>
           <li>complete purchases, issue downloads and licenses, and validate activations;</li>
           <li>maintain transaction, tax, accounting, fraud-prevention, and dispute records;</li>
           <li>deliver updates, diagnose errors, secure the service, and prevent abuse;</li>
@@ -264,11 +250,6 @@ export default function PrivacyPage() {
             remove its application-support files, preferences, Keychain items, or backups.
           </li>
           <li>
-            <strong>Agent connection state</strong>{" "}is used while integrations and tasks are
-            active. Source logs maintained by Codex, Claude Code, or other providers follow
-            those providers&apos; settings and policies.
-          </li>
-          <li>
             <strong>Purchase and license records</strong>{" "}are retained for as long as needed to
             deliver and validate your license and to meet accounting, tax, fraud-prevention,
             dispute, security, and legal obligations.
@@ -289,8 +270,8 @@ export default function PrivacyPage() {
         <h2>8. Security</h2>
         <p>
           Assist uses reasonable safeguards appropriate to the information involved. Activation
-          data is kept in the macOS Keychain, local agent communication is limited to your user
-          account, and purchase systems use access controls provided by their hosting services.
+          data is kept in the macOS Keychain, and purchase systems use access controls provided
+          by their hosting services.
           No method of storage or transmission is completely secure, so we cannot guarantee
           absolute security.
         </p>
@@ -314,8 +295,8 @@ export default function PrivacyPage() {
       <section id="rights">
         <h2>10. Your choices and privacy rights</h2>
         <p>
-          You can delete local recent items in Assist, change macOS permissions, stop using an
-          integration, or remove the app&apos;s local data. Depending on where you live, you may also
+          You can delete local recent items in Assist, change macOS permissions, disable voice
+          context, or remove the app&apos;s local data. Depending on where you live, you may also
           have rights to request access, correction, deletion, restriction, objection, or a copy
           of personal information we control, and to withdraw consent where processing relies on
           consent.
