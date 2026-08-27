@@ -1,5 +1,3 @@
-import Image from "next/image";
-import recentItems from "../public/assist-notch-preview.png";
 import FeatureVideo from "./FeatureVideo";
 import MobileMenu from "./MobileMenu";
 
@@ -154,13 +152,12 @@ export default function Home() {
       <section id="top" className="hero">
         <div className="hero-content">
           <h1 className="hero-title">
-            <span>Show it. Say it.</span>
-            <span>Keep it ready.</span>
+            <span>Screenshots that</span>
+            <span>say more.</span>
           </h1>
           <p className="hero-copy">
-            Assist is a native Mac app for voice-powered screen annotation,
-            instant screenshots, and clipboard history—right
-            from the notch.
+            Hold Option to draw on your screen and explain it aloud. Assist saves
+            your annotated screenshot with a local transcript, ready to share.
           </p>
           <div className="hero-actions">
             <a className="hero-download-button" href={checkoutHref}>
@@ -226,10 +223,10 @@ export default function Home() {
       <section className="feature-showcase" aria-labelledby="feature-tour-title">
         <div className="feature-showcase-intro">
           <p className="section-kicker">A closer look</p>
-          <h2 id="feature-tour-title">Three workflows, fully connected.</h2>
+          <h2 id="feature-tour-title">Capture it. Explain it.</h2>
           <p>
-            Assist turns the Mac notch into a shortcut-first place for visual
-            captures, spoken context, and the text you want to reuse.
+            Take a clean screenshot or add drawings and a local voice transcript.
+            Both are ready to copy or drag from the notch.
           </p>
         </div>
 
@@ -291,39 +288,6 @@ export default function Home() {
           </div>
         </article>
 
-        <article className="feature-panel feature-panel-wide">
-          <div className="feature-copy-block">
-            <p className="feature-kicker">Clipboard history</p>
-            <h3>The last thing you copied is not the only thing you need.</h3>
-            <p className="feature-description">
-              Copy text as usual. Assist keeps it in a local history alongside
-              your screenshots, so useful snippets stay within reach when
-              you need them again.
-            </p>
-            <ul className="feature-detail-list">
-              <li>
-                <strong>Copy once, reuse later</strong>
-                <span>Find recent text in the notch or open your library to browse and filter saved items.</span>
-              </li>
-              <li>
-                <strong>Drag into another app</strong>
-                <span>Move text and screenshots straight from Recent Items into the place you are working.</span>
-              </li>
-              <li>
-                <strong>Keep control of your history</strong>
-                <span>Your items stay on your Mac. Delete individual snippets or captures when you no longer need them.</span>
-              </li>
-            </ul>
-          </div>
-          <div className="feature-visual clipboard-feature-visual">
-            <Image
-              src={recentItems}
-              alt="Assist Recent Items with annotated screenshots and a copied text snippet"
-              sizes="(max-width: 1108px) calc(100vw - 48px), 1060px"
-              className="clipboard-feature-image"
-            />
-          </div>
-        </article>
       </section>
 
       <section id="pricing" className="pricing-section">

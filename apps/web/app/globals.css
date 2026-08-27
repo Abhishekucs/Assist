@@ -1112,16 +1112,6 @@ p {
   object-fit: cover;
 }
 
-.clipboard-feature-visual {
-  min-height: 0;
-}
-
-.clipboard-feature-image {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
 .pricing-section,
 .faq-section {
   position: relative;
