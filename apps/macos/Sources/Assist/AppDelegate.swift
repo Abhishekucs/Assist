@@ -22,6 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "licenseRequired": "\(LicenseActivationRequirement.isRequired)"
         ])
 
+        let retirement = RetiredAgentHooksCleanup().run()
+        DebugLogger.log("migration.retired-hooks", [
+            "removedHandlers": "\(retirement.removedHandlers)",
+            "failures": "\(retirement.failures.count)"
+        ])
+        for failure in retirement.failures {
+            DebugLogger.log("migration.retired-hooks.error", ["message": failure])
+        }
+
         registerBundledFonts()
 
         guard LicenseActivationRequirement.isRequired else {

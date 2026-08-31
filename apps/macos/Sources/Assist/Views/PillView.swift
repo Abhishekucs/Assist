@@ -18,19 +18,12 @@ struct PillView: View {
     private var collapsedSize: CGSize {
         PillChromeMetrics.collapsedSize(
             settings: settings,
-            showingCopyFeedback: viewModel.copyFeedback != nil,
-            showingAgentActivity: viewModel.displayedCodingAgentSession != nil
+            showingCopyFeedback: viewModel.copyFeedback != nil
         )
     }
 
     private var expandedSize: CGSize {
-        PillChromeMetrics.expandedSize(
-            settings: settings,
-            showingRateLimits: !visibleUsageLimitSnapshots.isEmpty,
-            showingAgentApproval: viewModel.hasPendingAgentApproval
-                || viewModel.hasPendingAnswerableQuestion,
-            agentTaskCount: viewModel.activeCodingAgentTaskSessions.count
-        )
+        PillChromeMetrics.expandedSize(settings: settings)
     }
 
     private var chromeTopCornerRadius: CGFloat {
@@ -53,25 +46,11 @@ struct PillView: View {
         settings.showLoadingBorder && viewModel.isBusy
     }
 
-    private var visibleUsageLimitSnapshots: [UsageLimitSnapshot] {
-        viewModel.orderedUsageLimitSnapshots.filter { snapshot in
-            switch snapshot.provider {
-            case .claudeCode:
-                settings.showClaudeCodeRateLimit
-            case .codex:
-                settings.showCodexRateLimit
-            }
-        }
-    }
-
     var body: some View {
         ZStack(alignment: .top) {
             ZStack(alignment: .top) {
                 if viewModel.isCollapsedContentVisible {
-                    CollapsedIslandHeader(
-                        viewModel: viewModel,
-                        usageLimitSnapshots: visibleUsageLimitSnapshots
-                    )
+                    CollapsedIslandHeader(viewModel: viewModel)
                         .frame(
                             width: collapsedSize.width,
                             height: collapsedSize.height
@@ -82,7 +61,6 @@ struct PillView: View {
                 if viewModel.isExpandedContentVisible {
                     ExpandedIslandView(
                         viewModel: viewModel,
-                        usageLimitSnapshots: visibleUsageLimitSnapshots,
                         onDragChanged: onIslandDragChanged
                     )
                         .frame(
@@ -150,220 +128,33 @@ struct PillView: View {
 
 private struct CollapsedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
-    let usageLimitSnapshots: [UsageLimitSnapshot]
-
-    private var copyFeedbackContentAnimation: Animation {
-        .easeOut(duration: 0.18)
-    }
 
     var body: some View {
         HStack(spacing: 8) {
-            if !usageLimitSnapshots.isEmpty {
-                PersistentUsageRail(
-                    snapshots: usageLimitSnapshots,
-                    isRefreshing: viewModel.isRefreshingUsageLimits,
-                    presentation: .collapsed
-                )
+            AssistLogo(size: 16)
+                .help(AppIdentity.name)
 
-                Spacer(minLength: 0)
-
-                if let approval = viewModel.primaryAgentApproval {
-                    AgentApprovalCollapsedActions(approval: approval, viewModel: viewModel)
-                } else if let feedback = viewModel.copyFeedback {
-                    Text(feedback.badge)
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundStyle(.black.opacity(0.88))
-                        .padding(.horizontal, 8)
-                        .frame(height: 19)
-                        .background(Color.white, in: Capsule())
-                        .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
-                } else if viewModel.settings.codingAgentIntegrationEnabled,
-                          let session = viewModel.displayedCodingAgentSession {
-                    CollapsedAgentIndicator(session: session)
-                }
-
-                AssistLogo(size: 14)
-                    .help(AppIdentity.name)
+            if let feedback = viewModel.copyFeedback {
+                CopyFeedbackRow(feedback: feedback)
+                    .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
+                    .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
+                    .transition(
+                        .opacity
+                            .combined(with: .scale(scale: 0.96))
+                            .animation(.easeOut(duration: 0.16))
+                    )
             } else {
-                AssistLogo(size: 16)
-                    .help(AppIdentity.name)
-
-                if let approval = viewModel.primaryAgentApproval {
-                    AgentApprovalCollapsedRow(approval: approval, viewModel: viewModel)
-                } else if let feedback = viewModel.copyFeedback {
-                    CopyFeedbackRow(feedback: feedback)
-                        .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
-                        .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
-                        .transition(
-                            .opacity
-                                .combined(with: .scale(scale: 0.96))
-                                .animation(.easeOut(duration: 0.16))
-                        )
-                } else if viewModel.settings.codingAgentIntegrationEnabled,
-                          let session = viewModel.displayedCodingAgentSession {
-                    CodingAgentCollapsedRow(session: session)
-                } else {
-                    Text(viewModel.statusText)
-                        .font(AssistFont.roundedFootnote(.medium))
-                        .foregroundStyle(.white.opacity(0.92))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.86)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                Text(viewModel.statusText)
+                    .font(AssistFont.roundedFootnote(.medium))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.horizontal, 18)
         .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
-        .animation(copyFeedbackContentAnimation, value: viewModel.isCopyFeedbackVisible)
-    }
-}
-
-private struct AgentApprovalCollapsedActions: View {
-    let approval: CodingAgentApprovalRequest
-    @ObservedObject var viewModel: PillViewModel
-
-    var body: some View {
-        HStack(spacing: 5) {
-            AgentNameTag(
-                name: approval.provider.displayName,
-                color: UsageLimitPalette.color(for: approval.provider),
-                compact: true
-            )
-
-            Button {
-                viewModel.resolveAgentApproval(approval.id, decision: .deny)
-            } label: {
-                HugeIcon(.close, size: 8, color: .white.opacity(0.84))
-                    .frame(width: 19, height: 19)
-                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .help("Deny \(approval.provider.displayName) request")
-            .accessibilityLabel("Deny \(approval.provider.displayName) request")
-
-            Button {
-                viewModel.resolveAgentApproval(approval.id, decision: .allow)
-            } label: {
-                HugeIcon(.check, size: 9, color: .black.opacity(0.86))
-                    .frame(width: 19, height: 19)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .help("Allow \(approval.provider.displayName) request")
-            .accessibilityLabel("Allow \(approval.provider.displayName) request")
-        }
-    }
-}
-
-private struct CollapsedAgentIndicator: View {
-    let session: CodingAgentSession
-
-    var body: some View {
-        HStack(spacing: 5) {
-            AgentNameTag(
-                name: session.provider.displayName,
-                color: UsageLimitPalette.color(for: session.provider),
-                compact: true
-            )
-
-            if let version = session.version {
-                Text("v\(version)")
-                    .font(.system(size: 8, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.42))
-                    .fixedSize()
-            }
-
-            if session.activity == .working {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(UsageLimitPalette.color(for: session.provider))
-            } else {
-                Circle()
-                    .fill(agentActivityColor(session.activity, provider: session.provider))
-                    .frame(width: 6, height: 6)
-            }
-        }
-        .help("\(session.provider.displayName) · \(session.projectName) · \(session.activity.displayName)")
-        .accessibilityLabel("\(session.provider.displayName), \(session.projectName), \(session.activity.displayName)")
-    }
-}
-
-private struct AgentApprovalCollapsedRow: View {
-    let approval: CodingAgentApprovalRequest
-    @ObservedObject var viewModel: PillViewModel
-
-    var body: some View {
-        HStack(spacing: 7) {
-            UsageProviderLogo(provider: approval.provider, size: 14)
-
-            Text("Permission · \(approval.projectName)")
-                .font(AssistFont.roundedFootnote(.semibold))
-                .foregroundStyle(.white.opacity(0.92))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button {
-                viewModel.resolveAgentApproval(approval.id, decision: .deny)
-            } label: {
-                HugeIcon(.close, size: 9, color: .white.opacity(0.82))
-                    .frame(width: 21, height: 21)
-                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .help("Deny \(approval.provider.displayName) request")
-            .accessibilityLabel("Deny \(approval.provider.displayName) request")
-
-            Button {
-                viewModel.resolveAgentApproval(approval.id, decision: .allow)
-            } label: {
-                HugeIcon(.check, size: 10, color: .black.opacity(0.86))
-                    .frame(width: 21, height: 21)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .help("Allow \(approval.provider.displayName) request")
-            .accessibilityLabel("Allow \(approval.provider.displayName) request")
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct CodingAgentCollapsedRow: View {
-    let session: CodingAgentSession
-
-    var body: some View {
-        HStack(spacing: 7) {
-            UsageProviderLogo(provider: session.provider, size: 14)
-
-            Text(session.projectName)
-                .font(AssistFont.roundedFootnote(.semibold))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineLimit(1)
-
-            Text("·")
-                .foregroundStyle(.white.opacity(0.38))
-
-            Text(session.activity.displayName)
-                .font(AssistFont.roundedFootnote(.medium))
-                .foregroundStyle(session.activity == .completed ? Color.green.opacity(0.9) : .white.opacity(0.68))
-                .lineLimit(1)
-
-            if let version = session.version {
-                Text("· v\(version)")
-                    .font(AssistFont.roundedFootnote(.medium))
-                    .foregroundStyle(.white.opacity(0.42))
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-
-            if session.activity == .working {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(.white.opacity(0.78))
-            }
-        }
-        .frame(maxWidth: .infinity)
+        .animation(.easeOut(duration: 0.18), value: viewModel.isCopyFeedbackVisible)
     }
 }
 
@@ -495,7 +286,6 @@ private struct LoadingNotchBorderShape: Shape {
 
 struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
-    let usageLimitSnapshots: [UsageLimitSnapshot]
     let onDragChanged: (Bool) -> Void
     private static let galleryLeadingAnchorID = "gallery-leading-anchor"
     private static let galleryClipInset: CGFloat = 2
@@ -504,112 +294,84 @@ struct ExpandedIslandView: View {
     var body: some View {
         let historyItems = Array(viewModel.historyItems.prefix(24))
         let selectedID = viewModel.selectedItem?.id
-        let codingAgentTasks = viewModel.visibleCodingAgentTaskSessions
 
         VStack(alignment: .leading, spacing: 10) {
-            if !usageLimitSnapshots.isEmpty {
-                PersistentUsageRail(
-                    snapshots: usageLimitSnapshots,
-                    isRefreshing: viewModel.isRefreshingUsageLimits,
-                    presentation: .expanded
-                )
-                .zIndex(2)
-            }
+            ExpandedIslandHeader(viewModel: viewModel)
+                .frame(height: 24)
+                .zIndex(1)
 
-            if !codingAgentTasks.isEmpty {
-                CodingAgentTaskStack(
-                    sessions: codingAgentTasks,
-                    hiddenCount: viewModel.hiddenCodingAgentTaskCount
-                )
-            }
+            if let issue = viewModel.captureIssue {
+                CaptureIssuePanel(issue: issue, viewModel: viewModel)
+            } else if !historyItems.isEmpty {
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 0) {
+                            Color.clear
+                                .frame(width: 0, height: 1)
+                                .id(Self.galleryLeadingAnchorID)
+                                .accessibilityHidden(true)
 
-            if let approval = viewModel.primaryAgentApproval {
-                AgentApprovalPanel(
-                    approval: approval,
-                    queuedCount: viewModel.pendingAgentApprovals.count,
-                    viewModel: viewModel
-                )
-            } else if let question = viewModel.primaryAgentQuestion {
-                AgentQuestionPanel(request: question, viewModel: viewModel)
-                    .id(question.id)
-            } else {
-                ExpandedIslandHeader(viewModel: viewModel)
-                    .frame(height: 24)
-                    .zIndex(1)
-
-                if let issue = viewModel.captureIssue {
-                    CaptureIssuePanel(issue: issue, viewModel: viewModel)
-                } else if !historyItems.isEmpty {
-                    ScrollViewReader { proxy in
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 0) {
-                                Color.clear
-                                    .frame(width: 0, height: 1)
-                                    .id(Self.galleryLeadingAnchorID)
-                                    .accessibilityHidden(true)
-
-                                LazyHStack(spacing: 12) {
-                                    ForEach(historyItems) { item in
-                                        Group {
-                                            switch item {
-                                            case let .screenshot(capture):
-                                                CaptureGalleryCard(
-                                                    item: capture,
-                                                    thumbnail: viewModel.thumbnail(for: capture),
-                                                    contextPreview: viewModel.contextPreview(for: capture),
-                                                    canCopyContext: viewModel.canCopyContextMarkdown(capture),
-                                                    isSelected: item.id == selectedID,
-                                                    onDragChanged: onDragChanged
-                                                ) {
-                                                    viewModel.copyImageItem(capture)
-                                                } copyContextAction: {
-                                                    viewModel.copyContextMarkdown(capture)
-                                                } deleteAction: {
-                                                    viewModel.delete(item)
-                                                }
-                                            case let .text(textClip):
-                                                TextClipGalleryCard(
-                                                    item: textClip,
-                                                    isSelected: item.id == selectedID,
-                                                    onDragChanged: onDragChanged
-                                                ) {
-                                                    viewModel.copyTextItem(textClip)
-                                                } deleteAction: {
-                                                    viewModel.delete(item)
-                                                }
+                            LazyHStack(spacing: 12) {
+                                ForEach(historyItems) { item in
+                                    Group {
+                                        switch item {
+                                        case let .screenshot(capture):
+                                            CaptureGalleryCard(
+                                                item: capture,
+                                                thumbnail: viewModel.thumbnail(for: capture),
+                                                contextPreview: viewModel.contextPreview(for: capture),
+                                                canCopyContext: viewModel.canCopyContextMarkdown(capture),
+                                                isSelected: item.id == selectedID,
+                                                onDragChanged: onDragChanged
+                                            ) {
+                                                viewModel.copyImageItem(capture)
+                                            } copyContextAction: {
+                                                viewModel.copyContextMarkdown(capture)
+                                            } deleteAction: {
+                                                viewModel.delete(item)
+                                            }
+                                        case let .text(textClip):
+                                            TextClipGalleryCard(
+                                                item: textClip,
+                                                isSelected: item.id == selectedID,
+                                                onDragChanged: onDragChanged
+                                            ) {
+                                                viewModel.copyTextItem(textClip)
+                                            } deleteAction: {
+                                                viewModel.delete(item)
                                             }
                                         }
-                                        .id(item.id)
                                     }
+                                    .id(item.id)
                                 }
-                                .padding(.horizontal, Self.galleryClipInset)
                             }
-                            .padding(.vertical, 1)
+                            .padding(.horizontal, Self.galleryClipInset)
                         }
-                        .frame(height: Self.galleryViewportHeight, alignment: .top)
-                        .onAppear {
-                            alignGalleryToLeadingEdge(proxy)
-                        }
-                        .onChange(of: historyItems.first?.id) { _, firstItemID in
-                            guard firstItemID != nil else { return }
-                            alignGalleryToLeadingEdge(proxy)
-                        }
+                        .padding(.vertical, 1)
                     }
-                } else {
-                    VStack(alignment: .center, spacing: 10) {
-                        Text("No items yet")
-                            .font(.headline)
-
-                        Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        DebugActionsView(viewModel: viewModel)
+                    .frame(height: Self.galleryViewportHeight, alignment: .top)
+                    .onAppear {
+                        alignGalleryToLeadingEdge(proxy)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .multilineTextAlignment(.center)
+                    .onChange(of: historyItems.first?.id) { _, firstItemID in
+                        guard firstItemID != nil else { return }
+                        alignGalleryToLeadingEdge(proxy)
+                    }
                 }
+            } else {
+                VStack(alignment: .center, spacing: 10) {
+                    Text("No items yet")
+                        .font(.headline)
+
+                    Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    DebugActionsView(viewModel: viewModel)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
             }
         }
         .padding(.horizontal, 30)
@@ -629,528 +391,6 @@ struct ExpandedIslandView: View {
 
         align()
         DispatchQueue.main.async(execute: align)
-    }
-}
-
-private struct CodingAgentTaskStack: View {
-    let sessions: [CodingAgentSession]
-    let hiddenCount: Int
-
-    var body: some View {
-        VStack(spacing: 5) {
-            ForEach(sessions) { session in
-                CodingAgentTaskRow(session: session)
-            }
-
-            if hiddenCount > 0 {
-                Text("+\(hiddenCount) more running")
-                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.trailing, 3)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Active coding agent tasks")
-    }
-}
-
-private struct CodingAgentTaskRow: View {
-    let session: CodingAgentSession
-
-    private var accentColor: Color {
-        agentActivityColor(session.activity, provider: session.provider)
-    }
-
-    private var detailText: String {
-        session.questionPrompt
-            ?? session.taskSummary
-            ?? session.model
-            ?? session.version.map { "\(session.provider.displayName) v\($0)" }
-            ?? "\(session.provider.displayName) task"
-    }
-
-    var body: some View {
-        HStack(spacing: 9) {
-            if session.activity == .working {
-                CodingAgentMascot(
-                    size: 22,
-                    color: UsageLimitPalette.color(for: session.provider)
-                )
-                    .frame(width: 24, height: 24)
-                    .accessibilityHidden(true)
-            } else {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(accentColor)
-                    .frame(width: 3, height: 23)
-                    .frame(width: 24)
-            }
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(session.projectName)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.91))
-                    .lineLimit(1)
-
-                Text(detailText)
-                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.48))
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            AgentNameTag(
-                name: session.provider.displayName,
-                color: UsageLimitPalette.color(for: session.provider),
-                compact: false
-            )
-
-            if let version = session.version {
-                Text("v\(version)")
-                    .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.42))
-                    .lineLimit(1)
-                    .fixedSize()
-            }
-
-            CodingAgentTaskStatus(activity: session.activity, color: accentColor)
-        }
-        .padding(.horizontal, 9)
-        .frame(height: 38)
-        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(session.provider.displayName), \(session.projectName), \(session.activity.displayName), \(detailText)")
-    }
-}
-
-private struct AgentNameTag: View {
-    let name: String
-    let color: Color
-    let compact: Bool
-
-    var body: some View {
-        Text(name)
-            .font(.system(size: compact ? 8.5 : 9.5, weight: .bold, design: .rounded))
-            .foregroundStyle(color.opacity(0.96))
-            .lineLimit(1)
-            .padding(.horizontal, compact ? 6 : 8)
-            .frame(height: compact ? 17 : 20)
-            .background(color.opacity(0.14), in: Capsule())
-            .fixedSize()
-    }
-}
-
-private struct CodingAgentTaskStatus: View {
-    let activity: CodingAgentActivity
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 5) {
-            if activity == .completed {
-                HugeIcon(.check, size: 9, color: color)
-            } else if activity != .working {
-                Circle()
-                    .fill(color)
-                    .frame(width: 6, height: 6)
-            }
-
-            Text(statusText)
-                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(color)
-        }
-        .fixedSize()
-    }
-
-    private var statusText: String {
-        switch activity {
-        case .waitingForApproval:
-            "Approval"
-        case .waitingForInput:
-            "Answer"
-        case .working:
-            "Working"
-        case .completed:
-            "Done"
-        case .idle:
-            "Ready"
-        }
-    }
-}
-
-private struct AgentApprovalPanel: View {
-    let approval: CodingAgentApprovalRequest
-    let queuedCount: Int
-    @ObservedObject var viewModel: PillViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text("\(approval.provider.displayName) permission request")
-                    .font(AssistFont.roundedFootnote(.semibold))
-                    .foregroundStyle(.white.opacity(0.78))
-
-                Spacer(minLength: 8)
-
-                if queuedCount > 1 {
-                    Text("\(queuedCount) queued")
-                        .font(AssistFont.roundedFootnote(.semibold))
-                        .foregroundStyle(.white.opacity(0.68))
-                        .padding(.horizontal, 9)
-                        .frame(height: 22)
-                        .background(Color.white.opacity(0.08), in: Capsule())
-                }
-            }
-
-            if let reason = approval.reason,
-               !reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text(reason)
-                    .font(AssistFont.roundedFootnote(.medium))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(2)
-            }
-
-            ScrollView(.vertical, showsIndicators: true) {
-                Text(approval.commandPreview)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.86))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(11)
-            }
-            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 64)
-            .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            HStack(spacing: 10) {
-                Spacer()
-
-                Button("Deny") {
-                    viewModel.resolveAgentApproval(approval.id, decision: .deny)
-                }
-                .buttonStyle(.plain)
-                .font(AssistFont.roundedFootnote(.semibold))
-                .foregroundStyle(.white.opacity(0.88))
-                .padding(.horizontal, 15)
-                .frame(height: 30)
-                .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .keyboardShortcut(.escape, modifiers: [])
-
-                Button("Allow") {
-                    viewModel.resolveAgentApproval(approval.id, decision: .allow)
-                }
-                .buttonStyle(.plain)
-                .font(AssistFont.roundedFootnote(.bold))
-                .foregroundStyle(.black.opacity(0.88))
-                .padding(.horizontal, 17)
-                .frame(height: 30)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .keyboardShortcut(.return, modifiers: [])
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(approval.provider.displayName) permission request for \(approval.projectName)")
-    }
-}
-
-private struct AgentQuestionPanel: View {
-    let request: CodingAgentQuestionRequest
-    @ObservedObject var viewModel: PillViewModel
-
-    @State private var questionIndex = 0
-    @State private var collectedAnswers: [String: [String]] = [:]
-    @State private var selectedOptions: Set<String> = []
-    @State private var customAnswer = ""
-    @State private var isEnteringCustomAnswer: Bool
-    @FocusState private var isCustomAnswerFocused: Bool
-
-    init(request: CodingAgentQuestionRequest, viewModel: PillViewModel) {
-        self.request = request
-        self.viewModel = viewModel
-        _isEnteringCustomAnswer = State(
-            initialValue: request.questions.first?.options.isEmpty ?? false
-        )
-    }
-
-    private var currentQuestion: CodingAgentQuestion? {
-        guard request.questions.indices.contains(questionIndex) else { return nil }
-        return request.questions[questionIndex]
-    }
-
-    private var selectedAnswers: [String] {
-        if isEnteringCustomAnswer {
-            let trimmedAnswer = customAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmedAnswer.isEmpty ? [] : [trimmedAnswer]
-        }
-
-        guard let currentQuestion else { return [] }
-        return currentQuestion.options
-            .map(\.label)
-            .filter(selectedOptions.contains)
-    }
-
-    var body: some View {
-        if let currentQuestion {
-            VStack(alignment: .leading, spacing: 9) {
-                HStack(spacing: 8) {
-                    Text("\(request.provider.displayName) asks")
-                        .font(AssistFont.roundedFootnote(.semibold))
-                        .foregroundStyle(.white.opacity(0.78))
-
-                    Spacer(minLength: 8)
-
-                    if request.questions.count > 1 {
-                        Text("\(questionIndex + 1) of \(request.questions.count)")
-                            .font(AssistFont.roundedFootnote(.semibold))
-                            .foregroundStyle(.white.opacity(0.52))
-                    }
-                }
-
-                Text(currentQuestion.prompt)
-                    .font(AssistFont.roundedFootnote(.semibold))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                ScrollView(.vertical, showsIndicators: currentQuestion.options.count > 3) {
-                    VStack(spacing: 6) {
-                        ForEach(currentQuestion.options) { option in
-                            questionOptionButton(option, question: currentQuestion)
-                        }
-
-                        if currentQuestion.allowsCustomAnswer {
-                            customAnswerControl
-                        }
-                    }
-                }
-                .frame(maxHeight: 118)
-
-                if currentQuestion.allowsMultipleSelection || isEnteringCustomAnswer {
-                    HStack {
-                        Spacer()
-
-                        Button(questionIndex + 1 == request.questions.count ? "Send answer" : "Next") {
-                            completeCurrentQuestion(with: selectedAnswers)
-                        }
-                        .buttonStyle(.plain)
-                        .font(AssistFont.roundedFootnote(.semibold))
-                        .foregroundStyle(.black.opacity(0.88))
-                        .padding(.horizontal, 15)
-                        .frame(height: 28)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        .opacity(selectedAnswers.isEmpty ? 0.45 : 1)
-                        .disabled(selectedAnswers.isEmpty)
-                        .keyboardShortcut(.return, modifiers: [])
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("\(request.provider.displayName) question for \(request.projectName)")
-        }
-    }
-
-    private func questionOptionButton(
-        _ option: CodingAgentQuestionOption,
-        question: CodingAgentQuestion
-    ) -> some View {
-        let isSelected = selectedOptions.contains(option.label)
-
-        return Button {
-            isEnteringCustomAnswer = false
-            customAnswer = ""
-            if question.allowsMultipleSelection {
-                if isSelected {
-                    selectedOptions.remove(option.label)
-                } else {
-                    selectedOptions.insert(option.label)
-                }
-            } else {
-                completeCurrentQuestion(with: [option.label])
-            }
-        } label: {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(option.label)
-                        .font(AssistFont.roundedFootnote(.semibold))
-                        .foregroundStyle(.white.opacity(0.9))
-
-                    if !option.description.isEmpty {
-                        Text(option.description)
-                            .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.46))
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer(minLength: 8)
-
-                if question.allowsMultipleSelection {
-                    HugeIcon(
-                        isSelected ? .check : .circle,
-                        size: 13,
-                        color: .white.opacity(isSelected ? 0.9 : 0.42)
-                    )
-                }
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
-            .background(
-                Color.white.opacity(isSelected ? 0.12 : 0.065),
-                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var customAnswerControl: some View {
-        if isEnteringCustomAnswer {
-            Group {
-                if currentQuestion?.isSecret == true {
-                    SecureField("Type another answer", text: $customAnswer)
-                } else {
-                    TextField("Type another answer", text: $customAnswer)
-                }
-            }
-                .textFieldStyle(.plain)
-                .font(AssistFont.roundedFootnote(.medium))
-                .foregroundStyle(.white.opacity(0.9))
-                .padding(.horizontal, 10)
-                .frame(height: 32)
-                .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .focused($isCustomAnswerFocused)
-                .onSubmit {
-                    if !selectedAnswers.isEmpty {
-                        completeCurrentQuestion(with: selectedAnswers)
-                    }
-                }
-                .onAppear {
-                    isCustomAnswerFocused = true
-                }
-        } else {
-            Button("Other answer…") {
-                selectedOptions.removeAll()
-                isEnteringCustomAnswer = true
-                isCustomAnswerFocused = true
-            }
-            .buttonStyle(.plain)
-            .font(AssistFont.roundedFootnote(.semibold))
-            .foregroundStyle(.white.opacity(0.68))
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
-            .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-        }
-    }
-
-    private func completeCurrentQuestion(with answers: [String]) {
-        guard let currentQuestion, !answers.isEmpty else { return }
-
-        var updatedAnswers = collectedAnswers
-        updatedAnswers[currentQuestion.id] = answers
-
-        if questionIndex + 1 < request.questions.count {
-            collectedAnswers = updatedAnswers
-            questionIndex += 1
-            selectedOptions.removeAll()
-            customAnswer = ""
-            isEnteringCustomAnswer = request.questions[questionIndex].options.isEmpty
-            if isEnteringCustomAnswer {
-                isCustomAnswerFocused = true
-            }
-            return
-        }
-
-        let resolvedAnswers = request.questions.compactMap { question -> CodingAgentQuestionAnswer? in
-            guard let selectedAnswers = updatedAnswers[question.id], !selectedAnswers.isEmpty else {
-                return nil
-            }
-            return CodingAgentQuestionAnswer(
-                questionID: question.id,
-                responseKey: question.responseKey,
-                selectedAnswers: selectedAnswers
-            )
-        }
-        guard resolvedAnswers.count == request.questions.count else { return }
-        viewModel.resolveAgentQuestion(request.id, answers: resolvedAnswers)
-    }
-}
-
-private enum UsageRailPresentation: Equatable {
-    case collapsed
-    case expanded
-}
-
-private struct PersistentUsageRail: View {
-    let snapshots: [UsageLimitSnapshot]
-    let isRefreshing: Bool
-    let presentation: UsageRailPresentation
-
-    var body: some View {
-        HStack(spacing: presentation == .collapsed ? 4 : 7) {
-            ForEach(snapshots) { snapshot in
-                UsageRailProvider(snapshot: snapshot, presentation: presentation)
-            }
-
-            if isRefreshing {
-                Circle()
-                    .fill(.white.opacity(0.42))
-                    .frame(width: 4, height: 4)
-                    .transition(.opacity)
-            }
-        }
-        .frame(maxWidth: presentation == .expanded ? .infinity : nil, alignment: .leading)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Coding agent usage limits")
-    }
-}
-
-private struct UsageRailProvider: View {
-    let snapshot: UsageLimitSnapshot
-    let presentation: UsageRailPresentation
-
-    private var isCollapsed: Bool { presentation == .collapsed }
-
-    var body: some View {
-        HStack(spacing: isCollapsed ? 4 : 7) {
-            UsageProviderLogo(
-                provider: snapshot.provider,
-                size: isCollapsed ? 11 : 15
-            )
-
-            UsageRailMetric(title: "5h", window: snapshot.fiveHour)
-
-            Rectangle()
-                .fill(Color.white.opacity(0.16))
-                .frame(width: 1, height: isCollapsed ? 10 : 13)
-
-            UsageRailMetric(title: "7d", window: snapshot.sevenDay)
-        }
-        .padding(.horizontal, isCollapsed ? 5 : 8)
-        .frame(height: isCollapsed ? 20 : 26)
-        .background(Color.white.opacity(isCollapsed ? 0.055 : 0.065), in: Capsule())
-        .fixedSize()
-        .help("\(snapshot.provider.displayName): 5-hour \(snapshot.fiveHour.accessibilityText); 7-day \(snapshot.sevenDay.accessibilityText)")
-    }
-}
-
-private struct UsageRailMetric: View {
-    let title: String
-    let window: UsageLimitWindow
-
-    var body: some View {
-        HStack(spacing: 2) {
-            Text(title)
-                .foregroundStyle(.white.opacity(0.48))
-
-            Text(window.percentageText)
-                .foregroundStyle(.white.opacity(window.isAvailable ? 0.9 : 0.38))
-                .monospacedDigit()
-        }
-        .font(.system(size: 8.5, weight: .semibold, design: .rounded))
-        .fixedSize()
-        .accessibilityLabel("\(title) \(window.accessibilityText)")
     }
 }
 
@@ -1195,68 +435,6 @@ private struct ExpandedIslandHeader: View {
 
         }
         .foregroundStyle(.white)
-    }
-}
-
-private enum UsageLimitPalette {
-    static let codexPrimary = Color(red: 122.0 / 255.0, green: 157.0 / 255.0, blue: 1)
-
-    static func color(for provider: UsageLimitProvider) -> Color {
-        switch provider {
-        case .claudeCode:
-            Color(red: 0.96, green: 0.47, blue: 0.22)
-        case .codex:
-            codexPrimary
-        }
-    }
-}
-
-private func agentActivityColor(
-    _ activity: CodingAgentActivity,
-    provider: UsageLimitProvider
-) -> Color {
-    switch activity {
-    case .waitingForApproval:
-        Color(red: 1, green: 0.68, blue: 0.22)
-    case .waitingForInput:
-        Color(red: 0.78, green: 0.62, blue: 1)
-    case .working:
-        UsageLimitPalette.color(for: provider)
-    case .completed:
-        Color(red: 0.28, green: 0.82, blue: 0.5)
-    case .idle:
-        Color.white.opacity(0.34)
-    }
-}
-
-private extension UsageLimitWindow {
-    var percentageText: String {
-        guard let usedPercentage else {
-            return "--"
-        }
-
-        return "\(Int(usedPercentage.rounded()))%"
-    }
-
-    var accessibilityText: String {
-        guard isAvailable else {
-            return "unavailable"
-        }
-
-        if let resetAt {
-            return "\(percentageText), resets \(UsageLimitResetFormatter.string(from: resetAt))"
-        }
-
-        return percentageText
-    }
-}
-
-private enum UsageLimitResetFormatter {
-    static func string(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
     }
 }
 

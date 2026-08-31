@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 const siteUrl = "https://assistapp.dev";
-const socialImageUrl = `${siteUrl}/assist-social-preview-v2.png`;
+const socialImageUrl = `${siteUrl}/og-image.png`;
 
 export function createLegalMetadata(
   title: string,
@@ -28,7 +28,7 @@ export function createLegalMetadata(
           url: socialImageUrl,
           width: 1200,
           height: 630,
-          alt: "Assist for Mac monitoring coding agents from the notch"
+          alt: "Assist for Mac with screenshots, annotations, and clipboard history"
         }
       ]
     },
@@ -39,7 +39,7 @@ export function createLegalMetadata(
       images: [
         {
           url: socialImageUrl,
-          alt: "Assist for Mac monitoring coding agents from the notch"
+          alt: "Assist for Mac with screenshots, annotations, and clipboard history"
         }
       ]
     }

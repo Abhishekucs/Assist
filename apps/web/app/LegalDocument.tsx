@@ -76,7 +76,7 @@ export default function LegalDocument({
               </span>
               <span>Assist</span>
             </a>
-            <p>Coding agents, approvals, screenshots, and context—right from your Mac notch.</p>
+            <p>Voice annotation, screenshots, and clipboard history—right from your Mac notch.</p>
           </div>
 
           <nav className="footer-link-grid" aria-label="Footer navigation">

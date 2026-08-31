@@ -2,7 +2,7 @@ import LegalDocument from "../LegalDocument";
 import { createLegalMetadata } from "../legalMetadata";
 
 const description =
-  "The terms that apply to Assist for Mac, official downloads, license activation, purchases, coding-agent integrations, updates, and support.";
+  "The terms that apply to Assist for Mac, voice annotation, screenshots, clipboard history, official downloads, licenses, purchases, updates, and support.";
 
 export const metadata = createLegalMetadata("Terms of Use", description, "/terms");
 
@@ -11,7 +11,6 @@ const sections = [
   { id: "service", label: "What Assist does" },
   { id: "license", label: "License and open source" },
   { id: "responsibilities", label: "Your responsibilities" },
-  { id: "agent-actions", label: "Coding-agent actions" },
   { id: "content", label: "Your content" },
   { id: "purchases", label: "Purchases and refunds" },
   { id: "updates", label: "Updates and availability" },
@@ -31,7 +30,7 @@ export default function TermsPage() {
     <LegalDocument
       title="Terms of Use"
       description={description}
-      lastUpdated="July 24, 2026"
+      lastUpdated="August 27, 2026"
       sections={sections}
     >
       <section id="agreement">
@@ -55,9 +54,9 @@ export default function TermsPage() {
       <section id="service">
         <h2>2. What Assist does</h2>
         <p>
-          Assist is a macOS utility that can surface supported Codex and Claude Code task status,
-          permission requests, questions, and usage windows from the Mac notch. It can also
-          capture or annotate screenshots and keep recent copied text available for reuse.
+          Assist is a macOS utility for capturing screenshots, adding visual and voice
+          annotations, and keeping recent copied text available for reuse from the Mac notch
+          and a local library.
         </p>
         <div className="legal-fact-grid" aria-label="Current purchase details">
           <div>
@@ -75,7 +74,7 @@ export default function TermsPage() {
         </div>
         <p>
           Feature descriptions on the purchase page form part of the offer at the time of your
-          purchase. Some features depend on macOS permissions, third-party agent tools, local
+          purchase. Some features depend on macOS permissions, local voice-model setup,
           configuration, network access, and compatible hardware.
         </p>
       </section>
@@ -101,14 +100,14 @@ export default function TermsPage() {
 
       <section id="responsibilities">
         <h2>4. Your responsibilities and acceptable use</h2>
-        <p>You are responsible for your Mac, accounts, integrations, content, and use of Assist. You agree to:</p>
+        <p>You are responsible for your Mac, accounts, content, and use of Assist. You agree to:</p>
         <ul>
           <li>use the Services lawfully and respect the rights of others;</li>
           <li>obtain permission before capturing, monitoring, or sharing content you do not own;</li>
-          <li>protect your Mac, license key, agent sessions, and any confidential information;</li>
+          <li>protect your Mac, license key, and any confidential information;</li>
           <li>review screenshots and copied text before moving them into another application;</li>
           <li>maintain backups of content you need; and</li>
-          <li>comply with the terms of Codex, Claude Code, GitHub, and other connected services.</li>
+          <li>comply with the terms of connected services you use with Assist.</li>
         </ul>
         <p>You must not:</p>
         <ul>
@@ -119,26 +118,8 @@ export default function TermsPage() {
         </ul>
       </section>
 
-      <section id="agent-actions">
-        <h2>5. Coding-agent actions require your judgment</h2>
-        <p>
-          Assist provides an interface to third-party coding agents; it is not the agent or model
-          provider. Agent questions, command previews, tool requests, and permission prompts may
-          be incomplete, delayed, or incorrect. An approval or answer sent through Assist can
-          cause an agent to read or change files, run commands, access networks, or take other
-          consequential actions under that agent&apos;s permissions.
-        </p>
-        <p>
-          Review the request and the relevant project state before responding. You are
-          responsible for approvals, answers, agent output, backups, source-control practices,
-          and the consequences of commands or changes you authorize. Assist does not guarantee
-          that it will surface every event or prevent a third-party agent from acting outside the
-          Assist interface.
-        </p>
-      </section>
-
       <section id="content">
-        <h2>6. Screenshots, clipboard data, and your content</h2>
+        <h2>5. Screenshots, clipboard data, and your content</h2>
         <p>
           You retain ownership of content you capture, copy, annotate, or send through Assist.
           You are responsible for having the rights and permissions needed to use that content.
@@ -149,7 +130,7 @@ export default function TermsPage() {
           code, customer records, or other confidential material. Assist is not a secret scanner
           and does not promise to identify or redact sensitive information. Keep your Mac secure,
           delete items you no longer need, and inspect content before dragging or pasting it into
-          agent prompts, chats, documents, or other services.
+          chats, documents, or other services.
         </p>
         <p>
           Local data can be lost through deletion, device failure, operating-system changes, or
@@ -158,7 +139,7 @@ export default function TermsPage() {
       </section>
 
       <section id="purchases">
-        <h2>7. Purchases, billing, and refunds</h2>
+        <h2>6. Purchases, billing, and refunds</h2>
         <p>
           Dodo Payments acts as merchant of record for purchases. Its checkout terms and privacy
           policy apply to payment processing, taxes, invoices, fraud screening, and payment
@@ -176,7 +157,7 @@ export default function TermsPage() {
       </section>
 
       <section id="updates">
-        <h2>8. Updates, changes, and availability</h2>
+        <h2>7. Updates, changes, and availability</h2>
         <p>
           The current purchase offer includes lifetime access to the purchased official build
           and updates in the 1.x release line. “Lifetime” refers to the supported life of the
@@ -186,30 +167,30 @@ export default function TermsPage() {
         </p>
         <p>
           We may add, change, deprecate, or remove features to improve Assist, respond to security
-          concerns, comply with law, or adapt to macOS and third-party agent changes. Updates may
+          concerns, comply with law, or adapt to macOS and third-party platform changes. Updates may
           be required for continued compatibility or security. Beta or early-access features may
           be less reliable and may change without notice.
         </p>
       </section>
 
       <section id="third-parties">
-        <h2>9. Third-party services</h2>
+        <h2>8. Third-party services</h2>
         <p>
-          Assist interoperates with or relies on services such as Codex, Claude Code, Dodo
-          Payments, Supabase, Vercel, GitHub, and Apple&apos;s macOS. Those products are controlled by
+          Assist interoperates with or relies on services such as Dodo Payments, Supabase,
+          Vercel, GitHub, and Apple&apos;s macOS. Those products are controlled by
           their respective providers and are governed by their own terms. We are not responsible
           for third-party availability, output, security, pricing, policy changes, or data
           practices.
         </p>
         <p>
-          A change by Apple or an agent provider may limit an integration or require us to modify
+          A change by Apple or a service provider may limit a feature or require us to modify
           Assist. Links to third-party sites are provided for convenience and do not imply
           endorsement of all content on those sites.
         </p>
       </section>
 
       <section id="privacy">
-        <h2>10. Privacy</h2>
+        <h2>9. Privacy</h2>
         <p>
           The <a href="/privacy">Privacy Policy</a> explains how Assist handles local app data,
           license and purchase records, website analytics, service-provider disclosures, and
@@ -218,7 +199,7 @@ export default function TermsPage() {
       </section>
 
       <section id="intellectual-property">
-        <h2>11. Intellectual property and feedback</h2>
+        <h2>10. Intellectual property and feedback</h2>
         <p>
           Except for open-source code and third-party materials governed by their own licenses,
           Assist&apos;s official website content, branding, logos, and service design are owned by or
@@ -234,13 +215,13 @@ export default function TermsPage() {
       </section>
 
       <section id="disclaimers">
-        <h2>12. Disclaimers</h2>
+        <h2>11. Disclaimers</h2>
         <p>
           To the maximum extent permitted by law, the Services are provided “as is” and “as
           available.” We disclaim implied warranties of merchantability, fitness for a particular
           purpose, non-infringement, and uninterrupted or error-free operation. We do not warrant
-          that Assist will capture every event, preserve every item, remain compatible with every
-          Mac or agent version, or prevent harmful agent actions.
+          that Assist will capture every item, preserve every item, or remain compatible with
+          every Mac or operating-system version.
         </p>
         <p>
           Some jurisdictions do not allow certain warranty exclusions, so some of these terms may
@@ -249,12 +230,12 @@ export default function TermsPage() {
       </section>
 
       <section id="liability">
-        <h2>13. Limitation of liability</h2>
+        <h2>12. Limitation of liability</h2>
         <p>
           To the maximum extent permitted by law, Assist and its developer will not be liable for
           indirect, incidental, special, consequential, exemplary, or punitive damages, or for
           loss of data, source code, profits, revenue, business opportunity, goodwill, or security,
-          arising from or related to the Services, agent actions, third-party services, or these
+          arising from or related to the Services, third-party services, or these
           terms.
         </p>
         <p>
@@ -266,7 +247,7 @@ export default function TermsPage() {
       </section>
 
       <section id="termination">
-        <h2>14. Suspension and termination</h2>
+        <h2>13. Suspension and termination</h2>
         <p>
           You may stop using Assist at any time. We may suspend hosted purchase, download, license,
           update, or support access if we reasonably believe there is fraud, unlawful use, a
@@ -281,7 +262,7 @@ export default function TermsPage() {
       </section>
 
       <section id="law">
-        <h2>15. Applicable law and disputes</h2>
+        <h2>14. Applicable law and disputes</h2>
         <p>
           Before starting formal proceedings, please contact us and allow 30 days to try to
           resolve the dispute informally. These terms are governed by the laws of India, without
@@ -292,7 +273,7 @@ export default function TermsPage() {
       </section>
 
       <section id="changes">
-        <h2>16. Changes and general terms</h2>
+        <h2>15. Changes and general terms</h2>
         <p>
           We may update these terms to reflect changes to Assist, our providers, or legal
           requirements. The revised terms will be posted here with a new date. Material changes
@@ -310,7 +291,7 @@ export default function TermsPage() {
       </section>
 
       <section id="contact">
-        <h2>17. Contact</h2>
+        <h2>16. Contact</h2>
         <p>
           Questions about these terms can be sent to Assist at{" "}
           <a href="mailto:abhishek@thinkingsoundlab.com">abhishek@thinkingsoundlab.com</a>.

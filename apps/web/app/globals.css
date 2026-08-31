@@ -1112,10 +1112,6 @@ p {
   object-fit: cover;
 }
 
-.agent-feature-video .feature-video {
-  object-position: center top;
-}
-
 .pricing-section,
 .faq-section {
   position: relative;

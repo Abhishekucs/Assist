@@ -35,32 +35,13 @@ final class WindowManager {
     private var isDraggingFromPill = false
     private var settingsCancellable: AnyCancellable?
 
-    private var isShowingRateLimits: Bool {
-        Self.isShowingRateLimits(settings: settings)
-    }
-
-    private var isShowingAgentApproval: Bool {
-        pillViewModel.hasPendingAgentApproval || pillViewModel.hasPendingAnswerableQuestion
-    }
-
-    private var hasBlockingAgentInteraction: Bool {
-        pillViewModel.hasBlockingAgentInteraction
-    }
-
-    private var codingAgentTaskCount: Int {
-        pillViewModel.activeCodingAgentTaskSessions.count
-    }
-
     init(pillViewModel: PillViewModel, settings: PillSettings) {
         self.pillViewModel = pillViewModel
         self.settings = settings
 
         pillPanel = PillPanel(
             contentRect: Self.topCenterFrame(
-                windowSize: PillChromeMetrics.expandedSize(
-                    settings: settings,
-                    showingRateLimits: Self.isShowingRateLimits(settings: settings)
-                ),
+                windowSize: PillChromeMetrics.expandedSize(settings: settings),
                 on: Self.screenContainingMouse()
             ),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -120,34 +101,6 @@ final class WindowManager {
         ])
     }
 
-    func presentCodingAgentInteraction() {
-        collapseWorkItem?.cancel()
-        contentRevealWorkItem?.cancel()
-        collapsedRevealWorkItem?.cancel()
-        pillViewModel.isCollapsedContentVisible = false
-        setPillFrame(display: true)
-        pillPanel.orderFrontRegardless()
-
-        withAnimation(Metrics.islandAnimation) {
-            pillViewModel.isExpanded = true
-        }
-        pillViewModel.isExpandedContentVisible = true
-    }
-
-    func agentInteractionDidResolve() {
-        setPillFrame(display: true)
-        guard !hasBlockingAgentInteraction else {
-            return
-        }
-        pillPanel.resignKey()
-        guard !isPointerHoveringPillChrome else { return }
-        setPillHovering(false)
-    }
-
-    func codingAgentStateDidChange() {
-        setPillFrame(display: true)
-    }
-
     private func configurePillPanel() {
         pillPanel.isOpaque = false
         pillPanel.backgroundColor = .clear
@@ -176,16 +129,10 @@ final class WindowManager {
             guard let self, let hostingView else { return .zero }
 
             let chromeSize = self.pillViewModel.isExpanded
-                ? PillChromeMetrics.expandedSize(
-                    settings: self.settings,
-                    showingRateLimits: self.isShowingRateLimits,
-                    showingAgentApproval: self.isShowingAgentApproval,
-                    agentTaskCount: self.codingAgentTaskCount
-                )
+                ? PillChromeMetrics.expandedSize(settings: self.settings)
                 : PillChromeMetrics.collapsedSize(
                     settings: self.settings,
-                    showingCopyFeedback: self.pillViewModel.copyFeedback != nil,
-                    showingAgentActivity: self.pillViewModel.displayedCodingAgentSession != nil
+                    showingCopyFeedback: self.pillViewModel.copyFeedback != nil
                 )
             let bounds = hostingView.bounds
 
@@ -213,12 +160,7 @@ final class WindowManager {
 
     private func setPillFrame(display: Bool) {
         let frame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(
-                settings: settings,
-                showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingAgentApproval,
-                agentTaskCount: codingAgentTaskCount
-            ),
+            windowSize: PillChromeMetrics.expandedSize(settings: settings),
             on: screenForCurrentPill()
         )
 
@@ -227,12 +169,7 @@ final class WindowManager {
 
     private func pinPillToTopCenter() {
         let expectedFrame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(
-                settings: settings,
-                showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingAgentApproval,
-                agentTaskCount: codingAgentTaskCount
-            ),
+            windowSize: PillChromeMetrics.expandedSize(settings: settings),
             on: screenForCurrentPill()
         )
 
@@ -244,12 +181,7 @@ final class WindowManager {
             guard let self, !self.pillViewModel.isExpanded else { return }
             self.pillPanel.setFrame(
                 Self.topCenterFrame(
-                    windowSize: PillChromeMetrics.expandedSize(
-                        settings: self.settings,
-                        showingRateLimits: self.isShowingRateLimits,
-                        showingAgentApproval: self.isShowingAgentApproval,
-                        agentTaskCount: self.codingAgentTaskCount
-                    ),
+                    windowSize: PillChromeMetrics.expandedSize(settings: self.settings),
                     on: self.screenForCurrentPill()
                 ),
                 display: true,
@@ -265,15 +197,6 @@ final class WindowManager {
         collapsedRevealWorkItem?.cancel()
 
         guard !isDraggingFromPill else { return }
-
-        if !hovering, hasBlockingAgentInteraction {
-            pillViewModel.isCollapsedContentVisible = false
-            pillViewModel.isExpanded = true
-            pillViewModel.isExpandedContentVisible = true
-            setPillFrame(display: true)
-            pillPanel.orderFrontRegardless()
-            return
-        }
 
         if hovering {
             guard settings.openOnHover else { return }
@@ -397,10 +320,6 @@ final class WindowManager {
         setPillFrame(display: true)
     }
 
-    private static func isShowingRateLimits(settings: PillSettings) -> Bool {
-        settings.showClaudeCodeRateLimit || settings.showCodexRateLimit
-    }
-
     private func startPointerScreenTracking() {
         pointerScreenTimer?.invalidate()
         let timer = Timer(timeInterval: Metrics.pointerScreenPollInterval, repeats: true) { [weak self] _ in
@@ -424,17 +343,12 @@ final class WindowManager {
         collapseWorkItem?.cancel()
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()
-        pillViewModel.isExpandedContentVisible = hasBlockingAgentInteraction
-        pillViewModel.isCollapsedContentVisible = !hasBlockingAgentInteraction
-        pillViewModel.isExpanded = hasBlockingAgentInteraction
+        pillViewModel.isExpandedContentVisible = false
+        pillViewModel.isCollapsedContentVisible = true
+        pillViewModel.isExpanded = false
 
         let targetFrame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(
-                settings: settings,
-                showingRateLimits: isShowingRateLimits,
-                showingAgentApproval: isShowingAgentApproval,
-                agentTaskCount: codingAgentTaskCount
-            ),
+            windowSize: PillChromeMetrics.expandedSize(settings: settings),
             on: pointerScreen
         )
         pillPanel.setFrame(targetFrame, display: true, animate: false)

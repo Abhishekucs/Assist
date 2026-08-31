@@ -11,10 +11,10 @@ const inter = Inter({
 });
 
 const siteUrl = "https://assistapp.dev";
-const siteTitle = "Assist for Mac — Voice Annotation, Screenshots & Coding Agents";
-const socialImageUrl = `${siteUrl}/assist-social-preview-v2.png`;
+const siteTitle = "Assist for Mac — Voice Annotation, Screenshots & Clipboard";
+const socialImageUrl = `${siteUrl}/og-image.png`;
 const siteDescription =
-  "Annotate your Mac screen with voice, capture full-screen screenshots, and monitor Claude Code and Codex tasks, approvals, questions, and usage from the notch.";
+  "Annotate your Mac screen with voice, capture full-screen screenshots, and keep copied text ready to reuse from the notch.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -29,9 +29,7 @@ export const metadata: Metadata = {
     "Mac screenshot app",
     "screen annotation Mac",
     "voice annotation",
-    "Claude Code monitor",
-    "Codex monitor",
-    "coding agent manager",
+    "Mac clipboard history",
     "macOS productivity app",
     "Mac notch app"
   ],
@@ -54,7 +52,7 @@ export const metadata: Metadata = {
         url: socialImageUrl,
         width: 1200,
         height: 630,
-        alt: "Assist for Mac with voice annotation, screenshots, and Claude Code and Codex monitoring"
+        alt: "Assist for Mac with screenshots, annotations, and clipboard history"
       }
     ]
   },
@@ -65,7 +63,7 @@ export const metadata: Metadata = {
     images: [
       {
         url: socialImageUrl,
-        alt: "Assist for Mac with voice annotation, screenshots, and Claude Code and Codex monitoring"
+        alt: "Assist for Mac with screenshots, annotations, and clipboard history"
       }
     ]
   }
