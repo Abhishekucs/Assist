@@ -29,6 +29,7 @@ final class PillViewModel: ObservableObject {
     private let updateService = AppUpdateService()
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
+    private static let copyFeedbackDisplayDuration: TimeInterval = 1.6
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -43,7 +44,7 @@ final class PillViewModel: ObservableObject {
         self.voiceContextService = voiceContextService
     }
 
-    func showCopyFeedback(badge: String, preview: String) {
+    func showCopyFeedback(badge: String, preview: String, kind: CopyFeedback.Kind = .success) {
         copyFeedbackDismissWorkItem?.cancel()
         copyFeedbackClearWorkItem?.cancel()
 
@@ -53,7 +54,8 @@ final class PillViewModel: ObservableObject {
         let feedback = CopyFeedback(
             id: UUID(),
             badge: badge,
-            preview: String(collapsedPreview.prefix(80))
+            preview: String(collapsedPreview.prefix(80)),
+            kind: kind
         )
         copyFeedback = feedback
         isCopyFeedbackVisible = true
@@ -73,7 +75,10 @@ final class PillViewModel: ObservableObject {
             )
         }
         copyFeedbackDismissWorkItem = dismissWorkItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: dismissWorkItem)
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.copyFeedbackDisplayDuration,
+            execute: dismissWorkItem
+        )
     }
 
     func clearCaptureIssue() {
@@ -463,6 +468,22 @@ final class PillViewModel: ObservableObject {
             selectedHistoryItem = .screenshot(item)
         }
         cacheContextMarkdown(for: item)
+    }
+
+    func refreshScreenshotPixels(for item: CaptureItem) {
+        var nextImages = thumbnailImages
+        nextImages.removeValue(forKey: item.id)
+        if let image = warmedImage(at: item.thumbnailPath) {
+            nextImages[item.id] = image
+        }
+        thumbnailImages = nextImages
+
+        if latestItem?.id == item.id {
+            latestItem = item
+        }
+        if selectedHistoryItem?.id == item.id {
+            selectedHistoryItem = .screenshot(item)
+        }
     }
 
     func setUpVoiceContext() {

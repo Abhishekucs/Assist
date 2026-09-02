@@ -16,10 +16,7 @@ struct PillView: View {
     }
 
     private var collapsedSize: CGSize {
-        PillChromeMetrics.collapsedSize(
-            settings: settings,
-            showingCopyFeedback: viewModel.copyFeedback != nil
-        )
+        PillChromeMetrics.collapsedSize(settings: settings)
     }
 
     private var expandedSize: CGSize {
@@ -36,10 +33,6 @@ struct PillView: View {
 
     private var islandAnimation: Animation {
         .interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
-    }
-
-    private var copyFeedbackAnimation: Animation {
-        .spring(response: 0.52, dampingFraction: 0.96, blendDuration: 0.04)
     }
 
     private var shouldShowLoadingBorder: Bool {
@@ -82,7 +75,6 @@ struct PillView: View {
             }
             .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
             .animation(islandAnimation, value: viewModel.isExpanded)
-            .animation(copyFeedbackAnimation, value: viewModel.copyFeedback != nil)
             .background {
                 BoringNotchShape(
                     topCornerRadius: chromeTopCornerRadius,
@@ -126,57 +118,57 @@ struct PillView: View {
     }
 }
 
+// The idle island is deliberately quiet: just the logo, plus a short-lived glyph
+// when something was saved or copied. Text lives in the expanded shelf instead.
 private struct CollapsedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
 
+    private var feedbackAnimation: Animation {
+        .spring(response: 0.34, dampingFraction: 0.7)
+    }
+
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
             AssistLogo(size: 16)
                 .help(AppIdentity.name)
 
-            if let feedback = viewModel.copyFeedback {
-                CopyFeedbackRow(feedback: feedback)
-                    .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
-                    .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
-                    .transition(
-                        .opacity
-                            .combined(with: .scale(scale: 0.96))
-                            .animation(.easeOut(duration: 0.16))
-                    )
-            } else {
-                Text(viewModel.statusText)
-                    .font(AssistFont.roundedFootnote(.medium))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.86)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 0)
+
+            ZStack {
+                if let feedback = viewModel.copyFeedback {
+                    FeedbackGlyph(kind: feedback.kind)
+                        .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
+                        .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.55)
+                        .transition(.scale(scale: 0.55).combined(with: .opacity))
+                        .help("\(feedback.badge): \(feedback.preview)")
+                        .accessibilityLabel("\(feedback.badge). \(feedback.preview)")
+                }
             }
+            .frame(width: 18, height: 18)
         }
         .padding(.horizontal, 18)
-        .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
-        .animation(.easeOut(duration: 0.18), value: viewModel.isCopyFeedbackVisible)
+        .animation(feedbackAnimation, value: viewModel.copyFeedback)
+        .animation(feedbackAnimation, value: viewModel.isCopyFeedbackVisible)
     }
 }
 
-private struct CopyFeedbackRow: View {
-    let feedback: CopyFeedback
+private struct FeedbackGlyph: View {
+    let kind: CopyFeedback.Kind
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(feedback.preview)
-                .font(AssistFont.roundedFootnote(.medium))
-                .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text(feedback.badge)
-                .font(AssistFont.roundedFootnote(.semibold))
-                .foregroundStyle(.black)
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .frame(height: 19)
-                .background(Color.white, in: Capsule())
+        switch kind {
+        case .success:
+            ZStack {
+                Circle().fill(Color.white)
+                HugeIcon(.check, size: 10, color: .black)
+            }
+            .frame(width: 18, height: 18)
+        case .warning:
+            ZStack {
+                Circle().fill(Color(red: 1.0, green: 0.38, blue: 0.16).opacity(0.24))
+                HugeIcon(.info, size: 10, color: Color(red: 1.0, green: 0.46, blue: 0.2))
+            }
+            .frame(width: 18, height: 18)
         }
     }
 }
@@ -359,16 +351,21 @@ struct ExpandedIslandView: View {
                     }
                 }
             } else {
-                VStack(alignment: .center, spacing: 10) {
-                    Text("No items yet")
-                        .font(.headline)
+                VStack(alignment: .center, spacing: 8) {
+                    HugeIcon(.camera, size: 20, color: .white.opacity(0.36))
+                        .padding(.bottom, 2)
 
-                    Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    Text("No captures yet")
+                        .font(AssistFont.roundedHeadline())
+                        .foregroundStyle(.white.opacity(0.88))
+
+                    Text("Hold ⌥ to annotate  ·  ⌃⌥ for a clean screenshot")
+                        .font(AssistFont.roundedFootnote(.medium))
+                        .foregroundStyle(.white.opacity(0.5))
                         .fixedSize(horizontal: false, vertical: true)
 
                     DebugActionsView(viewModel: viewModel)
+                        .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .multilineTextAlignment(.center)

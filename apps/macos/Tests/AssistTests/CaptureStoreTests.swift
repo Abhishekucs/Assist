@@ -40,6 +40,52 @@ final class CaptureStoreTests: XCTestCase {
         )
     }
 
+    func testReplacingScreenshotPixelsKeepsTheCaptureIdentity() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        let item = try store.save(image: makeImage(), context: .saved)
+        let originalImageData = try Data(contentsOf: URL(fileURLWithPath: item.imagePath))
+
+        try store.replaceImage(
+            for: item,
+            with: makeImage(
+                color: NSColor(calibratedRed: 0, green: 0.45, blue: 1, alpha: 1),
+                width: 7,
+                height: 5
+            )
+        )
+
+        let persistedItem = try XCTUnwrap(store.loadItems().first)
+        XCTAssertEqual(persistedItem.id, item.id)
+        XCTAssertEqual(persistedItem.imagePath, item.imagePath)
+        XCTAssertEqual(persistedItem.thumbnailPath, item.thumbnailPath)
+        XCTAssertEqual(persistedItem.context, item.context)
+        XCTAssertEqual(
+            persistedItem.createdAt.timeIntervalSince1970,
+            item.createdAt.timeIntervalSince1970,
+            accuracy: 0.001
+        )
+        let updatedImageData = try Data(contentsOf: URL(fileURLWithPath: item.imagePath))
+        XCTAssertNotEqual(updatedImageData, originalImageData)
+        let imageBitmap = try XCTUnwrap(NSBitmapImageRep(data: updatedImageData))
+        let thumbnailBitmap = try XCTUnwrap(
+            NSBitmapImageRep(data: Data(contentsOf: URL(fileURLWithPath: item.thumbnailPath)))
+        )
+        XCTAssertEqual(imageBitmap.pixelsWide, 7)
+        XCTAssertEqual(imageBitmap.pixelsHigh, 5)
+        XCTAssertEqual(
+            Double(imageBitmap.pixelsWide) / Double(imageBitmap.pixelsHigh),
+            7.0 / 5.0,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            Double(thumbnailBitmap.pixelsWide) / Double(thumbnailBitmap.pixelsHigh),
+            7.0 / 5.0,
+            accuracy: 0.001
+        )
+    }
+
     func testContextFileIsAtomicallyRewrittenForEveryTerminalState() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }
@@ -281,12 +327,16 @@ final class CaptureStoreTests: XCTestCase {
             .appendingPathComponent("AssistCaptureStoreTests-\(UUID().uuidString)", isDirectory: true)
     }
 
-    private func makeImage() throws -> NSImage {
+    private func makeImage(
+        color: NSColor = NSColor(calibratedRed: 1, green: 0, blue: 0, alpha: 1),
+        width: Int = 4,
+        height: Int = 4
+    ) throws -> NSImage {
         let bitmap = try XCTUnwrap(
             NSBitmapImageRep(
                 bitmapDataPlanes: nil,
-                pixelsWide: 4,
-                pixelsHigh: 4,
+                pixelsWide: width,
+                pixelsHigh: height,
                 bitsPerSample: 8,
                 samplesPerPixel: 4,
                 hasAlpha: true,
@@ -296,12 +346,12 @@ final class CaptureStoreTests: XCTestCase {
                 bitsPerPixel: 0
             )
         )
-        bitmap.setColor(
-            NSColor(calibratedRed: 1, green: 0, blue: 0, alpha: 1),
-            atX: 0,
-            y: 0
-        )
-        let image = NSImage(size: NSSize(width: 4, height: 4))
+        for y in 0..<height {
+            for x in 0..<width {
+                bitmap.setColor(color, atX: x, y: y)
+            }
+        }
+        let image = NSImage(size: NSSize(width: width, height: height))
         image.addRepresentation(bitmap)
         return image
     }

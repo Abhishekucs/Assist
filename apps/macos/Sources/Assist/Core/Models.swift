@@ -61,9 +61,15 @@ enum ClipboardHistoryItem: Identifiable, Equatable {
 }
 
 struct CopyFeedback: Equatable {
+    enum Kind: Equatable {
+        case success
+        case warning
+    }
+
     let id: UUID
     let badge: String
     let preview: String
+    var kind: Kind = .success
 }
 
 enum CaptureIssueAction: Equatable {

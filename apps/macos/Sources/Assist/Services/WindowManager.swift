@@ -22,9 +22,11 @@ final class WindowManager {
     }
 
     private let pillViewModel: PillViewModel
+    private let screenshotEditorViewModel: ScreenshotEditorViewModel
     private let settings: PillSettings
     private let pillPanel: NSPanel
     private let overlayPanel: NSPanel
+    private let screenshotEditorPanel: NSPanel
     private let overlayView = AnnotationOverlayView()
     private var collapseWorkItem: DispatchWorkItem?
     private var contentRevealWorkItem: DispatchWorkItem?
@@ -35,8 +37,13 @@ final class WindowManager {
     private var isDraggingFromPill = false
     private var settingsCancellable: AnyCancellable?
 
-    init(pillViewModel: PillViewModel, settings: PillSettings) {
+    init(
+        pillViewModel: PillViewModel,
+        screenshotEditorViewModel: ScreenshotEditorViewModel,
+        settings: PillSettings
+    ) {
         self.pillViewModel = pillViewModel
+        self.screenshotEditorViewModel = screenshotEditorViewModel
         self.settings = settings
 
         pillPanel = PillPanel(
@@ -54,9 +61,16 @@ final class WindowManager {
             backing: .buffered,
             defer: false
         )
+        screenshotEditorPanel = PillPanel(
+            contentRect: CGRect(origin: .zero, size: ScreenshotEditorMetrics.preferredSize),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
 
         configurePillPanel()
         configureOverlayPanel()
+        configureScreenshotEditorPanel()
         observeSettings()
         startPointerScreenTracking()
     }
@@ -88,6 +102,37 @@ final class WindowManager {
         overlayView.clear()
     }
 
+    func showScreenshotEditor(on capturedScreen: NSScreen) {
+        collapseWorkItem?.cancel()
+        contentRevealWorkItem?.cancel()
+        collapsedRevealWorkItem?.cancel()
+
+        if settings.followPointerDisplay {
+            currentPillScreenID = capturedScreen.displayID
+        }
+
+        isPointerHoveringPillChrome = false
+        isDraggingFromPill = false
+        pillViewModel.isExpandedContentVisible = false
+        pillViewModel.isCollapsedContentVisible = true
+        pillViewModel.isExpanded = false
+
+        setPillFrame(display: true)
+        pillPanel.orderFrontRegardless()
+        positionScreenshotEditor()
+        screenshotEditorPanel.orderFrontRegardless()
+
+        DispatchQueue.main.async { [weak self] in
+            // The system shadow follows the card's alpha, so refresh it once the content is drawn.
+            self?.screenshotEditorPanel.invalidateShadow()
+            self?.syncInitialScreenshotEditorHover()
+        }
+    }
+
+    func hideScreenshotEditor() {
+        screenshotEditorPanel.orderOut(nil)
+    }
+
     func restorePillToFront(reason: String) {
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()
@@ -95,6 +140,10 @@ final class WindowManager {
         setPillFrame(display: true)
         pillPanel.orderFrontRegardless()
         pinPillToTopCenter()
+        if screenshotEditorPanel.isVisible {
+            positionScreenshotEditor()
+            screenshotEditorPanel.orderFrontRegardless()
+        }
         DebugLogger.log("pill.restore-to-front", [
             "reason": reason,
             "screenID": currentPillScreenID.map { "\($0)" } ?? "unknown"
@@ -130,10 +179,7 @@ final class WindowManager {
 
             let chromeSize = self.pillViewModel.isExpanded
                 ? PillChromeMetrics.expandedSize(settings: self.settings)
-                : PillChromeMetrics.collapsedSize(
-                    settings: self.settings,
-                    showingCopyFeedback: self.pillViewModel.copyFeedback != nil
-                )
+                : PillChromeMetrics.collapsedSize(settings: self.settings)
             let bounds = hostingView.bounds
 
             return CGRect(
@@ -156,6 +202,27 @@ final class WindowManager {
         overlayPanel.hidesOnDeactivate = false
         overlayPanel.isReleasedWhenClosed = false
         overlayPanel.contentView = overlayView
+    }
+
+    private func configureScreenshotEditorPanel() {
+        screenshotEditorPanel.isOpaque = false
+        screenshotEditorPanel.backgroundColor = .clear
+        screenshotEditorPanel.hasShadow = true
+        screenshotEditorPanel.level = .statusBar
+        screenshotEditorPanel.isMovable = false
+        screenshotEditorPanel.becomesKeyOnlyIfNeeded = true
+        screenshotEditorPanel.acceptsMouseMovedEvents = true
+        screenshotEditorPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        screenshotEditorPanel.hidesOnDeactivate = false
+        screenshotEditorPanel.isReleasedWhenClosed = false
+
+        let hostingView = ScreenshotEditorHostingView(
+            rootView: ScreenshotQuickEditorView(viewModel: screenshotEditorViewModel)
+        )
+        hostingView.onHoverChanged = { [weak screenshotEditorViewModel] hovering in
+            screenshotEditorViewModel?.pointerChanged(isInside: hovering)
+        }
+        screenshotEditorPanel.contentView = hostingView
     }
 
     private func setPillFrame(display: Bool) {
@@ -192,6 +259,7 @@ final class WindowManager {
 
     private func setPillHovering(_ hovering: Bool) {
         isPointerHoveringPillChrome = hovering
+        guard !screenshotEditorPanel.isVisible else { return }
         collapseWorkItem?.cancel()
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()
@@ -318,6 +386,9 @@ final class WindowManager {
 
     private func applyPillSettings() {
         setPillFrame(display: true)
+        if screenshotEditorPanel.isVisible {
+            positionScreenshotEditor()
+        }
     }
 
     private func startPointerScreenTracking() {
@@ -333,6 +404,7 @@ final class WindowManager {
 
     private func syncPillToPointerScreen() {
         guard settings.followPointerDisplay else { return }
+        guard !screenshotEditorPanel.isVisible else { return }
         guard !isDraggingFromPill else { return }
         guard let pointerScreen = Self.screenContainingMouse() else { return }
         let pointerScreenID = pointerScreen.displayID
@@ -362,6 +434,34 @@ final class WindowManager {
         }
 
         return Self.screenContainingMouse() ?? NSScreen.screens.first ?? NSScreen.main
+    }
+
+    private func positionScreenshotEditor() {
+        guard let screen = screenForCurrentPill() else { return }
+        let collapsedSize = PillChromeMetrics.collapsedSize(settings: settings)
+        let pillChromeFrame = CGRect(
+            x: pillPanel.frame.midX - collapsedSize.width / 2,
+            y: pillPanel.frame.maxY - collapsedSize.height,
+            width: collapsedSize.width,
+            height: collapsedSize.height
+        )
+        let frame = ScreenshotEditorMetrics.frame(
+            below: pillChromeFrame,
+            on: screen.frame
+        )
+        screenshotEditorPanel.setFrame(frame, display: true, animate: false)
+    }
+
+    private func syncInitialScreenshotEditorHover() {
+        guard screenshotEditorPanel.isVisible,
+              let contentView = screenshotEditorPanel.contentView else { return }
+        let point = contentView.convert(
+            screenshotEditorPanel.mouseLocationOutsideOfEventStream,
+            from: nil
+        )
+        if contentView.bounds.contains(point) {
+            screenshotEditorViewModel.pointerChanged(isInside: true)
+        }
     }
 
     private static func topCenterFrame(windowSize: CGSize, on screen: NSScreen?) -> CGRect {

@@ -7,6 +7,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private let captureService: CaptureService
     private let store: CaptureStore
     private let pillViewModel: PillViewModel
+    private let screenshotEditorViewModel: ScreenshotEditorViewModel
+    private let screenshotEditRenderer: ScreenshotEditRenderer
     private let voiceContextService: VoiceContextService
     private let monitor = ControlGestureMonitor()
     private let clipboardMonitor = ClipboardTextMonitor()
@@ -19,18 +21,25 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private var annotationVoiceWasRequested = false
     private var transcriptionQueue: Task<Void, Never>?
     private var debugOverlayWorkItems: [DispatchWorkItem] = []
+    private var activeScreenshotEditorSessionID: UUID?
+    private var screenshotEditorPresence = ScreenshotEditorPresence()
+    private var screenshotEditorEntryWorkItem: DispatchWorkItem?
 
     init(
         windowManager: WindowManager,
         captureService: CaptureService,
         store: CaptureStore,
         pillViewModel: PillViewModel,
+        screenshotEditorViewModel: ScreenshotEditorViewModel,
+        screenshotEditRenderer: ScreenshotEditRenderer,
         voiceContextService: VoiceContextService
     ) {
         self.windowManager = windowManager
         self.captureService = captureService
         self.store = store
         self.pillViewModel = pillViewModel
+        self.screenshotEditorViewModel = screenshotEditorViewModel
+        self.screenshotEditRenderer = screenshotEditRenderer
         self.voiceContextService = voiceContextService
     }
 
@@ -57,6 +66,22 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
         pillViewModel.onWillShowHistory = { [weak self] in
             self?.syncHistoryFromStore()
+        }
+        screenshotEditorViewModel.onPointerEntered = { [weak self] sessionID in
+            self?.screenshotEditorPointerEntered(sessionID: sessionID)
+        }
+        screenshotEditorViewModel.onPointerExited = { [weak self] sessionID in
+            self?.screenshotEditorPointerExited(sessionID: sessionID)
+        }
+        screenshotEditorViewModel.onSave = { [weak self] sessionID, draft in
+            self?.saveScreenshotEditorDraft(sessionID: sessionID, draft: draft)
+        }
+        screenshotEditorViewModel.onCancel = { [weak self] sessionID in
+            self?.dismissScreenshotEditor(
+                sessionID: sessionID,
+                reason: "cancelled",
+                showsOriginalSavedFeedback: true
+            )
         }
         do {
             let recoveredCount = try store.recoverInterruptedTranscriptions()
@@ -92,6 +117,14 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         }
         transcriptionQueue?.cancel()
         transcriptionQueue = nil
+        screenshotEditorEntryWorkItem?.cancel()
+        if let activeScreenshotEditorSessionID {
+            dismissScreenshotEditor(
+                sessionID: activeScreenshotEditorSessionID,
+                reason: "app-stopping",
+                showsOriginalSavedFeedback: false
+            )
+        }
         monitor.stop()
         clipboardMonitor.stop()
     }
@@ -233,6 +266,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     func annotationGestureDidBegin(at globalPoint: CGPoint) {
         guard !isCapturing else { return }
+
+        dismissActiveScreenshotEditor(reason: "annotation-started")
 
         guard let screen = NSScreen.screen(containing: globalPoint) ?? NSScreen.main else {
             return
@@ -386,6 +421,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         DebugLogger.log("clean-screenshot.shortcut", [
             "point": DebugLogger.describe(globalPoint)
         ])
+        dismissActiveScreenshotEditor(reason: "new-screenshot")
         windowManager.hideOverlay()
         resetCaptureState(reason: "clean-screenshot.shortcut")
         saveCleanScreenshot(at: globalPoint)
@@ -407,7 +443,14 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             do {
                 let captured = try await captureService.capture(screen: screen)
                 let image = captureService.image(from: captured)
-                saveCapture(image: image, statusText: "Saving screenshot...", context: .saved)
+                if let item = saveCapture(
+                    image: image,
+                    statusText: "Saving screenshot...",
+                    context: .saved,
+                    showsFeedback: false
+                ) {
+                    presentScreenshotEditor(capture: item, image: image, on: screen)
+                }
             } catch {
                 DebugLogger.log("clean-screenshot.capture.error", errorFields(error))
                 handleCaptureError(error)
@@ -419,7 +462,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private func saveCapture(
         image: NSImage,
         statusText: String,
-        context: ScreenshotContext
+        context: ScreenshotContext,
+        showsFeedback: Bool = true
     ) -> CaptureItem? {
         pillViewModel.statusText = statusText
         pillViewModel.isBusy = true
@@ -457,7 +501,9 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
                 pillViewModel.statusText = "Ready"
                 pillViewModel.isBusy = false
             }
-            pillViewModel.showCopyFeedback(badge: "Saved", preview: "Screenshot")
+            if showsFeedback {
+                pillViewModel.showCopyFeedback(badge: "Saved", preview: "Screenshot")
+            }
             return item
         } catch {
             DebugLogger.log("capture.save.failure", errorFields(error))
@@ -467,6 +513,151 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             pillViewModel.showCaptureIssue(.captureFailed(detail: error.localizedDescription))
             return nil
         }
+    }
+
+    private func presentScreenshotEditor(capture: CaptureItem, image: NSImage, on screen: NSScreen) {
+        let session = ScreenshotEditorSession(
+            id: UUID(),
+            capture: capture,
+            originalImage: image,
+            presentedAt: Date(),
+            desktopImageURL: NSWorkspace.shared.desktopImageURL(for: screen)
+        )
+
+        activeScreenshotEditorSessionID = session.id
+        screenshotEditorPresence = ScreenshotEditorPresence()
+        screenshotEditorViewModel.present(session)
+        windowManager.showScreenshotEditor(on: screen)
+        pillViewModel.statusText = "Hover to edit"
+        pillViewModel.isBusy = false
+
+        let entryWorkItem = DispatchWorkItem { [weak self] in
+            self?.screenshotEditorEntryWindowExpired(sessionID: session.id)
+        }
+        screenshotEditorEntryWorkItem = entryWorkItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + ScreenshotEditorMetrics.entryWindow,
+            execute: entryWorkItem
+        )
+
+        DebugLogger.log("screenshot-editor.presented", [
+            "session": session.id.uuidString,
+            "capture": capture.id.uuidString,
+            "entryWindow": "\(ScreenshotEditorMetrics.entryWindow)"
+        ])
+    }
+
+    private func screenshotEditorPointerEntered(sessionID: UUID) {
+        guard activeScreenshotEditorSessionID == sessionID else { return }
+        screenshotEditorPresence.pointerEntered()
+        screenshotEditorEntryWorkItem?.cancel()
+        screenshotEditorEntryWorkItem = nil
+        pillViewModel.statusText = "Editing screenshot"
+        DebugLogger.log("screenshot-editor.pointer-entered", ["session": sessionID.uuidString])
+    }
+
+    private func screenshotEditorPointerExited(sessionID: UUID) {
+        guard activeScreenshotEditorSessionID == sessionID,
+              screenshotEditorPresence.shouldDismissWhenPointerExits() else { return }
+        dismissScreenshotEditor(
+            sessionID: sessionID,
+            reason: "pointer-exited",
+            showsOriginalSavedFeedback: true
+        )
+    }
+
+    private func screenshotEditorEntryWindowExpired(sessionID: UUID) {
+        guard activeScreenshotEditorSessionID == sessionID,
+              screenshotEditorPresence.shouldDismissWhenEntryWindowExpires() else { return }
+        dismissScreenshotEditor(
+            sessionID: sessionID,
+            reason: "entry-window-expired",
+            showsOriginalSavedFeedback: true
+        )
+    }
+
+    private func saveScreenshotEditorDraft(sessionID: UUID, draft: ScreenshotEditDraft) {
+        guard activeScreenshotEditorSessionID == sessionID,
+              let session = screenshotEditorViewModel.session,
+              session.id == sessionID else { return }
+
+        screenshotEditorEntryWorkItem?.cancel()
+        screenshotEditorEntryWorkItem = nil
+        screenshotEditorViewModel.setSaving(true, sessionID: sessionID)
+        pillViewModel.statusText = "Saving edits…"
+        pillViewModel.isBusy = true
+
+        do {
+            if draft.hasEdits {
+                let editedImage = try screenshotEditRenderer.render(
+                    image: session.originalImage,
+                    draft: draft,
+                    wallpaper: screenshotEditorViewModel.wallpaperImage
+                )
+                try store.replaceImage(for: session.capture, with: editedImage)
+                pillViewModel.refreshScreenshotPixels(for: session.capture)
+            }
+
+            dismissScreenshotEditor(
+                sessionID: sessionID,
+                reason: "saved",
+                showsOriginalSavedFeedback: false
+            )
+            pillViewModel.showCopyFeedback(
+                badge: "Saved",
+                preview: draft.hasEdits ? "Edited screenshot" : "Screenshot"
+            )
+            DebugLogger.log("screenshot-editor.saved", [
+                "session": sessionID.uuidString,
+                "capture": session.capture.id.uuidString,
+                "edited": "\(draft.hasEdits)"
+            ])
+        } catch {
+            screenshotEditorViewModel.setSaving(false, sessionID: sessionID)
+            pillViewModel.statusText = "Edit save failed"
+            pillViewModel.isBusy = false
+            pillViewModel.diagnosticMessage = error.localizedDescription
+            pillViewModel.showCopyFeedback(
+                badge: "Original kept",
+                preview: "Could not save screenshot edits",
+                kind: .warning
+            )
+            DebugLogger.log("screenshot-editor.save.error", errorFields(error))
+        }
+    }
+
+    private func dismissActiveScreenshotEditor(reason: String) {
+        guard let activeScreenshotEditorSessionID else { return }
+        dismissScreenshotEditor(
+            sessionID: activeScreenshotEditorSessionID,
+            reason: reason,
+            showsOriginalSavedFeedback: false
+        )
+    }
+
+    private func dismissScreenshotEditor(
+        sessionID: UUID,
+        reason: String,
+        showsOriginalSavedFeedback: Bool
+    ) {
+        guard activeScreenshotEditorSessionID == sessionID else { return }
+        screenshotEditorEntryWorkItem?.cancel()
+        screenshotEditorEntryWorkItem = nil
+        activeScreenshotEditorSessionID = nil
+        screenshotEditorPresence = ScreenshotEditorPresence()
+        screenshotEditorViewModel.dismiss(sessionID: sessionID)
+        windowManager.hideScreenshotEditor()
+        pillViewModel.statusText = "Ready"
+        pillViewModel.isBusy = false
+
+        if showsOriginalSavedFeedback {
+            pillViewModel.showCopyFeedback(badge: "Saved", preview: "Original screenshot")
+        }
+
+        DebugLogger.log("screenshot-editor.dismissed", [
+            "session": sessionID.uuidString,
+            "reason": reason
+        ])
     }
 
     private func initialContextForAnnotatedCapture(

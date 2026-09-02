@@ -156,6 +156,57 @@ final class CaptureStore {
         }
     }
 
+    func replaceImage(for item: CaptureItem, with image: NSImage) throws {
+        guard let captureDirectoryURL = item.captureDirectoryURL else {
+            throw StoreError.imageReplacement(
+                path: item.imagePath,
+                message: "The screenshot is not stored in a managed capture directory."
+            )
+        }
+
+        let imageURL = captureDirectoryURL.appendingPathComponent("screenshot.png", isDirectory: false)
+        let thumbnailURL = captureDirectoryURL.appendingPathComponent("thumbnail.png", isDirectory: false)
+
+        let originalImageData: Data
+        let originalThumbnailData: Data
+        do {
+            originalImageData = try Data(contentsOf: imageURL)
+            originalThumbnailData = try Data(contentsOf: thumbnailURL)
+        } catch {
+            throw StoreError.imageReplacement(
+                path: captureDirectoryURL.path,
+                message: "Unable to preserve the original capture before saving edits: \(error.localizedDescription)"
+            )
+        }
+
+        guard let replacementImageData = image.pngData,
+              let replacementThumbnailData = image.thumbnail(maxDimension: 480).pngData else {
+            throw AppError.imageEncodingFailed
+        }
+
+        do {
+            try replacementImageData.write(to: imageURL, options: .atomic)
+            try replacementThumbnailData.write(to: thumbnailURL, options: .atomic)
+        } catch {
+            let updateError = error
+            do {
+                try originalImageData.write(to: imageURL, options: .atomic)
+                try originalThumbnailData.write(to: thumbnailURL, options: .atomic)
+            } catch {
+                throw StoreError.imageRollback(
+                    path: captureDirectoryURL.path,
+                    updateMessage: updateError.localizedDescription,
+                    rollbackMessage: error.localizedDescription
+                )
+            }
+
+            throw StoreError.imageReplacement(
+                path: captureDirectoryURL.path,
+                message: updateError.localizedDescription
+            )
+        }
+    }
+
     func update(item: CaptureItem) throws {
         guard let contextFileURL = item.contextFileURL else {
             try upsert(item: item)
@@ -546,6 +597,8 @@ final class CaptureStore {
 
 private enum StoreError: LocalizedError {
     case encodingFailed
+    case imageReplacement(path: String, message: String)
+    case imageRollback(path: String, updateMessage: String, rollbackMessage: String)
     case contextRead(path: String, message: String)
     case contextWrite(path: String, message: String)
     case contextRollback(path: String, updateMessage: String, rollbackMessage: String)
@@ -555,6 +608,10 @@ private enum StoreError: LocalizedError {
         switch self {
         case .encodingFailed:
             "Unable to encode screenshot details."
+        case let .imageReplacement(path, message):
+            "Unable to save the edited screenshot at \(path): \(message)"
+        case let .imageRollback(path, updateMessage, rollbackMessage):
+            "Saving the edited screenshot failed (\(updateMessage)), and Assist could not restore the original files at \(path): \(rollbackMessage)"
         case let .contextRead(path, message):
             "Unable to read the existing context file at \(path) before updating it: \(message)"
         case let .contextWrite(path, message):
