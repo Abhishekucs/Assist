@@ -468,9 +468,10 @@ final class CaptureStore {
         }
 
         if removedCount > 0 {
-            Task { @MainActor in
+            let completedCount = removedCount
+            Task { @MainActor [completedCount] in
                 DebugLogger.log("store.image-replacement-cleanup.completed", [
-                    "count": "\(removedCount)"
+                    "count": "\(completedCount)"
                 ])
             }
         }
@@ -722,13 +723,15 @@ struct CaptureImageReplacementTarget: Sendable {
     private static let renameSwapFlag: UInt32 = 0x00000002
 
     static func atomicSwap(from stagingURL: URL, to captureDirectoryURL: URL) throws {
-        let swapResult = stagingURL.path.withCString { stagingPath in
+        let swapOutcome = stagingURL.path.withCString { stagingPath in
             captureDirectoryURL.path.withCString { capturePath in
-                renamex_np(stagingPath, capturePath, renameSwapFlag)
+                let result = renamex_np(stagingPath, capturePath, renameSwapFlag)
+                let errorCode = result == 0 ? 0 : Darwin.__error().pointee
+                return (result, errorCode)
             }
         }
-        guard swapResult == 0 else {
-            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        guard swapOutcome.0 == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(swapOutcome.1))
         }
     }
 
