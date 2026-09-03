@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import ImageIO
 import SQLite3
 import UniformTypeIdentifiers
@@ -13,6 +14,7 @@ final class CaptureStore {
     private let supportDirectory: URL
     private let legacySupportDirectory: URL?
     private let replacementDataWriter: @Sendable (Data, URL) throws -> Void
+    private let replacementDirectorySwapper: @Sendable (URL, URL) throws -> Void
 
     private var capturesDirectory: URL {
         supportDirectory.appendingPathComponent("Captures", isDirectory: true)
@@ -28,7 +30,8 @@ final class CaptureStore {
 
     init(
         applicationSupportDirectory: URL? = nil,
-        replacementDataWriter: (@Sendable (Data, URL) throws -> Void)? = nil
+        replacementDataWriter: (@Sendable (Data, URL) throws -> Void)? = nil,
+        replacementDirectorySwapper: (@Sendable (URL, URL) throws -> Void)? = nil
     ) {
         if let applicationSupportDirectory {
             supportDirectory = applicationSupportDirectory
@@ -50,9 +53,12 @@ final class CaptureStore {
         self.replacementDataWriter = replacementDataWriter ?? { data, url in
             try data.write(to: url, options: .atomic)
         }
+        self.replacementDirectorySwapper =
+            replacementDirectorySwapper ?? CaptureImageReplacementTarget.atomicSwap
 
         migrateLegacySupportDirectoryIfNeeded()
         try? fileManager.createDirectory(at: capturesDirectory, withIntermediateDirectories: true)
+        cleanupInterruptedImageReplacementDirectories()
         try? initializeDatabase()
         rewriteLegacyCapturePathsIfNeeded()
         migrateLegacyJSONIfNeeded()
@@ -192,7 +198,8 @@ final class CaptureStore {
             captureDirectoryURL: captureDirectoryURL,
             imageURL: imageURL,
             thumbnailURL: thumbnailURL,
-            dataWriter: replacementDataWriter
+            dataWriter: replacementDataWriter,
+            directorySwapper: replacementDirectorySwapper
         )
     }
 
@@ -434,6 +441,53 @@ final class CaptureStore {
         }
     }
 
+    private func cleanupInterruptedImageReplacementDirectories() {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: capturesDirectory,
+            includingPropertiesForKeys: nil,
+            options: []
+        ) else {
+            return
+        }
+
+        var removedCount = 0
+        for entry in entries where Self.isImageReplacementStagingDirectory(entry) {
+            do {
+                try fileManager.removeItem(at: entry)
+                removedCount += 1
+            } catch {
+                let path = entry.path
+                let description = error.localizedDescription
+                Task { @MainActor in
+                    DebugLogger.log("store.image-replacement-cleanup.error", [
+                        "path": path,
+                        "description": description
+                    ])
+                }
+            }
+        }
+
+        if removedCount > 0 {
+            Task { @MainActor in
+                DebugLogger.log("store.image-replacement-cleanup.completed", [
+                    "count": "\(removedCount)"
+                ])
+            }
+        }
+    }
+
+    private static func isImageReplacementStagingDirectory(_ url: URL) -> Bool {
+        let name = url.lastPathComponent
+        guard name.hasPrefix("."),
+              let marker = name.range(of: ".edit-") else {
+            return false
+        }
+
+        let captureID = String(name[name.index(after: name.startIndex)..<marker.lowerBound])
+        let transactionID = String(name[marker.upperBound...])
+        return UUID(uuidString: captureID) != nil && UUID(uuidString: transactionID) != nil
+    }
+
     private func migrateLegacySupportDirectoryIfNeeded() {
         guard let legacySupportDirectory,
               fileManager.fileExists(atPath: legacySupportDirectory.path),
@@ -589,17 +643,20 @@ struct CaptureImageReplacementTarget: Sendable {
     private let imageURL: URL
     private let thumbnailURL: URL
     private let dataWriter: @Sendable (Data, URL) throws -> Void
+    private let directorySwapper: @Sendable (URL, URL) throws -> Void
 
     init(
         captureDirectoryURL: URL,
         imageURL: URL,
         thumbnailURL: URL,
-        dataWriter: @escaping @Sendable (Data, URL) throws -> Void
+        dataWriter: @escaping @Sendable (Data, URL) throws -> Void,
+        directorySwapper: @escaping @Sendable (URL, URL) throws -> Void
     ) {
         self.captureDirectoryURL = captureDirectoryURL
         self.imageURL = imageURL
         self.thumbnailURL = thumbnailURL
         self.dataWriter = dataWriter
+        self.directorySwapper = directorySwapper
     }
 
     func replace(with image: CGImage) throws {
@@ -620,8 +677,6 @@ struct CaptureImageReplacementTarget: Sendable {
             ".\(captureDirectoryURL.lastPathComponent).edit-\(transactionID)",
             isDirectory: true
         )
-        let backupName = ".\(captureDirectoryURL.lastPathComponent).backup-\(transactionID)"
-        let backupURL = parentDirectoryURL.appendingPathComponent(backupName, isDirectory: true)
 
         defer {
             if fileManager.fileExists(atPath: stagingURL.path) {
@@ -649,44 +704,31 @@ struct CaptureImageReplacementTarget: Sendable {
         }
 
         do {
-            _ = try fileManager.replaceItemAt(
-                captureDirectoryURL,
-                withItemAt: stagingURL,
-                backupItemName: backupName,
-                options: []
-            )
-            if fileManager.fileExists(atPath: backupURL.path) {
-                try? fileManager.removeItem(at: backupURL)
-            }
+            try directorySwapper(stagingURL, captureDirectoryURL)
         } catch {
-            let updateError = error
-            do {
-                if !fileManager.fileExists(atPath: captureDirectoryURL.path),
-                   fileManager.fileExists(atPath: backupURL.path) {
-                    try fileManager.moveItem(at: backupURL, to: captureDirectoryURL)
-                }
-                guard fileManager.fileExists(atPath: captureDirectoryURL.path) else {
-                    throw StoreError.imageRollback(
-                        path: captureDirectoryURL.path,
-                        updateMessage: updateError.localizedDescription,
-                        rollbackMessage: "Neither the original capture nor its transaction backup exists."
-                    )
-                }
-                if fileManager.fileExists(atPath: backupURL.path) {
-                    try? fileManager.removeItem(at: backupURL)
-                }
-            } catch {
-                throw StoreError.imageRollback(
-                    path: captureDirectoryURL.path,
-                    updateMessage: updateError.localizedDescription,
-                    rollbackMessage: error.localizedDescription
-                )
-            }
-
             throw StoreError.imageReplacement(
                 path: captureDirectoryURL.path,
-                message: updateError.localizedDescription
+                message: "Unable to atomically replace the capture directory: \(error.localizedDescription)"
             )
+        }
+
+        // The atomic swap leaves the complete original at the staging path. Removal
+        // can be retried during startup if the process exits before this cleanup.
+        try? fileManager.removeItem(at: stagingURL)
+    }
+
+    /// `RENAME_SWAP` from rename(2). macOS guarantees one atomic exchange when
+    /// the underlying volume supports it; otherwise the syscall fails untouched.
+    private static let renameSwapFlag: UInt32 = 0x00000002
+
+    static func atomicSwap(from stagingURL: URL, to captureDirectoryURL: URL) throws {
+        let swapResult = stagingURL.path.withCString { stagingPath in
+            captureDirectoryURL.path.withCString { capturePath in
+                renamex_np(stagingPath, capturePath, renameSwapFlag)
+            }
+        }
+        guard swapResult == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
         }
     }
 
@@ -735,21 +777,13 @@ struct CaptureImageReplacementTarget: Sendable {
     }
 }
 
-enum StoreError: LocalizedError {
+private enum StoreError: LocalizedError {
     case encodingFailed
     case imageReplacement(path: String, message: String)
-    case imageRollback(path: String, updateMessage: String, rollbackMessage: String)
     case contextRead(path: String, message: String)
     case contextWrite(path: String, message: String)
     case contextRollback(path: String, updateMessage: String, rollbackMessage: String)
     case sqlite(message: String)
-
-    var originalCaptureWasPreserved: Bool {
-        if case .imageRollback = self {
-            return false
-        }
-        return true
-    }
 
     var errorDescription: String? {
         switch self {
@@ -757,8 +791,6 @@ enum StoreError: LocalizedError {
             "Unable to encode screenshot details."
         case let .imageReplacement(path, message):
             "Unable to save the edited screenshot at \(path): \(message)"
-        case let .imageRollback(path, updateMessage, rollbackMessage):
-            "Saving the edited screenshot failed (\(updateMessage)), and Assist could not restore the original files at \(path): \(rollbackMessage)"
         case let .contextRead(path, message):
             "Unable to read the existing context file at \(path) before updating it: \(message)"
         case let .contextWrite(path, message):

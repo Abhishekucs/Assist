@@ -126,6 +126,67 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.loadItems().map(\.id), [item.id])
     }
 
+    func testReplacingScreenshotPixelsKeepsOriginalsWhenAtomicSwapFails() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(
+            applicationSupportDirectory: supportDirectory,
+            replacementDirectorySwapper: { _, _ in
+                throw TestWriteError.forcedFailure
+            }
+        )
+        let item = try store.save(image: makeImage(), context: .saved)
+        let imageURL = URL(fileURLWithPath: item.imagePath)
+        let thumbnailURL = URL(fileURLWithPath: item.thumbnailPath)
+        let originalImageData = try Data(contentsOf: imageURL)
+        let originalThumbnailData = try Data(contentsOf: thumbnailURL)
+
+        XCTAssertThrowsError(
+            try store.replaceImage(
+                for: item,
+                with: makeImage(
+                    color: NSColor(calibratedRed: 0, green: 0.45, blue: 1, alpha: 1),
+                    width: 7,
+                    height: 5
+                )
+            )
+        )
+
+        XCTAssertEqual(try Data(contentsOf: imageURL), originalImageData)
+        XCTAssertEqual(try Data(contentsOf: thumbnailURL), originalThumbnailData)
+        let capturesDirectory = supportDirectory.appendingPathComponent("Captures")
+        let stagedItems = try FileManager.default.contentsOfDirectory(
+            at: capturesDirectory,
+            includingPropertiesForKeys: nil
+        ).filter { $0.lastPathComponent.contains(".edit-") }
+        XCTAssertTrue(stagedItems.isEmpty)
+    }
+
+    func testStartupRemovesInterruptedImageReplacementDirectories() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let capturesDirectory = supportDirectory.appendingPathComponent("Captures")
+        try FileManager.default.createDirectory(
+            at: capturesDirectory,
+            withIntermediateDirectories: true
+        )
+        let stagingURL = capturesDirectory.appendingPathComponent(
+            ".\(UUID().uuidString).edit-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let unrelatedURL = capturesDirectory.appendingPathComponent(
+            ".keep-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: stagingURL, withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: unrelatedURL, withIntermediateDirectories: false)
+
+        _ = CaptureStore(applicationSupportDirectory: supportDirectory)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unrelatedURL.path))
+    }
+
     func testBackgroundReplacementTargetEncodesImageAndThumbnail() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }

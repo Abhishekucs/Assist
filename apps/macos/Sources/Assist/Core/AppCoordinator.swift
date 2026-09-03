@@ -739,18 +739,13 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     }
 
     private func handleScreenshotEditorSaveError(_ error: Error, sessionID: UUID) {
-        let originalWasPreserved = (error as? StoreError)?.originalCaptureWasPreserved ?? true
         screenshotEditorViewModel.setSaving(false, sessionID: sessionID)
-        pillViewModel.statusText = originalWasPreserved
-            ? "Edit save failed"
-            : "Screenshot files need attention"
+        pillViewModel.statusText = "Edit save failed"
         pillViewModel.isBusy = false
         pillViewModel.diagnosticMessage = error.localizedDescription
         pillViewModel.showCopyFeedback(
-            badge: originalWasPreserved ? "Original kept" : "Save incomplete",
-            preview: originalWasPreserved
-                ? "Could not save screenshot edits"
-                : "Check the screenshot files",
+            badge: "Original kept",
+            preview: "Could not save screenshot edits",
             kind: .warning
         )
         DebugLogger.log("screenshot-editor.save.error", errorFields(error))
