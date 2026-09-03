@@ -46,6 +46,8 @@ final class CaptureStoreTests: XCTestCase {
         let store = CaptureStore(applicationSupportDirectory: supportDirectory)
         let item = try store.save(image: makeImage(), context: .saved)
         let originalImageData = try Data(contentsOf: URL(fileURLWithPath: item.imagePath))
+        let contextFileURL = try XCTUnwrap(item.contextFileURL)
+        let originalContextData = try Data(contentsOf: contextFileURL)
 
         try store.replaceImage(
             for: item,
@@ -68,6 +70,7 @@ final class CaptureStoreTests: XCTestCase {
         )
         let updatedImageData = try Data(contentsOf: URL(fileURLWithPath: item.imagePath))
         XCTAssertNotEqual(updatedImageData, originalImageData)
+        XCTAssertEqual(try Data(contentsOf: contextFileURL), originalContextData)
         let imageBitmap = try XCTUnwrap(NSBitmapImageRep(data: updatedImageData))
         let thumbnailBitmap = try XCTUnwrap(
             NSBitmapImageRep(data: Data(contentsOf: URL(fileURLWithPath: item.thumbnailPath)))
@@ -86,16 +89,15 @@ final class CaptureStoreTests: XCTestCase {
         )
     }
 
-    func testReplacingScreenshotPixelsRollsBackBothFilesAfterPartialWriteFailure() throws {
+    func testReplacingScreenshotPixelsKeepsOriginalsAfterPartialStageWriteFailure() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }
 
-        var writeCount = 0
+        let writeCounter = LockedWriteCounter()
         let store = CaptureStore(
             applicationSupportDirectory: supportDirectory,
             replacementDataWriter: { data, url in
-                writeCount += 1
-                if writeCount == 2 {
+                if writeCounter.increment() == 2 {
                     throw TestWriteError.forcedFailure
                 }
                 try data.write(to: url, options: .atomic)
@@ -118,7 +120,7 @@ final class CaptureStoreTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(writeCount, 4)
+        XCTAssertEqual(writeCounter.value, 2)
         XCTAssertEqual(try Data(contentsOf: imageURL), originalImageData)
         XCTAssertEqual(try Data(contentsOf: thumbnailURL), originalThumbnailData)
         XCTAssertEqual(store.loadItems().map(\.id), [item.id])
@@ -445,4 +447,22 @@ final class CaptureStoreTests: XCTestCase {
 
 private enum TestWriteError: Error {
     case forcedFailure
+}
+
+private final class LockedWriteCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func increment() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        count += 1
+        return count
+    }
 }

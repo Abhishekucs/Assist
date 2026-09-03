@@ -159,11 +159,7 @@ final class WindowManager {
     func screenshotEditorExpansionChanged() {
         guard screenshotEditorPanel.isVisible else { return }
         isResizingScreenshotEditor = true
-        positionScreenshotEditor(animated: true) { [weak self] in
-            guard let self else { return }
-            self.isResizingScreenshotEditor = false
-            self.syncScreenshotEditorHover()
-        }
+        positionScreenshotEditor(animated: true)
     }
 
     func restorePillToFront(reason: String) {
@@ -470,11 +466,11 @@ final class WindowManager {
         return Self.screenContainingMouse() ?? NSScreen.screens.first ?? NSScreen.main
     }
 
-    private func positionScreenshotEditor(
-        animated: Bool = false,
-        completion: (() -> Void)? = nil
-    ) {
-        guard let screen = screenForCurrentPill() else { return }
+    private func positionScreenshotEditor(animated: Bool = false) {
+        guard let screen = screenForCurrentPill() else {
+            isResizingScreenshotEditor = false
+            return
+        }
         let collapsedSize = PillChromeMetrics.collapsedSize(settings: settings)
         let pillChromeFrame = CGRect(
             x: pillPanel.frame.midX - collapsedSize.width / 2,
@@ -491,7 +487,6 @@ final class WindowManager {
 
         guard animated else {
             screenshotEditorPanel.setFrame(frame, display: true, animate: false)
-            completion?()
             return
         }
 
@@ -504,8 +499,9 @@ final class WindowManager {
             MainActor.assumeIsolated {
                 // The system shadow keeps the pre-resize outline until it is invalidated.
                 screenshotEditorPanel?.invalidateShadow()
-                guard self != nil else { return }
-                completion?()
+                guard let self else { return }
+                self.isResizingScreenshotEditor = false
+                self.syncScreenshotEditorHover()
             }
         }
     }

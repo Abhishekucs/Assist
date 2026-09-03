@@ -12,7 +12,7 @@ final class CaptureStore {
     private let decoder: JSONDecoder
     private let supportDirectory: URL
     private let legacySupportDirectory: URL?
-    private let replacementDataWriter: (Data, URL) throws -> Void
+    private let replacementDataWriter: @Sendable (Data, URL) throws -> Void
 
     private var capturesDirectory: URL {
         supportDirectory.appendingPathComponent("Captures", isDirectory: true)
@@ -28,7 +28,7 @@ final class CaptureStore {
 
     init(
         applicationSupportDirectory: URL? = nil,
-        replacementDataWriter: ((Data, URL) throws -> Void)? = nil
+        replacementDataWriter: (@Sendable (Data, URL) throws -> Void)? = nil
     ) {
         if let applicationSupportDirectory {
             supportDirectory = applicationSupportDirectory
@@ -584,17 +584,17 @@ final class CaptureStore {
     }
 }
 
-struct CaptureImageReplacementTarget: @unchecked Sendable {
+struct CaptureImageReplacementTarget: Sendable {
     private let captureDirectoryURL: URL
     private let imageURL: URL
     private let thumbnailURL: URL
-    private let dataWriter: (Data, URL) throws -> Void
+    private let dataWriter: @Sendable (Data, URL) throws -> Void
 
     init(
         captureDirectoryURL: URL,
         imageURL: URL,
         thumbnailURL: URL,
-        dataWriter: @escaping (Data, URL) throws -> Void
+        dataWriter: @escaping @Sendable (Data, URL) throws -> Void
     ) {
         self.captureDirectoryURL = captureDirectoryURL
         self.imageURL = imageURL
@@ -613,26 +613,68 @@ struct CaptureImageReplacementTarget: @unchecked Sendable {
     }
 
     func replace(imageData: Data, thumbnailData: Data) throws {
-        let originalImageData: Data
-        let originalThumbnailData: Data
+        let fileManager = FileManager.default
+        let parentDirectoryURL = captureDirectoryURL.deletingLastPathComponent()
+        let transactionID = UUID().uuidString
+        let stagingURL = parentDirectoryURL.appendingPathComponent(
+            ".\(captureDirectoryURL.lastPathComponent).edit-\(transactionID)",
+            isDirectory: true
+        )
+        let backupName = ".\(captureDirectoryURL.lastPathComponent).backup-\(transactionID)"
+        let backupURL = parentDirectoryURL.appendingPathComponent(backupName, isDirectory: true)
+
+        defer {
+            if fileManager.fileExists(atPath: stagingURL.path) {
+                try? fileManager.removeItem(at: stagingURL)
+            }
+        }
+
         do {
-            originalImageData = try Data(contentsOf: imageURL)
-            originalThumbnailData = try Data(contentsOf: thumbnailURL)
+            // Build a complete replacement next to the original. The final directory
+            // replacement is one filesystem operation, so image and thumbnail cannot split.
+            try fileManager.copyItem(at: captureDirectoryURL, to: stagingURL)
+            try dataWriter(
+                imageData,
+                stagingURL.appendingPathComponent(imageURL.lastPathComponent)
+            )
+            try dataWriter(
+                thumbnailData,
+                stagingURL.appendingPathComponent(thumbnailURL.lastPathComponent)
+            )
         } catch {
             throw StoreError.imageReplacement(
                 path: captureDirectoryURL.path,
-                message: "Unable to preserve the original capture before saving edits: \(error.localizedDescription)"
+                message: "Unable to stage edited screenshot files: \(error.localizedDescription)"
             )
         }
 
         do {
-            try dataWriter(imageData, imageURL)
-            try dataWriter(thumbnailData, thumbnailURL)
+            _ = try fileManager.replaceItemAt(
+                captureDirectoryURL,
+                withItemAt: stagingURL,
+                backupItemName: backupName,
+                options: []
+            )
+            if fileManager.fileExists(atPath: backupURL.path) {
+                try? fileManager.removeItem(at: backupURL)
+            }
         } catch {
             let updateError = error
             do {
-                try dataWriter(originalImageData, imageURL)
-                try dataWriter(originalThumbnailData, thumbnailURL)
+                if !fileManager.fileExists(atPath: captureDirectoryURL.path),
+                   fileManager.fileExists(atPath: backupURL.path) {
+                    try fileManager.moveItem(at: backupURL, to: captureDirectoryURL)
+                }
+                guard fileManager.fileExists(atPath: captureDirectoryURL.path) else {
+                    throw StoreError.imageRollback(
+                        path: captureDirectoryURL.path,
+                        updateMessage: updateError.localizedDescription,
+                        rollbackMessage: "Neither the original capture nor its transaction backup exists."
+                    )
+                }
+                if fileManager.fileExists(atPath: backupURL.path) {
+                    try? fileManager.removeItem(at: backupURL)
+                }
             } catch {
                 throw StoreError.imageRollback(
                     path: captureDirectoryURL.path,
@@ -693,7 +735,7 @@ struct CaptureImageReplacementTarget: @unchecked Sendable {
     }
 }
 
-private enum StoreError: LocalizedError {
+enum StoreError: LocalizedError {
     case encodingFailed
     case imageReplacement(path: String, message: String)
     case imageRollback(path: String, updateMessage: String, rollbackMessage: String)
@@ -701,6 +743,13 @@ private enum StoreError: LocalizedError {
     case contextWrite(path: String, message: String)
     case contextRollback(path: String, updateMessage: String, rollbackMessage: String)
     case sqlite(message: String)
+
+    var originalCaptureWasPreserved: Bool {
+        if case .imageRollback = self {
+            return false
+        }
+        return true
+    }
 
     var errorDescription: String? {
         switch self {
