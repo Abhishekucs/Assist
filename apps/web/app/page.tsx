@@ -3,8 +3,7 @@ import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
 const siteUrl = "https://assistapp.dev";
-const currentPrice = 15;
-const originalPrice = 19;
+const currentPrice = 20;
 const featureVideos = {
   annotation:
     "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/annotationedit.mp4",
@@ -310,12 +309,8 @@ export default function Home() {
         <div className="pricing-card">
           <h3>Assist License</h3>
 
-          <div
-            className="pricing-price"
-            aria-label={`$${currentPrice}, reduced from $${originalPrice}`}
-          >
+          <div className="pricing-price" aria-label={`$${currentPrice}`}>
             <strong>${currentPrice}</strong>
-            <del>${originalPrice}</del>
           </div>
 
           <p className="pricing-license-note">1 Mac · one-time purchase</p>

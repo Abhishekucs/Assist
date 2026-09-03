@@ -1232,14 +1232,6 @@ p {
   letter-spacing: -0.055em;
 }
 
-.pricing-price del {
-  color: rgba(0, 0, 0, 0.38);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  text-decoration-thickness: 1.5px;
-}
-
 .pricing-license-note {
   margin: 12px 0 0;
   color: rgba(0, 0, 0, 0.5);
