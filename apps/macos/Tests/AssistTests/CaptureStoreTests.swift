@@ -86,6 +86,73 @@ final class CaptureStoreTests: XCTestCase {
         )
     }
 
+    func testReplacingScreenshotPixelsRollsBackBothFilesAfterPartialWriteFailure() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+
+        var writeCount = 0
+        let store = CaptureStore(
+            applicationSupportDirectory: supportDirectory,
+            replacementDataWriter: { data, url in
+                writeCount += 1
+                if writeCount == 2 {
+                    throw TestWriteError.forcedFailure
+                }
+                try data.write(to: url, options: .atomic)
+            }
+        )
+        let item = try store.save(image: makeImage(), context: .saved)
+        let imageURL = URL(fileURLWithPath: item.imagePath)
+        let thumbnailURL = URL(fileURLWithPath: item.thumbnailPath)
+        let originalImageData = try Data(contentsOf: imageURL)
+        let originalThumbnailData = try Data(contentsOf: thumbnailURL)
+
+        XCTAssertThrowsError(
+            try store.replaceImage(
+                for: item,
+                with: makeImage(
+                    color: NSColor(calibratedRed: 0, green: 0.45, blue: 1, alpha: 1),
+                    width: 7,
+                    height: 5
+                )
+            )
+        )
+
+        XCTAssertEqual(writeCount, 4)
+        XCTAssertEqual(try Data(contentsOf: imageURL), originalImageData)
+        XCTAssertEqual(try Data(contentsOf: thumbnailURL), originalThumbnailData)
+        XCTAssertEqual(store.loadItems().map(\.id), [item.id])
+    }
+
+    func testBackgroundReplacementTargetEncodesImageAndThumbnail() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        let item = try store.save(image: makeImage(), context: .saved)
+        let replacement = try makeImage(
+            color: NSColor(calibratedRed: 0.2, green: 0.8, blue: 0.4, alpha: 1),
+            width: 700,
+            height: 350
+        )
+        var proposedRect = CGRect(origin: .zero, size: replacement.size)
+        let replacementCGImage = try XCTUnwrap(
+            replacement.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil)
+        )
+
+        try store.imageReplacementTarget(for: item).replace(with: replacementCGImage)
+
+        let imageBitmap = try XCTUnwrap(
+            NSBitmapImageRep(data: Data(contentsOf: URL(fileURLWithPath: item.imagePath)))
+        )
+        let thumbnailBitmap = try XCTUnwrap(
+            NSBitmapImageRep(data: Data(contentsOf: URL(fileURLWithPath: item.thumbnailPath)))
+        )
+        XCTAssertEqual(imageBitmap.pixelsWide, 700)
+        XCTAssertEqual(imageBitmap.pixelsHigh, 350)
+        XCTAssertEqual(thumbnailBitmap.pixelsWide, 480)
+        XCTAssertEqual(thumbnailBitmap.pixelsHigh, 240)
+    }
+
     func testContextFileIsAtomicallyRewrittenForEveryTerminalState() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }
@@ -374,4 +441,8 @@ final class CaptureStoreTests: XCTestCase {
             errorDetails: errorDetails
         )
     }
+}
+
+private enum TestWriteError: Error {
+    case forcedFailure
 }

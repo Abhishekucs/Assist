@@ -34,4 +34,16 @@ final class ScreenshotEditorHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
     }
+
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // Keep the panel non-activating, but make its own keyboard shortcuts available
+        // after the user deliberately interacts with it.
+        window?.makeKey()
+        window?.makeFirstResponder(self)
+        super.mouseDown(with: event)
+    }
 }

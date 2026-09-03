@@ -1,5 +1,7 @@
 import AppKit
+import ImageIO
 import SQLite3
+import UniformTypeIdentifiers
 
 final class CaptureStore {
     static let interruptedTranscriptionError =
@@ -10,6 +12,7 @@ final class CaptureStore {
     private let decoder: JSONDecoder
     private let supportDirectory: URL
     private let legacySupportDirectory: URL?
+    private let replacementDataWriter: (Data, URL) throws -> Void
 
     private var capturesDirectory: URL {
         supportDirectory.appendingPathComponent("Captures", isDirectory: true)
@@ -23,7 +26,10 @@ final class CaptureStore {
         supportDirectory.appendingPathComponent("captures.json")
     }
 
-    init(applicationSupportDirectory: URL? = nil) {
+    init(
+        applicationSupportDirectory: URL? = nil,
+        replacementDataWriter: ((Data, URL) throws -> Void)? = nil
+    ) {
         if let applicationSupportDirectory {
             supportDirectory = applicationSupportDirectory
             legacySupportDirectory = nil
@@ -41,6 +47,9 @@ final class CaptureStore {
 
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        self.replacementDataWriter = replacementDataWriter ?? { data, url in
+            try data.write(to: url, options: .atomic)
+        }
 
         migrateLegacySupportDirectoryIfNeeded()
         try? fileManager.createDirectory(at: capturesDirectory, withIntermediateDirectories: true)
@@ -157,6 +166,18 @@ final class CaptureStore {
     }
 
     func replaceImage(for item: CaptureItem, with image: NSImage) throws {
+        let target = try imageReplacementTarget(for: item)
+        guard let replacementImageData = image.pngData,
+              let replacementThumbnailData = image.thumbnail(maxDimension: 480).pngData else {
+            throw AppError.imageEncodingFailed
+        }
+        try target.replace(
+            imageData: replacementImageData,
+            thumbnailData: replacementThumbnailData
+        )
+    }
+
+    func imageReplacementTarget(for item: CaptureItem) throws -> CaptureImageReplacementTarget {
         guard let captureDirectoryURL = item.captureDirectoryURL else {
             throw StoreError.imageReplacement(
                 path: item.imagePath,
@@ -167,44 +188,12 @@ final class CaptureStore {
         let imageURL = captureDirectoryURL.appendingPathComponent("screenshot.png", isDirectory: false)
         let thumbnailURL = captureDirectoryURL.appendingPathComponent("thumbnail.png", isDirectory: false)
 
-        let originalImageData: Data
-        let originalThumbnailData: Data
-        do {
-            originalImageData = try Data(contentsOf: imageURL)
-            originalThumbnailData = try Data(contentsOf: thumbnailURL)
-        } catch {
-            throw StoreError.imageReplacement(
-                path: captureDirectoryURL.path,
-                message: "Unable to preserve the original capture before saving edits: \(error.localizedDescription)"
-            )
-        }
-
-        guard let replacementImageData = image.pngData,
-              let replacementThumbnailData = image.thumbnail(maxDimension: 480).pngData else {
-            throw AppError.imageEncodingFailed
-        }
-
-        do {
-            try replacementImageData.write(to: imageURL, options: .atomic)
-            try replacementThumbnailData.write(to: thumbnailURL, options: .atomic)
-        } catch {
-            let updateError = error
-            do {
-                try originalImageData.write(to: imageURL, options: .atomic)
-                try originalThumbnailData.write(to: thumbnailURL, options: .atomic)
-            } catch {
-                throw StoreError.imageRollback(
-                    path: captureDirectoryURL.path,
-                    updateMessage: updateError.localizedDescription,
-                    rollbackMessage: error.localizedDescription
-                )
-            }
-
-            throw StoreError.imageReplacement(
-                path: captureDirectoryURL.path,
-                message: updateError.localizedDescription
-            )
-        }
+        return CaptureImageReplacementTarget(
+            captureDirectoryURL: captureDirectoryURL,
+            imageURL: imageURL,
+            thumbnailURL: thumbnailURL,
+            dataWriter: replacementDataWriter
+        )
     }
 
     func update(item: CaptureItem) throws {
@@ -592,6 +581,115 @@ final class CaptureStore {
         where fileManager.fileExists(atPath: path) {
             try fileManager.removeItem(atPath: path)
         }
+    }
+}
+
+struct CaptureImageReplacementTarget: @unchecked Sendable {
+    private let captureDirectoryURL: URL
+    private let imageURL: URL
+    private let thumbnailURL: URL
+    private let dataWriter: (Data, URL) throws -> Void
+
+    init(
+        captureDirectoryURL: URL,
+        imageURL: URL,
+        thumbnailURL: URL,
+        dataWriter: @escaping (Data, URL) throws -> Void
+    ) {
+        self.captureDirectoryURL = captureDirectoryURL
+        self.imageURL = imageURL
+        self.thumbnailURL = thumbnailURL
+        self.dataWriter = dataWriter
+    }
+
+    func replace(with image: CGImage) throws {
+        guard let imageData = Self.pngData(for: image),
+              let thumbnail = Self.downscaled(image, maxDimension: 480),
+              let thumbnailData = Self.pngData(for: thumbnail) else {
+            throw AppError.imageEncodingFailed
+        }
+
+        try replace(imageData: imageData, thumbnailData: thumbnailData)
+    }
+
+    func replace(imageData: Data, thumbnailData: Data) throws {
+        let originalImageData: Data
+        let originalThumbnailData: Data
+        do {
+            originalImageData = try Data(contentsOf: imageURL)
+            originalThumbnailData = try Data(contentsOf: thumbnailURL)
+        } catch {
+            throw StoreError.imageReplacement(
+                path: captureDirectoryURL.path,
+                message: "Unable to preserve the original capture before saving edits: \(error.localizedDescription)"
+            )
+        }
+
+        do {
+            try dataWriter(imageData, imageURL)
+            try dataWriter(thumbnailData, thumbnailURL)
+        } catch {
+            let updateError = error
+            do {
+                try dataWriter(originalImageData, imageURL)
+                try dataWriter(originalThumbnailData, thumbnailURL)
+            } catch {
+                throw StoreError.imageRollback(
+                    path: captureDirectoryURL.path,
+                    updateMessage: updateError.localizedDescription,
+                    rollbackMessage: error.localizedDescription
+                )
+            }
+
+            throw StoreError.imageReplacement(
+                path: captureDirectoryURL.path,
+                message: updateError.localizedDescription
+            )
+        }
+    }
+
+    private static func pngData(for image: CGImage) -> Data? {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            return nil
+        }
+
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return data as Data
+    }
+
+    private static func downscaled(_ image: CGImage, maxDimension: CGFloat) -> CGImage? {
+        let width = CGFloat(image.width)
+        let height = CGFloat(image.height)
+        guard width > 0, height > 0 else { return nil }
+
+        let scale = min(maxDimension / width, maxDimension / height, 1)
+        guard scale < 1 else { return image }
+
+        let targetWidth = max(1, Int((width * scale).rounded()))
+        let targetHeight = max(1, Int((height * scale).rounded()))
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: targetWidth,
+                height: targetHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else {
+            return nil
+        }
+
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+        return context.makeImage()
     }
 }
 

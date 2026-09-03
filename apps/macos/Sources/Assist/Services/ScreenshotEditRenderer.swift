@@ -2,8 +2,14 @@ import AppKit
 import CoreImage
 
 struct ScreenshotEditRenderer {
+    /// Immutable Core Graphics input that can safely be handed to a background render task.
+    struct SourceImage: @unchecked Sendable {
+        let image: CGImage
+        let pointSize: CGSize
+    }
+
     /// A blurred and optionally cropped bitmap plus the point scale of its source image.
-    struct FlatRender {
+    struct FlatRender: @unchecked Sendable {
         let image: CGImage
         let pointsPerPixel: CGFloat
 
@@ -17,17 +23,35 @@ struct ScreenshotEditRenderer {
 
     private let context = CIContext(options: [.cacheIntermediates: true])
 
+    func sourceImage(from image: NSImage) throws -> SourceImage {
+        guard let cgImage = image.bestCGImage else {
+            throw AppError.imageEncodingFailed
+        }
+        return SourceImage(image: cgImage, pointSize: image.size)
+    }
+
     /// Renders the finished screenshot: blur strokes, crop, then backdrop styling.
     func render(image: NSImage, draft: ScreenshotEditDraft, wallpaper: CGImage? = nil) throws -> NSImage {
-        let flat = try renderFlat(image: image, draft: draft, applyingCrop: true)
-        let styled = try applyStyle(draft.style, to: flat.image, wallpaper: wallpaper)
-        return NSImage(
-            cgImage: styled,
-            size: CGSize(
-                width: CGFloat(styled.width) * flat.pointsPerPixel,
-                height: CGFloat(styled.height) * flat.pointsPerPixel
-            )
+        let rendered = try render(
+            source: sourceImage(from: image),
+            draft: draft,
+            wallpaper: wallpaper
         )
+        return NSImage(
+            cgImage: rendered.image,
+            size: rendered.pointSize
+        )
+    }
+
+    /// Full-resolution render entry point used by the background save pipeline.
+    func render(
+        source: SourceImage,
+        draft: ScreenshotEditDraft,
+        wallpaper: CGImage? = nil
+    ) throws -> FlatRender {
+        let flat = try renderFlat(source: source, draft: draft, applyingCrop: true)
+        let styled = try applyStyle(draft.style, to: flat.image, wallpaper: wallpaper)
+        return FlatRender(image: styled, pointsPerPixel: flat.pointsPerPixel)
     }
 
     /// Applies blur strokes and (optionally) the crop without any backdrop styling.
@@ -37,14 +61,26 @@ struct ScreenshotEditRenderer {
         applyingCrop: Bool,
         maxPreviewDimension: CGFloat? = nil
     ) throws -> FlatRender {
-        guard var sourceCGImage = image.bestCGImage else {
-            throw AppError.imageEncodingFailed
-        }
+        try renderFlat(
+            source: sourceImage(from: image),
+            draft: draft,
+            applyingCrop: applyingCrop,
+            maxPreviewDimension: maxPreviewDimension
+        )
+    }
+
+    private func renderFlat(
+        source: SourceImage,
+        draft: ScreenshotEditDraft,
+        applyingCrop: Bool,
+        maxPreviewDimension: CGFloat? = nil
+    ) throws -> FlatRender {
+        var sourceCGImage = source.image
         if let maxPreviewDimension, let scaled = Self.downscaled(sourceCGImage, maxDimension: maxPreviewDimension) {
             sourceCGImage = scaled
         }
         let pointsPerPixel = sourceCGImage.width > 0
-            ? image.size.width / CGFloat(sourceCGImage.width)
+            ? source.pointSize.width / CGFloat(sourceCGImage.width)
             : 1
 
         var composited = sourceCGImage
