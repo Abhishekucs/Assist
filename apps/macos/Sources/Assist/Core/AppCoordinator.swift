@@ -208,6 +208,21 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
     private static let captureImageExtensions = Set(["png", "jpg", "jpeg", "heic", "tif", "tiff"])
 
     private func deleteHistoryItem(_ item: ClipboardHistoryItem) {
+        if case let .screenshot(capture) = item,
+           screenshotEditorViewModel.session?.capture.id == capture.id {
+            guard !screenshotEditorViewModel.isSaving else {
+                pillViewModel.statusText = "Saving edits…"
+                pillViewModel.diagnosticMessage =
+                    "Wait for the screenshot edit to finish before deleting this capture."
+                DebugLogger.log("history.item.delete.deferred", [
+                    "id": capture.id.uuidString,
+                    "reason": "screenshot-editor-saving"
+                ])
+                return
+            }
+            dismissActiveScreenshotEditor(reason: "capture-deleted")
+        }
+
         do {
             switch item {
             case let .screenshot(capture):
