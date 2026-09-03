@@ -73,6 +73,9 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         screenshotEditorViewModel.onPointerExited = { [weak self] sessionID in
             self?.screenshotEditorPointerExited(sessionID: sessionID)
         }
+        screenshotEditorViewModel.onExpandedChanged = { [weak self] sessionID, isExpanded in
+            self?.screenshotEditorExpansionChanged(sessionID: sessionID, isExpanded: isExpanded)
+        }
         screenshotEditorViewModel.onSave = { [weak self] sessionID, draft in
             self?.saveScreenshotEditorDraft(sessionID: sessionID, draft: draft)
         }
@@ -558,12 +561,23 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     private func screenshotEditorPointerExited(sessionID: UUID) {
         guard activeScreenshotEditorSessionID == sessionID,
-              screenshotEditorPresence.shouldDismissWhenPointerExits() else { return }
+              screenshotEditorPresence.shouldDismissWhenPointerExits(
+                hasUnsavedEdits: screenshotEditorViewModel.hasEdits
+              ) else { return }
         dismissScreenshotEditor(
             sessionID: sessionID,
             reason: "pointer-exited",
             showsOriginalSavedFeedback: true
         )
+    }
+
+    private func screenshotEditorExpansionChanged(sessionID: UUID, isExpanded: Bool) {
+        guard activeScreenshotEditorSessionID == sessionID else { return }
+        windowManager.screenshotEditorExpansionChanged()
+        DebugLogger.log("screenshot-editor.expansion-changed", [
+            "session": sessionID.uuidString,
+            "expanded": "\(isExpanded)"
+        ])
     }
 
     private func screenshotEditorEntryWindowExpired(sessionID: UUID) {

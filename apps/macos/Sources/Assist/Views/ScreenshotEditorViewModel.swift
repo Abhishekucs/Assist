@@ -7,6 +7,7 @@ final class ScreenshotEditorViewModel: ObservableObject {
     @Published private(set) var session: ScreenshotEditorSession?
     @Published private(set) var previewImage: NSImage?
     @Published private(set) var hasPointerEntered = false
+    @Published private(set) var isExpanded = false
     @Published private(set) var isSaving = false
     @Published private(set) var draft = ScreenshotEditDraft()
     @Published private(set) var activeBlurStrokeIndex: Int?
@@ -22,6 +23,7 @@ final class ScreenshotEditorViewModel: ObservableObject {
 
     var onPointerEntered: ((UUID) -> Void)?
     var onPointerExited: ((UUID) -> Void)?
+    var onExpandedChanged: ((UUID, Bool) -> Void)?
     var onSave: ((UUID, ScreenshotEditDraft) -> Void)?
     var onCancel: ((UUID) -> Void)?
 
@@ -39,6 +41,13 @@ final class ScreenshotEditorViewModel: ObservableObject {
     private var isInteracting = false
     private var pendingExitWorkItem: DispatchWorkItem?
 
+    /// The expanded card draws the screenshot much larger, so it needs more pixels to stay sharp.
+    private var previewMaxDimension: CGFloat {
+        isExpanded
+            ? ScreenshotEditorMetrics.expandedPreviewMaxDimension
+            : ScreenshotEditorMetrics.previewMaxDimension
+    }
+
     private static let minimumCropDimension: CGFloat = 0.025
     private static let blurPointSpacing: CGFloat = 0.004
     private static let blurRadiusFraction: CGFloat = 0.022
@@ -55,6 +64,7 @@ final class ScreenshotEditorViewModel: ObservableObject {
         pendingExitWorkItem = nil
         self.session = session
         hasPointerEntered = false
+        isExpanded = false
         isSaving = false
         isInteracting = false
         activeTool = .crop
@@ -77,6 +87,7 @@ final class ScreenshotEditorViewModel: ObservableObject {
         flatPreview = nil
         wallpaperImage = nil
         hasPointerEntered = false
+        isExpanded = false
         isSaving = false
         isInteracting = false
         draft = ScreenshotEditDraft()
@@ -142,6 +153,15 @@ final class ScreenshotEditorViewModel: ObservableObject {
     func requestCancel() {
         guard let session, !isSaving else { return }
         onCancel?(session.id)
+    }
+
+    /// Grows the card so the screenshot is legible enough to edit, and back again.
+    func toggleExpanded() {
+        guard let session, !isSaving else { return }
+        isExpanded.toggle()
+        // The preview budget changes with the card, so re-render at the new detail level.
+        rebuildFlatPreview()
+        onExpandedChanged?(session.id, isExpanded)
     }
 
     func reset() {
@@ -256,7 +276,7 @@ final class ScreenshotEditorViewModel: ObservableObject {
                 image: session.originalImage,
                 draft: draft,
                 applyingCrop: false,
-                maxPreviewDimension: ScreenshotEditorMetrics.previewMaxDimension
+                maxPreviewDimension: previewMaxDimension
             )
         } catch {
             flatPreview = nil

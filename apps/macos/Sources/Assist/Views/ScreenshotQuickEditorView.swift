@@ -10,6 +10,9 @@ struct ScreenshotQuickEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ScreenshotEditorHeader(viewModel: viewModel)
+                .frame(height: ScreenshotEditorMetrics.headerHeight)
+
             ScreenshotEditorCanvas(viewModel: viewModel)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottom) {
@@ -42,6 +45,37 @@ struct ScreenshotQuickEditorView: View {
     }
 }
 
+/// Title-bar strip for the card. Close and expand live here instead of on the screenshot,
+/// where they covered content and had to fight it for contrast.
+private struct ScreenshotEditorHeader: View {
+    @ObservedObject var viewModel: ScreenshotEditorViewModel
+
+    var body: some View {
+        HStack(spacing: 0) {
+            EditorIconButton(
+                icon: .close,
+                tooltip: "Close without saving edits. The original screenshot stays saved.",
+                isEnabled: !viewModel.isSaving
+            ) {
+                viewModel.requestCancel()
+            }
+
+            Spacer(minLength: 0)
+
+            EditorIconButton(
+                icon: viewModel.isExpanded ? .collapse : .expand,
+                tooltip: viewModel.isExpanded
+                    ? "Shrink the editor"
+                    : "Expand the editor for a closer look",
+                isEnabled: !viewModel.isSaving
+            ) {
+                viewModel.toggleExpanded()
+            }
+        }
+        .padding(.horizontal, 10)
+    }
+}
+
 private struct EditorCardBackground: View {
     var body: some View {
         ZStack {
@@ -59,7 +93,13 @@ private struct ScreenshotEditorCanvas: View {
     var body: some View {
         GeometryReader { geometry in
             let inset = ScreenshotEditorMetrics.canvasInset
-            let bounds = CGRect(origin: .zero, size: geometry.size).insetBy(dx: inset, dy: inset)
+            let topInset = ScreenshotEditorMetrics.canvasTopInset
+            let bounds = CGRect(
+                x: inset,
+                y: topInset,
+                width: max(0, geometry.size.width - inset * 2),
+                height: max(0, geometry.size.height - topInset - inset)
+            )
             let image = viewModel.previewImage
             let imageRect = image.map { Self.aspectFitRect(imageSize: $0.size, in: bounds) } ?? .zero
             let isStyling = viewModel.activeTool == .style
@@ -748,7 +788,7 @@ private struct SaveButton: View {
         }
         .buttonStyle(.plain)
         .disabled(isSaving)
-        .help("Save edited screenshot (Return)")
+        .help("Save edits to this screenshot")
         .accessibilityLabel("Save edited screenshot")
         .pointingHandCursor(isEnabled: !isSaving)
         .keyboardShortcut(.return, modifiers: [])

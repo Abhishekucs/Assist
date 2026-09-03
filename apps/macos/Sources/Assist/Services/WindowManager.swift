@@ -19,6 +19,7 @@ final class WindowManager {
         static let contentFadeDuration: TimeInterval = 0.04
         static let collapsedRevealDelay: TimeInterval = 0.32
         static let pointerScreenPollInterval: TimeInterval = 0.18
+        static let editorResizeDuration: TimeInterval = 0.24
     }
 
     private let pillViewModel: PillViewModel
@@ -131,6 +132,12 @@ final class WindowManager {
 
     func hideScreenshotEditor() {
         screenshotEditorPanel.orderOut(nil)
+    }
+
+    /// Resizes the editor card in place when the user expands or shrinks the preview.
+    func screenshotEditorExpansionChanged() {
+        guard screenshotEditorPanel.isVisible else { return }
+        positionScreenshotEditor(animated: true)
     }
 
     func restorePillToFront(reason: String) {
@@ -436,7 +443,7 @@ final class WindowManager {
         return Self.screenContainingMouse() ?? NSScreen.screens.first ?? NSScreen.main
     }
 
-    private func positionScreenshotEditor() {
+    private func positionScreenshotEditor(animated: Bool = false) {
         guard let screen = screenForCurrentPill() else { return }
         let collapsedSize = PillChromeMetrics.collapsedSize(settings: settings)
         let pillChromeFrame = CGRect(
@@ -447,9 +454,27 @@ final class WindowManager {
         )
         let frame = ScreenshotEditorMetrics.frame(
             below: pillChromeFrame,
-            on: screen.frame
+            on: screen.frame,
+            expanded: screenshotEditorViewModel.isExpanded,
+            imageAspectRatio: screenshotEditorViewModel.imageAspectRatio
         )
-        screenshotEditorPanel.setFrame(frame, display: true, animate: false)
+
+        guard animated else {
+            screenshotEditorPanel.setFrame(frame, display: true, animate: false)
+            return
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Metrics.editorResizeDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            screenshotEditorPanel.animator().setFrame(frame, display: true)
+        } completionHandler: { [weak screenshotEditorPanel] in
+            // AppKit runs this on the main thread once the resize settles.
+            MainActor.assumeIsolated {
+                // The system shadow keeps the pre-resize outline until it is invalidated.
+                screenshotEditorPanel?.invalidateShadow()
+            }
+        }
     }
 
     private func syncInitialScreenshotEditorHover() {

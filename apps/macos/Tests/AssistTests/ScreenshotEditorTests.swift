@@ -7,12 +7,82 @@ final class ScreenshotEditorTests: XCTestCase {
         var presence = ScreenshotEditorPresence()
 
         XCTAssertTrue(presence.shouldDismissWhenEntryWindowExpires())
-        XCTAssertFalse(presence.shouldDismissWhenPointerExits())
+        XCTAssertFalse(presence.shouldDismissWhenPointerExits(hasUnsavedEdits: false))
 
         presence.pointerEntered()
 
         XCTAssertFalse(presence.shouldDismissWhenEntryWindowExpires())
-        XCTAssertTrue(presence.shouldDismissWhenPointerExits())
+        XCTAssertTrue(presence.shouldDismissWhenPointerExits(hasUnsavedEdits: false))
+    }
+
+    func testUnsavedEditsSurviveThePointerLeaving() {
+        var presence = ScreenshotEditorPresence()
+        presence.pointerEntered()
+
+        XCTAssertFalse(presence.shouldDismissWhenPointerExits(hasUnsavedEdits: true))
+        XCTAssertTrue(presence.shouldDismissWhenPointerExits(hasUnsavedEdits: false))
+    }
+
+    func testExpandedFrameGrowsAndMatchesTheScreenshotAspect() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let island = CGRect(x: 586, y: 870, width: 268, height: 30)
+        let aspect: CGFloat = 16.0 / 9.0
+
+        let collapsed = ScreenshotEditorMetrics.frame(below: island, on: screen)
+        let expanded = ScreenshotEditorMetrics.frame(
+            below: island,
+            on: screen,
+            expanded: true,
+            imageAspectRatio: aspect
+        )
+
+        XCTAssertGreaterThan(expanded.width, collapsed.width)
+        XCTAssertGreaterThan(expanded.height, collapsed.height)
+
+        // The screenshot is the card minus its header, insets, and the fixed controls row.
+        let chrome = ScreenshotEditorMetrics.cardChrome
+        let canvas = CGSize(
+            width: expanded.width - chrome.width,
+            height: expanded.height - chrome.height
+        )
+        XCTAssertEqual(canvas.width / canvas.height, aspect, accuracy: 0.01)
+        XCTAssertEqual(canvas.width, ScreenshotEditorMetrics.expandedImageBox.width)
+
+        XCTAssertEqual(island.minY - expanded.maxY, 8)
+        XCTAssertEqual(expanded.midX, island.midX)
+    }
+
+    func testExpandedFrameNeverShrinksBelowTheCollapsedCard() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let island = CGRect(x: 586, y: 870, width: 268, height: 30)
+
+        // A tall, narrow screenshot cannot fill the collapsed width.
+        let expanded = ScreenshotEditorMetrics.frame(
+            below: island,
+            on: screen,
+            expanded: true,
+            imageAspectRatio: 0.5
+        )
+
+        XCTAssertEqual(expanded.width, ScreenshotEditorMetrics.preferredSize.width)
+        XCTAssertGreaterThan(expanded.height, ScreenshotEditorMetrics.preferredSize.height)
+    }
+
+    func testExpandedFrameStaysOnShortScreens() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 300)
+        let island = CGRect(x: 586, y: 270, width: 268, height: 30)
+
+        let expanded = ScreenshotEditorMetrics.frame(
+            below: island,
+            on: screen,
+            expanded: true,
+            imageAspectRatio: 16.0 / 9.0
+        )
+
+        XCTAssertGreaterThanOrEqual(expanded.minY, screen.minY + ScreenshotEditorMetrics.screenMargin)
+        XCTAssertLessThanOrEqual(expanded.maxY, island.minY - ScreenshotEditorMetrics.islandGap)
+        XCTAssertGreaterThanOrEqual(expanded.minX, screen.minX + ScreenshotEditorMetrics.screenMargin)
+        XCTAssertLessThanOrEqual(expanded.maxX, screen.maxX - ScreenshotEditorMetrics.screenMargin)
     }
 
     func testEditorFrameIsCenteredEightPointsBelowTheIsland() {

@@ -247,8 +247,10 @@ struct ScreenshotEditorPresence: Equatable {
         hasPointerEntered = true
     }
 
-    func shouldDismissWhenPointerExits() -> Bool {
-        hasPointerEntered
+    /// The card follows the pointer away while it is only a preview. Once it holds unsaved edits,
+    /// a stray pointer must not throw that work away, so closing becomes explicit.
+    func shouldDismissWhenPointerExits(hasUnsavedEdits: Bool) -> Bool {
+        hasPointerEntered && !hasUnsavedEdits
     }
 
     func shouldDismissWhenEntryWindowExpires() -> Bool {
@@ -257,28 +259,43 @@ struct ScreenshotEditorPresence: Equatable {
 }
 
 enum ScreenshotEditorMetrics {
-    static let preferredSize = CGSize(width: 384, height: 372)
+    static let preferredSize = CGSize(width: 384, height: 394)
     static let controlsHeight: CGFloat = 128
+    /// Title-bar strip that carries the close and expand controls.
+    static let headerHeight: CGFloat = 34
     static let canvasInset: CGFloat = 16
+    /// The header already separates the screenshot from the card edge, so the canvas adds little.
+    static let canvasTopInset: CGFloat = 4
     static let islandGap: CGFloat = 8
     static let screenMargin: CGFloat = 16
     static let cornerRadius: CGFloat = 18
     static let previewMaxDimension: CGFloat = 768
+    /// The expanded card renders the screenshot far larger, so it needs a sharper preview.
+    static let expandedPreviewMaxDimension: CGFloat = 2048
+    /// Largest screenshot box the expanded card aims for before the screen clamps it.
+    static let expandedImageBox = CGSize(width: 880, height: 560)
+    /// Everything the card spends on chrome, so sizing and the canvas agree on the image box.
+    static let cardChrome = CGSize(
+        width: canvasInset * 2,
+        height: headerHeight + canvasTopInset + canvasInset + controlsHeight
+    )
     static let entryWindow: TimeInterval = 5
     /// How long the pointer may sit outside the editor before it closes.
     static let exitGracePeriod: TimeInterval = 0.45
 
-    static func frame(below pillChromeFrame: CGRect, on screenFrame: CGRect) -> CGRect {
-        let availableWidth = max(0, screenFrame.width - screenMargin * 2)
-        let availableHeight = max(0, pillChromeFrame.minY - islandGap - screenFrame.minY - screenMargin)
-        let scale = max(
-            0,
-            min(1, availableWidth / preferredSize.width, availableHeight / preferredSize.height)
+    static func frame(
+        below pillChromeFrame: CGRect,
+        on screenFrame: CGRect,
+        expanded: Bool = false,
+        imageAspectRatio: CGFloat = 1
+    ) -> CGRect {
+        let available = CGSize(
+            width: max(0, screenFrame.width - screenMargin * 2),
+            height: max(0, pillChromeFrame.minY - islandGap - screenFrame.minY - screenMargin)
         )
-        let size = CGSize(
-            width: floor(preferredSize.width * scale),
-            height: floor(preferredSize.height * scale)
-        )
+        let size = expanded
+            ? expandedSize(imageAspectRatio: imageAspectRatio, available: available)
+            : collapsedSize(available: available)
         let proposedX = pillChromeFrame.midX - size.width / 2
         let minimumX = screenFrame.minX + screenMargin
         let maximumX = screenFrame.maxX - screenMargin - size.width
@@ -289,6 +306,40 @@ enum ScreenshotEditorMetrics {
             y: pillChromeFrame.minY - islandGap - size.height,
             width: size.width,
             height: size.height
+        )
+    }
+
+    private static func collapsedSize(available: CGSize) -> CGSize {
+        let scale = max(
+            0,
+            min(1, available.width / preferredSize.width, available.height / preferredSize.height)
+        )
+        return CGSize(
+            width: floor(preferredSize.width * scale),
+            height: floor(preferredSize.height * scale)
+        )
+    }
+
+    /// Sizes the expanded card around the screenshot itself so the preview fills it edge to edge
+    /// instead of floating in letterboxing.
+    private static func expandedSize(imageAspectRatio: CGFloat, available: CGSize) -> CGSize {
+        let collapsed = collapsedSize(available: available)
+        let chrome = cardChrome
+        let imageBox = CGSize(
+            width: min(expandedImageBox.width, available.width - chrome.width),
+            height: min(expandedImageBox.height, available.height - chrome.height)
+        )
+        guard imageAspectRatio > 0, imageBox.width > 0, imageBox.height > 0 else { return collapsed }
+
+        var imageSize = CGSize(width: imageBox.width, height: imageBox.width / imageAspectRatio)
+        if imageSize.height > imageBox.height {
+            imageSize = CGSize(width: imageBox.height * imageAspectRatio, height: imageBox.height)
+        }
+
+        // Expanding must never shrink the card, so a narrow screenshot keeps the collapsed width.
+        return CGSize(
+            width: max(collapsed.width, floor(imageSize.width + chrome.width)),
+            height: max(collapsed.height, floor(imageSize.height + chrome.height))
         )
     }
 }

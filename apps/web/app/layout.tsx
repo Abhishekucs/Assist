@@ -27,6 +27,7 @@ export const metadata: Metadata = {
   category: "Productivity",
   keywords: [
     "Mac screenshot app",
+    "crop and blur screenshots on Mac",
     "screen annotation Mac",
     "voice annotation",
     "Mac clipboard history",

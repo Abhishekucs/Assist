@@ -31,7 +31,17 @@ const faqItems = [
   {
     question: "How do I take a full-screen screenshot?",
     answer:
-      "Press Control + Option to capture the full display immediately without entering annotation mode. The screenshot appears in Recent Items, where you can preview, copy, or drag it into another app."
+      "Press Control + Option to capture the full display immediately without entering annotation mode. The screenshot is saved right away and appears in Recent Items, where you can preview, copy, or drag it into another app."
+  },
+  {
+    question: "Can I crop or blur a screenshot after taking it?",
+    answer:
+      "Yes. A quick editor appears under the notch after each Control + Option capture. Hover it to crop to a free or fixed aspect ratio, blur anything private with three brush sizes, or add a gradient or wallpaper backdrop with padding, rounded corners, and a shadow. Expand the card for a closer look, save to replace the capture, or close it to keep the original."
+  },
+  {
+    question: "What happens if I ignore the quick editor?",
+    answer:
+      "Nothing is lost. The original screenshot is already saved, so the editor closes on its own after about five seconds if you never hover it, and it follows your pointer away once you do. If you have started editing, it stays put until you save it or close it, so a stray pointer cannot discard your work."
   },
   {
     question: "How does clipboard history work?",
@@ -86,6 +96,7 @@ const structuredData = {
         "Voice-powered screen annotation",
         "Local Whisper transcription on Apple silicon",
         "Full-screen screenshot capture with Control and Option",
+        "Quick screenshot editing with crop, blur, and backdrops",
         "Local clipboard text history",
         "Screenshot and copied-text history",
         "Drag and drop from the notch",
@@ -211,7 +222,7 @@ export default function Home() {
           </article>
           <article className="capability-card">
             <h3>Instant full-screen screenshots</h3>
-            <p>Press Control + Option to save a clean screenshot, then preview, copy, or drag it from Recent Items.</p>
+            <p>Press Control + Option to save a clean screenshot, then crop, blur, or frame it in the quick editor under the notch.</p>
           </article>
           <article className="capability-card">
             <h3>Clipboard history</h3>
@@ -265,8 +276,8 @@ export default function Home() {
             <h3>Capture the screen before the moment passes.</h3>
             <p className="feature-description">
               Press Control + Option for a clean screenshot of the full display.
-              There is no crop dialog and no annotation step—just a saved capture
-              ready in the notch.
+              It saves immediately, and a quick editor drops under the notch in
+              case you want to crop, blur, or frame it before you share.
             </p>
             <ul className="feature-detail-list">
               <li>
@@ -274,8 +285,8 @@ export default function Home() {
                 <span>Capture the full screen from any app without breaking your current flow.</span>
               </li>
               <li>
-                <strong>Recent Items in the notch</strong>
-                <span>Preview screenshots, annotations, and copied text without opening a library window.</span>
+                <strong>Crop, blur, and frame</strong>
+                <span>Trim the shot, blur what should stay private, or drop it on a backdrop—then expand for a closer look.</span>
               </li>
               <li>
                 <strong>Drag into any workflow</strong>
@@ -312,6 +323,7 @@ export default function Home() {
           <ul className="pricing-features" aria-label="Included features">
             <li>Voice-powered screen annotation</li>
             <li>Full-screen screenshot capture</li>
+            <li>Quick crop, blur, and backdrop editing</li>
             <li>Local clipboard history</li>
             <li>Recent screenshots and copied text</li>
             <li>Native, local-first macOS app</li>

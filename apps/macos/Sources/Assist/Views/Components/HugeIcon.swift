@@ -25,6 +25,8 @@ enum HugeIconKind: String {
     case blur
     case paintBoard = "paint-board"
     case aspectRatio = "aspect-ratio"
+    case expand = "arrow-expand-diagonal-02"
+    case collapse = "arrow-shrink-01"
 
     var assetName: String { rawValue }
 }
