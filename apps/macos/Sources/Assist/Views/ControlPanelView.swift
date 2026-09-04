@@ -228,21 +228,14 @@ private struct AppTopBar: View {
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
     @Environment(\.assistTheme) private var theme
-    @State private var selectedFilter: LibraryFilter = .all
+    @State private var selectedFilter: ClipboardHistoryFilter = .all
 
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: 210, maximum: 240), spacing: 14, alignment: .top)]
     }
 
     private var filteredItems: [ClipboardHistoryItem] {
-        viewModel.historyItems.filter { item in
-            switch (selectedFilter, item) {
-            case (.all, _), (.images, .screenshot), (.text, .text):
-                true
-            default:
-                false
-            }
-        }
+        viewModel.historyItems.filter(selectedFilter.includes)
     }
 
     var body: some View {
@@ -363,27 +356,8 @@ private struct CapturePermissionBanner: View {
     }
 }
 
-private enum LibraryFilter: String, CaseIterable, Identifiable {
-    case all
-    case text
-    case images
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .all:
-            "All"
-        case .text:
-            "Text"
-        case .images:
-            "Images"
-        }
-    }
-}
-
 private struct LibraryFilterBar: View {
-    @Binding var selectedFilter: LibraryFilter
+    @Binding var selectedFilter: ClipboardHistoryFilter
     let shownCount: Int
     let totalCount: Int
     @Environment(\.assistTheme) private var theme
@@ -391,7 +365,7 @@ private struct LibraryFilterBar: View {
     var body: some View {
         HStack(spacing: 20) {
             HStack(spacing: 24) {
-                ForEach(LibraryFilter.allCases) { filter in
+                ForEach(ClipboardHistoryFilter.allCases) { filter in
                     Button {
                         selectedFilter = filter
                     } label: {
@@ -434,7 +408,7 @@ private struct LibraryFilterBar: View {
 }
 
 private struct EmptyFilteredLibraryView: View {
-    let filter: LibraryFilter
+    let filter: ClipboardHistoryFilter
     @Environment(\.assistTheme) private var theme
 
     var body: some View {
@@ -535,17 +509,32 @@ private struct CaptureLibraryCard: View {
                 }
             }
         case let .text(textClip):
-            VStack(alignment: .leading, spacing: 12) {
-                HugeIcon(.document, size: 18)
-                    .foregroundStyle(theme.muted)
-                Text(textClip.preview)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(theme.foreground)
-                    .lineLimit(4)
-                    .multilineTextAlignment(.leading)
+            if let colorCode = textClip.colorCode {
+                ZStack(alignment: .bottomLeading) {
+                    Color(clipboardColor: colorCode)
+
+                    Text(colorCode.displayValue)
+                        .font(AssistFont.mono())
+                        .foregroundStyle(
+                            colorCode.usesDarkForeground
+                                ? AssistDesignTokens.Palette.ink
+                                : AssistDesignTokens.Palette.paper
+                        )
+                        .padding(AssistDesignTokens.Spacing.large)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    HugeIcon(.document, size: 18)
+                        .foregroundStyle(theme.muted)
+                    Text(textClip.preview)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(4)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -570,13 +559,15 @@ private struct DeleteIconButton: View {
     let action: () -> Void
     @Environment(\.assistTheme) private var theme
 
-    private var red: Color {
-        Color(hex: 0xFF453A)
-    }
-
     var body: some View {
         Button(action: action) {
-            HugeIcon(.trash, size: 15, color: red.opacity(isHovered ? 1 : 0.9))
+            HugeIcon(
+                .trash,
+                size: 15,
+                color: AssistDesignTokens.Palette.danger.opacity(
+                    isHovered ? 1 : AssistDesignTokens.Opacity.primary
+                )
+            )
                 .frame(width: 34, height: 34)
                 .background(backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
@@ -588,7 +579,13 @@ private struct DeleteIconButton: View {
     }
 
     private var backgroundColor: Color {
-        red.opacity(isHovered ? (theme.isDark ? 0.24 : 0.16) : (theme.isDark ? 0.16 : 0.1))
+        if isHovered {
+            return AssistDesignTokens.Palette.danger.opacity(
+                AssistDesignTokens.Opacity.destructiveHoverSurface
+            )
+        }
+
+        return theme.card
     }
 }
 

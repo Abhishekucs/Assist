@@ -22,6 +22,10 @@ struct CaptureItem: Codable, Identifiable, Equatable {
     var contextFileURL: URL? {
         captureDirectoryURL?.appendingPathComponent("context.md", isDirectory: false)
     }
+
+    var hasVoiceContext: Bool {
+        context.dictation != nil
+    }
 }
 
 struct TextClipItem: Codable, Identifiable, Equatable {
@@ -34,6 +38,58 @@ struct TextClipItem: Codable, Identifiable, Equatable {
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
         return String(collapsedWhitespace.prefix(140))
+    }
+
+    var colorCode: ClipboardColorCode? {
+        ClipboardColorCode(text)
+    }
+}
+
+struct ClipboardColorCode: Equatable {
+    let red: Double
+    let green: Double
+    let blue: Double
+    let alpha: Double
+    let displayValue: String
+
+    var usesDarkForeground: Bool {
+        let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+        return luminance > 0.58
+    }
+
+    init?(_ rawValue: String) {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits: Substring
+
+        if trimmed.hasPrefix("#") {
+            digits = trimmed.dropFirst()
+        } else if trimmed.lowercased().hasPrefix("0x") {
+            digits = trimmed.dropFirst(2)
+        } else {
+            return nil
+        }
+
+        guard [3, 4, 6, 8].contains(digits.count),
+              digits.allSatisfy(\.isHexDigit) else {
+            return nil
+        }
+
+        let expanded: String
+        if digits.count <= 4 {
+            expanded = digits.map { "\($0)\($0)" }.joined()
+        } else {
+            expanded = String(digits)
+        }
+
+        guard let value = UInt64(expanded, radix: 16) else { return nil }
+        let includesAlpha = expanded.count == 8
+        let shift = includesAlpha ? 8 : 0
+
+        red = Double((value >> UInt64(16 + shift)) & 0xff) / 255
+        green = Double((value >> UInt64(8 + shift)) & 0xff) / 255
+        blue = Double((value >> UInt64(shift)) & 0xff) / 255
+        alpha = includesAlpha ? Double(value & 0xff) / 255 : 1
+        displayValue = "#" + expanded.uppercased()
     }
 }
 
@@ -56,6 +112,34 @@ enum ClipboardHistoryItem: Identifiable, Equatable {
             item.createdAt
         case let .text(item):
             item.createdAt
+        }
+    }
+}
+
+enum ClipboardHistoryFilter: String, CaseIterable, Identifiable {
+    case all
+    case text
+    case images
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all:
+            "All"
+        case .text:
+            "Text"
+        case .images:
+            "Images"
+        }
+    }
+
+    func includes(_ item: ClipboardHistoryItem) -> Bool {
+        switch (self, item) {
+        case (.all, _), (.text, .text), (.images, .screenshot):
+            true
+        default:
+            false
         }
     }
 }

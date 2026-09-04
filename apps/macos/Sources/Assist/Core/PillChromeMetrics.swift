@@ -9,7 +9,7 @@ enum PillChromeMetrics {
     static let topInset = PillSettings.Defaults.topInset
     static let compactExpandedHeight: CGFloat = 210
 
-    // The collapsed island keeps one width; feedback is a glyph, so it never grows the chrome.
+    // The collapsed island keeps one width; short feedback labels fit without growing the chrome.
     static func collapsedSize(settings: PillSettings) -> CGSize {
         settings.collapsedSize
     }

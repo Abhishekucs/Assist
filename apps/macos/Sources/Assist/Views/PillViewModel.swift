@@ -251,7 +251,8 @@ final class PillViewModel: ObservableObject {
     }
 
     func canCopyContextMarkdown(_ item: CaptureItem) -> Bool {
-        item.contextFileURL != nil
+        item.hasVoiceContext
+            && item.contextFileURL != nil
             && item.context.dictation?.status != .transcribing
             && captureContextMarkdown[item.id] != nil
     }
@@ -281,6 +282,12 @@ final class PillViewModel: ObservableObject {
     var showsCopySelectedContext: Bool {
         guard case let .screenshot(item) = selectedItem else { return false }
 
+        return showsCopyContext(for: item)
+    }
+
+    func showsCopyContext(for item: CaptureItem) -> Bool {
+        guard item.hasVoiceContext else { return false }
+
         if item.contextFileURL != nil {
             return true
         }
@@ -291,6 +298,12 @@ final class PillViewModel: ObservableObject {
 
     var canCopySelectedContext: Bool {
         guard case let .screenshot(item) = selectedItem else { return false }
+
+        return canCopyContext(for: item)
+    }
+
+    func canCopyContext(for item: CaptureItem) -> Bool {
+        guard item.hasVoiceContext else { return false }
 
         if item.contextFileURL != nil {
             return item.context.dictation?.status != .transcribing
@@ -376,6 +389,12 @@ final class PillViewModel: ObservableObject {
 
     func revealSelectedScreenshotInFinder() {
         guard case let .screenshot(item) = selectedItem else { return }
+
+        revealScreenshotInFinder(item)
+    }
+
+    func revealScreenshotInFinder(_ item: CaptureItem) {
+        selectScreenshot(item)
 
         let imageURL = URL(fileURLWithPath: item.imagePath)
         let directoryURL = imageURL.deletingLastPathComponent()
