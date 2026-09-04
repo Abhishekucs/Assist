@@ -481,8 +481,7 @@ final class WindowManager {
         let frame = ScreenshotEditorMetrics.frame(
             below: pillChromeFrame,
             on: screen.frame,
-            expanded: screenshotEditorViewModel.isExpanded,
-            imageAspectRatio: screenshotEditorViewModel.imageAspectRatio
+            expanded: screenshotEditorViewModel.isExpanded
         )
 
         guard animated else {

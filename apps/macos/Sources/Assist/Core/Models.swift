@@ -45,6 +45,27 @@ struct TextClipItem: Codable, Identifiable, Equatable {
     }
 }
 
+struct RGBColorComponents: Equatable, Sendable {
+    static let black = RGBColorComponents(red: 0, green: 0, blue: 0)
+    static let white = RGBColorComponents(red: 1, green: 1, blue: 1)
+
+    let red: Double
+    let green: Double
+    let blue: Double
+
+    init(red: Double, green: Double, blue: Double) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+
+    init(hex: UInt32) {
+        red = Double((hex >> 16) & 0xff) / 255
+        green = Double((hex >> 8) & 0xff) / 255
+        blue = Double(hex & 0xff) / 255
+    }
+}
+
 struct ClipboardColorCode: Equatable {
     let red: Double
     let green: Double
@@ -52,9 +73,18 @@ struct ClipboardColorCode: Equatable {
     let alpha: Double
     let displayValue: String
 
-    var usesDarkForeground: Bool {
-        let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
-        return luminance > 0.58
+    /// Chooses black or white using WCAG contrast after translucent colors are composited over
+    /// the actual card surface.
+    func usesDarkForeground(over surface: RGBColorComponents) -> Bool {
+        let composited = RGBColorComponents(
+            red: red * alpha + surface.red * (1 - alpha),
+            green: green * alpha + surface.green * (1 - alpha),
+            blue: blue * alpha + surface.blue * (1 - alpha)
+        )
+        let luminance = Self.relativeLuminance(of: composited)
+        let blackContrast = (luminance + 0.05) / 0.05
+        let whiteContrast = 1.05 / (luminance + 0.05)
+        return blackContrast >= whiteContrast
     }
 
     init?(_ rawValue: String) {
@@ -90,6 +120,21 @@ struct ClipboardColorCode: Equatable {
         blue = Double((value >> UInt64(shift)) & 0xff) / 255
         alpha = includesAlpha ? Double(value & 0xff) / 255 : 1
         displayValue = "#" + expanded.uppercased()
+    }
+
+    private static func relativeLuminance(of color: RGBColorComponents) -> Double {
+        let red = linearizedSRGB(color.red)
+        let green = linearizedSRGB(color.green)
+        let blue = linearizedSRGB(color.blue)
+        return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+    }
+
+    private static func linearizedSRGB(_ component: Double) -> Double {
+        let component = min(max(component, 0), 1)
+        if component <= 0.04045 {
+            return component / 12.92
+        }
+        return pow((component + 0.055) / 1.055, 2.4)
     }
 }
 

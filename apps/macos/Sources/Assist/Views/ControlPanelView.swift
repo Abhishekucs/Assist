@@ -2,6 +2,8 @@ import AppKit
 import Combine
 import SwiftUI
 
+private typealias LibraryTokens = AssistDesignTokens.CaptureLibrary
+
 struct ControlPanelView: View {
     @ObservedObject var settings: PillSettings
     @ObservedObject var viewModel: PillViewModel
@@ -231,7 +233,16 @@ private struct CaptureLibraryView: View {
     @State private var selectedFilter: ClipboardHistoryFilter = .all
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: 210, maximum: 240), spacing: 14, alignment: .top)]
+        [
+            GridItem(
+                .adaptive(
+                    minimum: LibraryTokens.minimumCardWidth,
+                    maximum: LibraryTokens.maximumCardWidth
+                ),
+                spacing: LibraryTokens.gridSpacing,
+                alignment: .top
+            )
+        ]
     }
 
     private var filteredItems: [ClipboardHistoryItem] {
@@ -266,7 +277,11 @@ private struct CaptureLibraryView: View {
                         EmptyFilteredLibraryView(filter: selectedFilter)
                     } else {
                         ScrollView {
-                            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                            LazyVGrid(
+                                columns: columns,
+                                alignment: .leading,
+                                spacing: LibraryTokens.gridSpacing
+                            ) {
                                 ForEach(filteredItems) { item in
                                     CaptureLibraryCard(
                                         item: item,
@@ -277,7 +292,7 @@ private struct CaptureLibraryView: View {
                                     )
                                 }
                             }
-                            .padding(18)
+                            .padding(LibraryTokens.contentInset)
                         }
                         .background(theme.background)
                     }
@@ -450,8 +465,6 @@ private struct EmptyCaptureLibraryView: View {
 }
 
 private struct CaptureLibraryCard: View {
-    private static let cardHeight: CGFloat = 122
-
     let item: ClipboardHistoryItem
     let isSelected: Bool
     let thumbnail: NSImage?
@@ -469,25 +482,41 @@ private struct CaptureLibraryCard: View {
         ZStack(alignment: .topTrailing) {
             Button(action: selectAction) {
                 preview
-                    .frame(maxWidth: .infinity, minHeight: Self.cardHeight, maxHeight: Self.cardHeight, alignment: .topLeading)
-                .background(cardBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(height: LibraryTokens.cardHeight)
+                .background(
+                    cardBackground,
+                    in: RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+                )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(isSelected ? theme.foreground.opacity(0.42) : .clear, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+                        .stroke(
+                            isSelected ? theme.foreground.opacity(0.42) : .clear,
+                            lineWidth: LibraryTokens.selectionStroke
+                        )
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .clipShape(
+                    RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+                )
                 .shadow(color: .black.opacity(theme.isDark ? 0.16 : 0.08), radius: 9, y: 5)
             }
+            .frame(maxWidth: .infinity)
             .buttonStyle(.plain)
             .onDrag { item.dragProvider }
             .help(helpText)
 
             DeleteIconButton(isHovered: $isDeleteHovered, action: deleteAction)
-                .opacity(isDeleteVisible ? 1 : 0.001)
+                .opacity(isDeleteVisible ? 1 : 0)
+                .allowsHitTesting(isDeleteVisible)
+                .accessibilityHidden(!isDeleteVisible)
                 .zIndex(1)
-                .padding(7)
+                .padding(LibraryTokens.actionInset)
         }
-        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .frame(height: LibraryTokens.cardHeight)
+        .contentShape(
+            RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+        )
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isHovered)
     }
@@ -496,17 +525,24 @@ private struct CaptureLibraryCard: View {
     private var preview: some View {
         switch item {
         case .screenshot:
-            ZStack {
-                if let thumbnail {
-                    Image(nsImage: thumbnail)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                } else {
-                    HugeIcon(.image, size: 30)
-                        .foregroundStyle(theme.muted)
+            GeometryReader { geometry in
+                ZStack {
+                    if let thumbnail {
+                        Image(nsImage: thumbnail)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height
+                            )
+                            .clipped()
+                    } else {
+                        HugeIcon(.image, size: 30)
+                            .foregroundStyle(theme.muted)
+                    }
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .clipped()
             }
         case let .text(textClip):
             if let colorCode = textClip.colorCode {
@@ -516,7 +552,7 @@ private struct CaptureLibraryCard: View {
                     Text(colorCode.displayValue)
                         .font(AssistFont.mono())
                         .foregroundStyle(
-                            colorCode.usesDarkForeground
+                            colorCode.usesDarkForeground(over: theme.cardColorComponents)
                                 ? AssistDesignTokens.Palette.ink
                                 : AssistDesignTokens.Palette.paper
                         )

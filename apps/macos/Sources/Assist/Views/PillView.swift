@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+private typealias HistoryShelfTokens = AssistDesignTokens.HistoryShelf
+
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var settings: PillSettings
@@ -265,9 +267,6 @@ struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
     let onDragChanged: (Bool) -> Void
     @State private var selectedFilter: ClipboardHistoryFilter = .all
-    private static let galleryLeadingAnchorID = "gallery-leading-anchor"
-    private static let galleryClipInset: CGFloat = 2
-    private static let galleryViewportHeight: CGFloat = 144
 
     var body: some View {
         let filteredItems = viewModel.historyItems.filter(selectedFilter.includes)
@@ -290,57 +289,58 @@ struct ExpandedIslandView: View {
             } else if !historyItems.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 0) {
-                            Color.clear
-                                .frame(width: 0, height: 1)
-                                .id(Self.galleryLeadingAnchorID)
-                                .accessibilityHidden(true)
-
-                            LazyHStack(spacing: AssistDesignTokens.Spacing.large) {
-                                ForEach(historyItems) { item in
-                                    Group {
-                                        switch item {
-                                        case let .screenshot(capture):
-                                            CaptureGalleryCard(
-                                                item: capture,
-                                                thumbnail: viewModel.thumbnail(for: capture),
-                                                contextPreview: viewModel.contextPreview(for: capture),
-                                                canCopyContext: viewModel.canCopyContextMarkdown(capture),
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyImageItem(capture)
-                                            } copyContextAction: {
-                                                viewModel.copyContextMarkdown(capture)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
-                                            }
-                                        case let .text(textClip):
-                                            TextClipGalleryCard(
-                                                item: textClip,
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyTextItem(textClip)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
-                                            }
+                        LazyHStack(
+                            alignment: .top,
+                            spacing: HistoryShelfTokens.cardSpacing
+                        ) {
+                            ForEach(historyItems) { item in
+                                Group {
+                                    switch item {
+                                    case let .screenshot(capture):
+                                        CaptureGalleryCard(
+                                            item: capture,
+                                            thumbnail: viewModel.thumbnail(for: capture),
+                                            contextPreview: viewModel.contextPreview(for: capture),
+                                            canCopyContext: viewModel.canCopyContextMarkdown(capture),
+                                            isSelected: item.id == selectedID,
+                                            onDragChanged: onDragChanged
+                                        ) {
+                                            viewModel.copyImageItem(capture)
+                                        } copyContextAction: {
+                                            viewModel.copyContextMarkdown(capture)
+                                        } deleteAction: {
+                                            viewModel.delete(item)
+                                        }
+                                    case let .text(textClip):
+                                        TextClipGalleryCard(
+                                            item: textClip,
+                                            isSelected: item.id == selectedID,
+                                            onDragChanged: onDragChanged
+                                        ) {
+                                            viewModel.copyTextItem(textClip)
+                                        } deleteAction: {
+                                            viewModel.delete(item)
                                         }
                                     }
-                                    .id(item.id)
                                 }
+                                .frame(
+                                    width: HistoryShelfTokens.cardSize,
+                                    height: HistoryShelfTokens.cardSize,
+                                    alignment: .top
+                                )
+                                .id(item.id)
                             }
-                            .padding(.horizontal, Self.galleryClipInset)
                         }
-                        .padding(.vertical, 1)
                     }
-                    .frame(height: Self.galleryViewportHeight, alignment: .top)
+                    .frame(height: HistoryShelfTokens.cardSize, alignment: .top)
                     .onAppear {
-                        alignGalleryToLeadingEdge(proxy)
+                        alignGalleryToLeadingEdge(
+                            proxy,
+                            firstItemID: historyItems.first?.id
+                        )
                     }
                     .onChange(of: historyItems.first?.id) { _, firstItemID in
-                        guard firstItemID != nil else { return }
-                        alignGalleryToLeadingEdge(proxy)
+                        alignGalleryToLeadingEdge(proxy, firstItemID: firstItemID)
                     }
                 }
             } else {
@@ -356,18 +356,17 @@ struct ExpandedIslandView: View {
         .padding(.bottom, AssistDesignTokens.Spacing.xLarge)
     }
 
-    private func alignGalleryToLeadingEdge(_ proxy: ScrollViewProxy) {
-        func align() {
-            var transaction = Transaction(animation: nil)
-            transaction.disablesAnimations = true
+    private func alignGalleryToLeadingEdge(
+        _ proxy: ScrollViewProxy,
+        firstItemID: ClipboardHistoryItem.ID?
+    ) {
+        guard let firstItemID else { return }
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
 
-            withTransaction(transaction) {
-                proxy.scrollTo(Self.galleryLeadingAnchorID, anchor: .leading)
-            }
+        withTransaction(transaction) {
+            proxy.scrollTo(firstItemID, anchor: .leading)
         }
-
-        align()
-        DispatchQueue.main.async(execute: align)
     }
 }
 
@@ -784,7 +783,10 @@ private struct CaptureGalleryCard: View {
             .padding(AssistDesignTokens.Spacing.xxSmall)
             .animation(AssistDesignTokens.Motion.quick, value: isDeleteVisible)
         }
-        .frame(width: 142, height: 142)
+        .frame(
+            width: HistoryShelfTokens.cardSize,
+            height: HistoryShelfTokens.cardSize
+        )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
     }
@@ -824,18 +826,30 @@ private struct CaptureGalleryCard: View {
                     }
                     .padding(.horizontal, 9)
                     .padding(.vertical, AssistDesignTokens.Spacing.xSmall)
-                    .frame(width: 142, height: 50, alignment: .topLeading)
+                    .frame(
+                        width: HistoryShelfTokens.cardSize,
+                        height: 50,
+                        alignment: .topLeading
+                    )
                     .background(AssistDesignTokens.Palette.ink.opacity(0.26))
                 }
-                .frame(width: 142, height: 134, alignment: .top)
+                .frame(
+                    width: HistoryShelfTokens.cardSize,
+                    height: HistoryShelfTokens.cardSize - AssistDesignTokens.Spacing.small,
+                    alignment: .top
+                )
                 .background(AssistDesignTokens.Palette.folder)
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
                 .overlay { selectionStroke }
                 .offset(y: AssistDesignTokens.Spacing.small)
             }
-            .frame(width: 142, height: 142, alignment: .topLeading)
+            .frame(
+                width: HistoryShelfTokens.cardSize,
+                height: HistoryShelfTokens.cardSize,
+                alignment: .topLeading
+            )
         } else {
-            screenshotThumbnail(height: 142)
+            screenshotThumbnail(height: HistoryShelfTokens.cardSize)
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
                 .overlay { selectionStroke }
         }
@@ -849,7 +863,7 @@ private struct CaptureGalleryCard: View {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 142, height: height)
+                    .frame(width: HistoryShelfTokens.cardSize, height: height)
                     .clipped()
             } else {
                 HugeIcon(
@@ -860,7 +874,7 @@ private struct CaptureGalleryCard: View {
                 .help("Screenshot thumbnail")
             }
         }
-        .frame(width: 142, height: height)
+        .frame(width: HistoryShelfTokens.cardSize, height: height)
     }
 
     private var selectionStroke: some View {
@@ -869,7 +883,7 @@ private struct CaptureGalleryCard: View {
                 isSelected
                     ? AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
                     : .clear,
-                lineWidth: 1
+                lineWidth: HistoryShelfTokens.selectionStroke
             )
     }
 }
@@ -886,7 +900,10 @@ private struct CaptureContextCopyButton: View {
     var body: some View {
         ZStack {
             Color.clear
-                .frame(width: 32, height: 32)
+                .frame(
+                    width: HistoryShelfTokens.actionHitArea,
+                    height: HistoryShelfTokens.actionHitArea
+                )
                 .contentShape(Rectangle())
 
             Button(action: action) {
@@ -901,7 +918,10 @@ private struct CaptureContextCopyButton: View {
                         )
                         : AssistDesignTokens.Palette.zinc.opacity(AssistDesignTokens.Opacity.disabled)
                 )
-                .frame(width: 24, height: 24)
+                .frame(
+                    width: HistoryShelfTokens.actionControl,
+                    height: HistoryShelfTokens.actionControl
+                )
                 .background(
                     isEnabled && isHovered
                         ? AssistDesignTokens.Palette.softPaper
@@ -945,10 +965,21 @@ private struct TextClipGalleryCard: View {
             ) {
                 textPreview
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(selectionColor, lineWidth: 1)
+                    RoundedRectangle(
+                        cornerRadius: AssistDesignTokens.Radius.medium,
+                        style: .continuous
+                    )
+                        .stroke(
+                            selectionColor,
+                            lineWidth: HistoryShelfTokens.selectionStroke
+                        )
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: AssistDesignTokens.Radius.medium,
+                        style: .continuous
+                    )
+                )
             }
             .help("Click card to copy text")
             .accessibilityLabel(
@@ -962,6 +993,10 @@ private struct TextClipGalleryCard: View {
                 .padding(AssistDesignTokens.Spacing.xxSmall)
                 .opacity(isDeleteVisible ? 1 : 0)
         }
+        .frame(
+            width: HistoryShelfTokens.cardSize,
+            height: HistoryShelfTokens.cardSize
+        )
         .onHover { isHovered = $0 }
     }
 
@@ -974,13 +1009,18 @@ private struct TextClipGalleryCard: View {
                 Text(colorCode.displayValue)
                     .font(AssistFont.mono())
                     .foregroundStyle(
-                        colorCode.usesDarkForeground
+                        colorCode.usesDarkForeground(
+                            over: AssistDesignTokens.Palette.inkComponents
+                        )
                             ? AssistDesignTokens.Palette.ink
                             : AssistDesignTokens.Palette.paper
                     )
                     .padding(AssistDesignTokens.Spacing.large)
             }
-            .frame(width: 142, height: 142)
+            .frame(
+                width: HistoryShelfTokens.cardSize,
+                height: HistoryShelfTokens.cardSize
+            )
         } else {
             VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xSmall) {
                 Text(item.preview)
@@ -989,7 +1029,11 @@ private struct TextClipGalleryCard: View {
                     .lineLimit(7)
             }
             .padding(AssistDesignTokens.Spacing.large)
-            .frame(width: 142, height: 142, alignment: .topLeading)
+            .frame(
+                width: HistoryShelfTokens.cardSize,
+                height: HistoryShelfTokens.cardSize,
+                alignment: .topLeading
+            )
             .background(
                 Color.white.opacity(
                     isSelected
@@ -1007,7 +1051,7 @@ private struct TextClipGalleryCard: View {
             return AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
         }
 
-        return (colorCode.usesDarkForeground
+        return (colorCode.usesDarkForeground(over: AssistDesignTokens.Palette.inkComponents)
             ? AssistDesignTokens.Palette.ink
             : AssistDesignTokens.Palette.paper
         ).opacity(AssistDesignTokens.Opacity.selectedStroke)
@@ -1181,7 +1225,10 @@ private final class IslandDragSourceView: NSView, NSDraggingSource {
 }
 
 private enum IslandDragPreview {
-    static let cardSize = NSSize(width: 142, height: 142)
+    static let cardSize = NSSize(
+        width: HistoryShelfTokens.cardSize,
+        height: HistoryShelfTokens.cardSize
+    )
     static let cornerRadius: CGFloat = 10
 
     static func screenshot(thumbnail: NSImage?, imagePath: String) -> NSImage {
@@ -1219,7 +1266,9 @@ private enum IslandDragPreview {
 
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-                .foregroundColor: item.colorCode?.usesDarkForeground == true
+                .foregroundColor: item.colorCode?.usesDarkForeground(
+                    over: AssistDesignTokens.Palette.inkComponents
+                ) == true
                     ? NSColor.black.withAlphaComponent(0.9)
                     : NSColor.white.withAlphaComponent(0.9),
                 .paragraphStyle: paragraphStyle
@@ -1298,7 +1347,10 @@ private struct DeleteCardButton: View {
     var body: some View {
         ZStack {
             Color.clear
-                .frame(width: 32, height: 32)
+                .frame(
+                    width: HistoryShelfTokens.actionHitArea,
+                    height: HistoryShelfTokens.actionHitArea
+                )
                 .contentShape(Rectangle())
 
             Button(action: action) {
@@ -1309,7 +1361,10 @@ private struct DeleteCardButton: View {
                         isHovered ? 1 : AssistDesignTokens.Opacity.primary
                     )
                 )
-                    .frame(width: 24, height: 24)
+                    .frame(
+                        width: HistoryShelfTokens.actionControl,
+                        height: HistoryShelfTokens.actionControl
+                    )
                     .background(
                         AssistDesignTokens.Palette.danger.opacity(
                             isHovered ? AssistDesignTokens.Opacity.destructiveHoverSurface : 0
@@ -1326,6 +1381,8 @@ private struct DeleteCardButton: View {
             .opacity(isVisible ? 1 : 0)
             .scaleEffect(isVisible ? 1 : 0.92)
         }
+        .allowsHitTesting(isVisible)
+        .accessibilityHidden(!isVisible)
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isHovered)
         .animation(.easeOut(duration: 0.12), value: isVisible)

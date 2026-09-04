@@ -8,6 +8,10 @@ import SwiftUI
 /// invent competing styles.
 enum AssistDesignTokens {
     enum Palette {
+        static let inkComponents = RGBColorComponents(hex: 0x09090B)
+        static let elevatedInkComponents = RGBColorComponents(hex: 0x111113)
+        static let paperComponents = RGBColorComponents(hex: 0xFAFAFA)
+
         static let ink = Color(hex: 0x09090B)
         static let elevatedInk = Color(hex: 0x111113)
         static let paper = Color(hex: 0xFAFAFA)
@@ -113,6 +117,144 @@ enum AssistDesignTokens {
             .easeOut(duration: 0.12)
         }
     }
+
+    enum HistoryShelf {
+        static let cardSize: CGFloat = 142
+        static let cardSpacing = Spacing.large
+        static let selectionStroke: CGFloat = 1
+        static let actionHitArea: CGFloat = 32
+        static let actionControl: CGFloat = 24
+    }
+
+    enum CaptureLibrary {
+        static let minimumCardWidth: CGFloat = 210
+        static let maximumCardWidth: CGFloat = 240
+        static let cardHeight: CGFloat = 122
+        static let gridSpacing = Spacing.xLarge
+        static let contentInset = Spacing.xxLarge
+        static let cardRadius = Radius.control
+        static let selectionStroke: CGFloat = 1
+        static let actionInset = Spacing.xSmall
+    }
+
+    /// Visual tokens shared by the screenshot editor's card and control primitives.
+    /// Capture geometry and crop math remain with the feature models.
+    enum ScreenshotEditor {
+        static let foreground = Palette.paper
+        static let inverseForeground = Palette.ink
+        static let surface = Color(hex: 0x0B0B0D)
+        static let canvas = Palette.ink
+
+        enum Opacity {
+            static let surface: Double = 0.74
+            static let cardBorderTop: Double = 0.18
+            static let cardBorderBottom: Double = 0.06
+            static let canvasBackdrop: Double = 0.52
+            static let canvasBackdropScrim: Double = 0.28
+            static let imageShadow: Double = 0.35
+            static let cropScrim: Double = 0.50
+            static let cropGrid: Double = 0.70
+            static let divider: Double = 0.07
+            static let brushHoverSurface: Double = 0.10
+            static let brushIdleSurface: Double = 0.06
+            static let brushSelectedStroke: Double = 0.50
+            static let swatchBorder: Double = 0.14
+            static let sliderTrack: Double = 0.12
+            static let sliderFill: Double = 0.92
+            static let sliderShadow: Double = 0.35
+            static let saveGlow: Double = 0.22
+            static let progress: Double = 0.60
+        }
+
+        enum Typography {
+            static var header: Font {
+                .system(size: 10.5, weight: .semibold, design: .rounded)
+            }
+
+            static var tool: Font {
+                .system(size: 12, weight: .semibold, design: .rounded)
+            }
+
+            static var label: Font {
+                .system(size: 10.5, weight: .medium, design: .rounded)
+            }
+
+            static var chip: Font {
+                .system(size: 11, weight: .semibold, design: .rounded)
+            }
+
+            static var action: Font {
+                .system(size: 12, weight: .semibold, design: .rounded)
+            }
+        }
+
+        enum Layout {
+            static let cardStroke: CGFloat = 1
+            static let headerHorizontalInset: CGFloat = 16
+            static let imageRadius: CGFloat = 3
+            static let imageShadowRadius: CGFloat = 10
+            static let imageShadowY: CGFloat = 4
+            static let canvasBackdropBlur: CGFloat = 24
+            static let cropGridMinimum: CGFloat = 48
+            static let cropCornerArm: CGFloat = 14
+            static let cropGridStroke: CGFloat = 1
+            static let cropCornerStroke: CGFloat = 2.5
+            static let controlsHorizontalInset: CGFloat = 16
+            static let controlsTopInset: CGFloat = 6
+            static let controlsBottomInset: CGFloat = 10
+            static let controlsRowSpacing = AssistDesignTokens.Spacing.small
+            static let primaryRowHeight: CGFloat = 34
+            /// Style needs 28pt swatches, a 6pt gap, and a 24pt slider row.
+            static let optionsRowHeight: CGFloat = 58
+            static let dividerHeight: CGFloat = 1
+            static let transitionOffset: CGFloat = 6
+            static let toolChipHorizontalInset: CGFloat = 12
+            static let toolChipHeight: CGFloat = 32
+            static let chipHorizontalInset: CGFloat = 10
+            static let chipHeight: CGFloat = 26
+            static let brushButton: CGFloat = 26
+            static let brushFineDot: CGFloat = 6
+            static let brushMediumDot: CGFloat = 10
+            static let brushBoldDot: CGFloat = 14
+            static let swatch: CGFloat = 22
+            static let selectedSwatch: CGFloat = 28
+            static let selectedSwatchStroke: CGFloat = 1.5
+            static let emptySwatchMarkWidth: CGFloat = 1.5
+            static let emptySwatchMarkHeight: CGFloat = 16
+            static let emptySwatchMarkRotation: Double = 45
+            static let sliderKnob: CGFloat = 12
+            static let sliderTrackHeight: CGFloat = 4
+            static let sliderHeight: CGFloat = 24
+            static let iconButton: CGFloat = 30
+            static let saveHorizontalInset: CGFloat = 12
+            static let saveHeight: CGFloat = 32
+            static let progressHeight: CGFloat = 2
+            static let progressFrameInterval: TimeInterval = 1.0 / 30.0
+        }
+
+        enum Scale {
+            static let swatchHover: CGFloat = 1.08
+            static let swatchSelectionStart: CGFloat = 0.8
+            static let sliderHover: CGFloat = 1.08
+            static let sliderDrag: CGFloat = 1.18
+            static let saveHover: CGFloat = 1.03
+            static let wallpaperRevealStart: CGFloat = 0.6
+        }
+
+        enum Motion {
+            static var progressReveal: Animation { .easeOut(duration: 0.2) }
+            static var canvasChange: Animation { .easeOut(duration: 0.18) }
+            static var optionsChange: Animation { .spring(response: 0.3, dampingFraction: 0.86) }
+            static var toolSelection: Animation { .spring(response: 0.3, dampingFraction: 0.82) }
+            static var wallpaperReveal: Animation { .spring(response: 0.3, dampingFraction: 0.8) }
+            static var labelChange: Animation { .easeOut(duration: 0.16) }
+            static var hover: Animation { .easeOut(duration: 0.14) }
+            static var selection: Animation { .spring(response: 0.26, dampingFraction: 0.8) }
+            static var sliderDrag: Animation { .spring(response: 0.22, dampingFraction: 0.7) }
+            static var saveHover: Animation { .spring(response: 0.24, dampingFraction: 0.72) }
+            static var saving: Animation { .easeOut(duration: 0.16) }
+        }
+    }
 }
 
 struct AssistTheme {
@@ -128,6 +270,9 @@ struct AssistTheme {
     var subtle: Color { isDark ? AssistDesignTokens.Palette.zinc : AssistDesignTokens.Palette.softZinc }
     var border: Color { isDark ? Color(hex: 0x27272A) : Color(hex: 0xE4E4E7) }
     var accent: Color { foreground }
+    var cardColorComponents: RGBColorComponents {
+        isDark ? AssistDesignTokens.Palette.elevatedInkComponents : .white
+    }
 }
 
 private struct AssistThemeKey: EnvironmentKey {

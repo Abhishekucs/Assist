@@ -22,9 +22,34 @@ final class ClipboardColorCodeTests: XCTestCase {
         XCTAssertNil(ClipboardColorCode("#GGHHII"))
     }
 
-    func testChoosesReadableForegroundFromLuminance() throws {
-        XCTAssertTrue(try XCTUnwrap(ClipboardColorCode("#FFFFFF")).usesDarkForeground)
-        XCTAssertFalse(try XCTUnwrap(ClipboardColorCode("#111111")).usesDarkForeground)
+    func testChoosesForegroundWithTheStrongerWCAGContrast() throws {
+        XCTAssertTrue(
+            try XCTUnwrap(ClipboardColorCode("#FFFFFF"))
+                .usesDarkForeground(over: .black)
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(ClipboardColorCode("#111111"))
+                .usesDarkForeground(over: .black)
+        )
+        XCTAssertTrue(
+            try XCTUnwrap(ClipboardColorCode("#FF0000"))
+                .usesDarkForeground(over: .black)
+        )
+        XCTAssertTrue(
+            try XCTUnwrap(ClipboardColorCode("#00AA00"))
+                .usesDarkForeground(over: .black)
+        )
+    }
+
+    func testCompositesTransparentColorsOverTheCardSurface() throws {
+        XCTAssertFalse(
+            try XCTUnwrap(ClipboardColorCode("#FFFFFF00"))
+                .usesDarkForeground(over: .black)
+        )
+        XCTAssertTrue(
+            try XCTUnwrap(ClipboardColorCode("#00000000"))
+                .usesDarkForeground(over: .white)
+        )
     }
 }
 

@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+private typealias EditorTokens = AssistDesignTokens.ScreenshotEditor
+
 struct ScreenshotQuickEditorView: View {
     @ObservedObject var viewModel: ScreenshotEditorViewModel
 
@@ -9,33 +11,49 @@ struct ScreenshotQuickEditorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScreenshotEditorHeader(viewModel: viewModel)
-                .frame(height: ScreenshotEditorMetrics.headerHeight)
+        GeometryReader { geometry in
+            let previewHeight = ScreenshotEditorMetrics.previewAreaHeight(
+                forCardHeight: geometry.size.height
+            )
+            let controlsHeight = ScreenshotEditorMetrics.controlsAreaHeight(
+                forCardHeight: geometry.size.height
+            )
 
-            ScreenshotEditorCanvas(viewModel: viewModel)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    ScreenshotEditorHeader(viewModel: viewModel)
+                        .frame(height: ScreenshotEditorMetrics.headerHeight)
+
+                    ScreenshotEditorCanvas(viewModel: viewModel)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(height: previewHeight)
                 .overlay(alignment: .bottom) {
                     // Until the pointer arrives, the divider drains to show the auto-close window.
                     if let session = viewModel.session, !viewModel.hasPointerEntered {
                         ScreenshotEditorEntryProgress(presentedAt: session.presentedAt)
-                            .transition(.opacity.animation(.easeOut(duration: 0.2)))
+                            .transition(.opacity.animation(EditorTokens.Motion.progressReveal))
                     }
                 }
 
-            ScreenshotEditorControls(viewModel: viewModel)
-                .frame(height: ScreenshotEditorMetrics.controlsHeight)
+                ScreenshotEditorControls(viewModel: viewModel)
+                    .frame(height: controlsHeight)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .background { EditorCardBackground() }
         .clipShape(cardShape)
         .overlay {
             cardShape.strokeBorder(
                 LinearGradient(
-                    colors: [.white.opacity(0.18), .white.opacity(0.06)],
+                    colors: [
+                        EditorTokens.foreground.opacity(EditorTokens.Opacity.cardBorderTop),
+                        EditorTokens.foreground.opacity(EditorTokens.Opacity.cardBorderBottom)
+                    ],
                     startPoint: .top,
                     endPoint: .bottom
                 ),
-                lineWidth: 1
+                lineWidth: EditorTokens.Layout.cardStroke
             )
         }
         .preferredColorScheme(.dark)
@@ -45,8 +63,7 @@ struct ScreenshotQuickEditorView: View {
     }
 }
 
-/// Title-bar strip for the card. Close and expand live here instead of on the screenshot,
-/// where they covered content and had to fight it for contrast.
+/// Header controls live inside the preview allocation without covering the screenshot.
 private struct ScreenshotEditorHeader: View {
     @ObservedObject var viewModel: ScreenshotEditorViewModel
 
@@ -63,8 +80,10 @@ private struct ScreenshotEditorHeader: View {
             Spacer(minLength: 0)
 
             Text(headerTitle)
-                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.62))
+                .font(EditorTokens.Typography.header)
+                .foregroundStyle(
+                    EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.secondary)
+                )
                 .lineLimit(1)
                 .accessibilityLabel(headerTitle)
 
@@ -80,7 +99,7 @@ private struct ScreenshotEditorHeader: View {
                 viewModel.toggleExpanded()
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, EditorTokens.Layout.headerHorizontalInset)
     }
 
     private var headerTitle: String {
@@ -97,7 +116,7 @@ private struct EditorCardBackground: View {
     var body: some View {
         ZStack {
             Rectangle().fill(.ultraThickMaterial)
-            Color(hex: 0x0B0B0D).opacity(0.74)
+            EditorTokens.surface.opacity(EditorTokens.Opacity.surface)
         }
     }
 }
@@ -122,15 +141,38 @@ private struct ScreenshotEditorCanvas: View {
             let isStyling = viewModel.activeTool == .style
 
             ZStack(alignment: .topLeading) {
-                Color.black.opacity(0.32)
+                EditorTokens.surface
 
                 if let image {
                     Image(nsImage: image)
                         .resizable()
+                        .interpolation(.medium)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .blur(radius: EditorTokens.Layout.canvasBackdropBlur)
+                        .opacity(EditorTokens.Opacity.canvasBackdrop)
+                        .overlay {
+                            EditorTokens.canvas.opacity(EditorTokens.Opacity.canvasBackdropScrim)
+                        }
+                        .allowsHitTesting(false)
+
+                    Image(nsImage: image)
+                        .resizable()
                         .interpolation(.high)
                         .frame(width: imageRect.width, height: imageRect.height)
-                        .clipShape(RoundedRectangle(cornerRadius: isStyling ? 0 : 3, style: .continuous))
-                        .shadow(color: .black.opacity(isStyling ? 0 : 0.35), radius: 10, y: 4)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: isStyling ? 0 : EditorTokens.Layout.imageRadius,
+                                style: .continuous
+                            )
+                        )
+                        .shadow(
+                            color: EditorTokens.canvas.opacity(
+                                isStyling ? 0 : EditorTokens.Opacity.imageShadow
+                            ),
+                            radius: EditorTokens.Layout.imageShadowRadius,
+                            y: EditorTokens.Layout.imageShadowY
+                        )
                         .offset(x: imageRect.minX, y: imageRect.minY)
                         .id(isStyling)
                         .transition(.opacity)
@@ -145,7 +187,7 @@ private struct ScreenshotEditorCanvas: View {
                     }
                 }
             }
-            .animation(.easeOut(duration: 0.18), value: isStyling)
+            .animation(EditorTokens.Motion.canvasChange, value: isStyling)
             .clipped()
         }
         .accessibilityLabel("Screenshot editor preview")
@@ -237,11 +279,17 @@ private struct CropSelectionOverlay: View {
                     path.addRect(CGRect(origin: .zero, size: geometry.size))
                     path.addRect(rect)
                 }
-                .fill(Color.black.opacity(isFullFrame ? 0 : 0.5), style: FillStyle(eoFill: true))
+                .fill(
+                    EditorTokens.canvas.opacity(
+                        isFullFrame ? 0 : EditorTokens.Opacity.cropScrim
+                    ),
+                    style: FillStyle(eoFill: true)
+                )
 
                 Path { path in
                     path.addRect(rect)
-                    if rect.width > 48, rect.height > 48 {
+                    if rect.width > EditorTokens.Layout.cropGridMinimum,
+                       rect.height > EditorTokens.Layout.cropGridMinimum {
                         for fraction in [CGFloat(1.0 / 3.0), CGFloat(2.0 / 3.0)] {
                             path.move(to: CGPoint(x: rect.minX + rect.width * fraction, y: rect.minY))
                             path.addLine(to: CGPoint(x: rect.minX + rect.width * fraction, y: rect.maxY))
@@ -251,12 +299,22 @@ private struct CropSelectionOverlay: View {
                     }
                 }
                 .stroke(
-                    Color.white.opacity(isFullFrame ? 0 : 0.7),
-                    style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
+                    EditorTokens.foreground.opacity(
+                        isFullFrame ? 0 : EditorTokens.Opacity.cropGrid
+                    ),
+                    style: StrokeStyle(
+                        lineWidth: EditorTokens.Layout.cropGridStroke,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
                 )
 
                 Path { path in
-                    let arm = min(14, rect.width / 3, rect.height / 3)
+                    let arm = min(
+                        EditorTokens.Layout.cropCornerArm,
+                        rect.width / 3,
+                        rect.height / 3
+                    )
                     guard arm > 2 else { return }
                     for (corner, dx, dy) in [
                         (CGPoint(x: rect.minX, y: rect.minY), CGFloat(1), CGFloat(1)),
@@ -270,8 +328,12 @@ private struct CropSelectionOverlay: View {
                     }
                 }
                 .stroke(
-                    Color.white.opacity(isFullFrame ? 0 : 1),
-                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+                    EditorTokens.foreground.opacity(isFullFrame ? 0 : 1),
+                    style: StrokeStyle(
+                        lineWidth: EditorTokens.Layout.cropCornerStroke,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
                 )
             }
             .allowsHitTesting(false)
@@ -302,7 +364,7 @@ private struct BlurStrokeOverlay: View {
                 }
             }
             .stroke(
-                Color.white.opacity(0.34),
+                EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.disabled),
                 style: StrokeStyle(
                     lineWidth: min(geometry.size.width, geometry.size.height) * stroke.diameterFraction,
                     lineCap: .round,
@@ -346,7 +408,7 @@ private struct BlurStrokeMask: View {
 
             if let first = stroke.points.first, stroke.points.count == 1 {
                 Circle()
-                    .fill(.white)
+                    .fill(EditorTokens.foreground)
                     .frame(width: lineWidth, height: lineWidth)
                     .position(
                         x: first.x * geometry.size.width,
@@ -371,7 +433,7 @@ private struct BlurStrokeMask: View {
                     }
                 }
                 .stroke(
-                    .white,
+                    EditorTokens.foreground,
                     style: StrokeStyle(
                         lineWidth: lineWidth,
                         lineCap: .round,
@@ -389,9 +451,9 @@ private struct ScreenshotEditorControls: View {
     @ObservedObject var viewModel: ScreenshotEditorViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                ToolSegmentedControl(selection: $viewModel.activeTool)
+        VStack(alignment: .leading, spacing: EditorTokens.Layout.controlsRowSpacing) {
+            HStack(spacing: AssistDesignTokens.Spacing.medium) {
+                ToolChipPicker(selection: $viewModel.activeTool)
 
                 Spacer(minLength: 0)
 
@@ -407,7 +469,7 @@ private struct ScreenshotEditorControls: View {
                     viewModel.requestSave()
                 }
             }
-            .frame(height: 32)
+            .frame(height: EditorTokens.Layout.primaryRowHeight)
 
             ZStack(alignment: .topLeading) {
                 switch viewModel.activeTool {
@@ -423,65 +485,97 @@ private struct ScreenshotEditorControls: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            .frame(height: 56, alignment: .top)
-            .animation(.spring(response: 0.3, dampingFraction: 0.86), value: viewModel.activeTool)
+            .frame(height: EditorTokens.Layout.optionsRowHeight, alignment: .top)
+            .animation(EditorTokens.Motion.optionsChange, value: viewModel.activeTool)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, EditorTokens.Layout.controlsHorizontalInset)
+        .padding(.top, EditorTokens.Layout.controlsTopInset)
+        .padding(.bottom, EditorTokens.Layout.controlsBottomInset)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Color.white.opacity(0.07))
-                .frame(height: 1)
+                .fill(EditorTokens.foreground.opacity(EditorTokens.Opacity.divider))
+                .frame(height: EditorTokens.Layout.dividerHeight)
         }
     }
 
     private var optionsTransition: AnyTransition {
         .asymmetric(
-            insertion: .opacity.combined(with: .offset(y: 6)),
+            insertion: .opacity.combined(
+                with: .offset(y: EditorTokens.Layout.transitionOffset)
+            ),
             removal: .opacity
         )
     }
 }
 
-private struct ToolSegmentedControl: View {
+private struct ToolChipPicker: View {
     @Binding var selection: ScreenshotEditorTool
-    @Namespace private var highlight
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: AssistDesignTokens.Spacing.xSmall) {
             ForEach(ScreenshotEditorTool.allCases) { tool in
-                let isSelected = tool == selection
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                EditorToolChip(tool: tool, isSelected: tool == selection) {
+                    withAnimation(EditorTokens.Motion.toolSelection) {
                         selection = tool
                     }
-                } label: {
-                    HStack(spacing: 6) {
-                        HugeIcon(tool.icon, size: 13, color: .white.opacity(isSelected ? 0.98 : 0.62))
-                        Text(tool.title)
-                            .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white.opacity(isSelected ? 0.98 : 0.62))
-                    }
-                    .padding(.horizontal, 11)
-                    .frame(height: 26)
-                    .background {
-                        if isSelected {
-                            Capsule()
-                                .fill(Color.white.opacity(0.16))
-                                .matchedGeometryEffect(id: "segment", in: highlight)
-                        }
-                    }
-                    .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
-                .help("\(tool.title) tool")
-                .accessibilityLabel("\(tool.title) tool")
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .pointingHandCursor()
             }
         }
-        .padding(3)
-        .background(Capsule().fill(Color.white.opacity(0.06)))
+    }
+}
+
+private struct EditorToolChip: View {
+    let tool: ScreenshotEditorTool
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: AssistDesignTokens.Spacing.xSmall) {
+                HugeIcon(
+                    tool.icon,
+                    size: AssistDesignTokens.Icon.regular,
+                    color: foregroundColor
+                )
+
+                Text(tool.title)
+                    .font(EditorTokens.Typography.tool)
+                    .foregroundStyle(foregroundColor)
+            }
+            .padding(.horizontal, EditorTokens.Layout.toolChipHorizontalInset)
+            .frame(height: EditorTokens.Layout.toolChipHeight)
+            .background(backgroundColor, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("\(tool.title) tool")
+        .accessibilityLabel("\(tool.title) tool")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .pointingHandCursor()
+        .onHover { isHovered = $0 }
+        .animation(EditorTokens.Motion.hover, value: isHovered)
+        .animation(EditorTokens.Motion.toolSelection, value: isSelected)
+    }
+
+    private var foregroundColor: Color {
+        if isSelected {
+            return EditorTokens.inverseForeground.opacity(AssistDesignTokens.Opacity.primary)
+        }
+        return EditorTokens.foreground.opacity(
+            isHovered
+                ? AssistDesignTokens.Opacity.primary
+                : AssistDesignTokens.Opacity.secondary
+        )
+    }
+
+    private var backgroundColor: Color {
+        if isSelected {
+            return EditorTokens.foreground
+        }
+        return isHovered
+            ? EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.hoverSurface)
+            : .clear
     }
 }
 
@@ -489,10 +583,14 @@ private struct CropOptions: View {
     @ObservedObject var viewModel: ScreenshotEditorViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 6) {
-                HugeIcon(.aspectRatio, size: 12, color: .white.opacity(0.42))
-                    .padding(.trailing, 2)
+        VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.small) {
+            HStack(spacing: AssistDesignTokens.Spacing.xSmall) {
+                HugeIcon(
+                    .aspectRatio,
+                    size: AssistDesignTokens.Icon.small,
+                    color: EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.subtle)
+                )
+                    .padding(.trailing, AssistDesignTokens.Spacing.xxxSmall)
                 ForEach(ScreenshotCropAspect.allCases) { aspect in
                     EditorChip(
                         title: aspect.title,
@@ -517,8 +615,8 @@ private struct BlurOptions: View {
     @ObservedObject var viewModel: ScreenshotEditorViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.small) {
+            HStack(spacing: AssistDesignTokens.Spacing.xSmall) {
                 ForEach(ScreenshotBlurBrush.allCases) { brush in
                     BrushSizeButton(brush: brush, isSelected: viewModel.blurBrush == brush) {
                         viewModel.blurBrush = brush
@@ -535,8 +633,8 @@ private struct StyleOptions: View {
     @ObservedObject var viewModel: ScreenshotEditorViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xSmall) {
+            HStack(spacing: AssistDesignTokens.Spacing.small) {
                 BackdropSwatch(
                     background: .none,
                     wallpaper: nil,
@@ -563,12 +661,15 @@ private struct StyleOptions: View {
                     ) {
                         viewModel.selectBackground(.desktop)
                     }
-                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    .transition(
+                        .scale(scale: EditorTokens.Scale.wallpaperRevealStart)
+                            .combined(with: .opacity)
+                    )
                 }
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.wallpaperImage == nil)
+            .animation(EditorTokens.Motion.wallpaperReveal, value: viewModel.wallpaperImage == nil)
 
-            HStack(spacing: 12) {
+            HStack(spacing: AssistDesignTokens.Spacing.large) {
                 EditorSlider(
                     title: "Padding",
                     value: viewModel.draft.style.paddingFraction,
@@ -608,11 +709,13 @@ private struct EditorHint: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.42))
+            .font(EditorTokens.Typography.label)
+            .foregroundStyle(
+                EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.subtle)
+            )
             .lineLimit(1)
             .contentTransition(.opacity)
-            .animation(.easeOut(duration: 0.16), value: text)
+            .animation(EditorTokens.Motion.labelChange, value: text)
     }
 }
 
@@ -626,13 +729,27 @@ private struct EditorChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(isSelected ? Color.black : Color.white.opacity(isHovered ? 0.95 : 0.74))
+                .font(EditorTokens.Typography.chip)
+                .foregroundStyle(
+                    isSelected
+                        ? EditorTokens.inverseForeground
+                        : EditorTokens.foreground.opacity(
+                            isHovered
+                                ? AssistDesignTokens.Opacity.primary
+                                : AssistDesignTokens.Opacity.secondary
+                        )
+                )
                 .lineLimit(1)
-                .padding(.horizontal, 9)
-                .frame(height: 22)
+                .padding(.horizontal, EditorTokens.Layout.chipHorizontalInset)
+                .frame(height: EditorTokens.Layout.chipHeight)
                 .background(
-                    isSelected ? Color.white : Color.white.opacity(isHovered ? 0.14 : 0.08),
+                    isSelected
+                        ? EditorTokens.foreground
+                        : (isHovered
+                            ? EditorTokens.foreground.opacity(
+                                AssistDesignTokens.Opacity.hoverSurface
+                            )
+                            : .clear),
                     in: Capsule()
                 )
         }
@@ -642,8 +759,8 @@ private struct EditorChip: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .pointingHandCursor()
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.14), value: isHovered)
-        .animation(.easeOut(duration: 0.14), value: isSelected)
+        .animation(EditorTokens.Motion.hover, value: isHovered)
+        .animation(EditorTokens.Motion.hover, value: isSelected)
     }
 }
 
@@ -655,9 +772,9 @@ private struct BrushSizeButton: View {
 
     private var dotDiameter: CGFloat {
         switch brush {
-        case .fine: 6
-        case .medium: 10
-        case .bold: 14
+        case .fine: EditorTokens.Layout.brushFineDot
+        case .medium: EditorTokens.Layout.brushMediumDot
+        case .bold: EditorTokens.Layout.brushBoldDot
         }
     }
 
@@ -665,14 +782,34 @@ private struct BrushSizeButton: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(isSelected ? 0.16 : (isHovered ? 0.1 : 0.06)))
+                    .fill(
+                        EditorTokens.foreground.opacity(
+                            isSelected
+                                ? AssistDesignTokens.Opacity.hoverSurface
+                                : (isHovered
+                                    ? EditorTokens.Opacity.brushHoverSurface
+                                    : EditorTokens.Opacity.brushIdleSurface)
+                        )
+                    )
                 Circle()
-                    .fill(Color.white.opacity(isSelected ? 1 : 0.55))
+                    .fill(
+                        EditorTokens.foreground.opacity(
+                            isSelected ? 1 : AssistDesignTokens.Opacity.muted
+                        )
+                    )
                     .frame(width: dotDiameter, height: dotDiameter)
             }
-            .frame(width: 26, height: 26)
+            .frame(
+                width: EditorTokens.Layout.brushButton,
+                height: EditorTokens.Layout.brushButton
+            )
             .overlay {
-                Circle().strokeBorder(Color.white.opacity(isSelected ? 0.5 : 0), lineWidth: 1)
+                Circle().strokeBorder(
+                    EditorTokens.foreground.opacity(
+                        isSelected ? EditorTokens.Opacity.brushSelectedStroke : 0
+                    ),
+                    lineWidth: EditorTokens.Layout.cardStroke
+                )
             }
         }
         .buttonStyle(.plain)
@@ -681,8 +818,8 @@ private struct BrushSizeButton: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .pointingHandCursor()
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.14), value: isHovered)
-        .animation(.spring(response: 0.26, dampingFraction: 0.8), value: isSelected)
+        .animation(EditorTokens.Motion.hover, value: isHovered)
+        .animation(EditorTokens.Motion.selection, value: isSelected)
     }
 }
 
@@ -698,20 +835,42 @@ private struct BackdropSwatch: View {
             ZStack {
                 swatchFill
                     .clipShape(Circle())
-                    .frame(width: 22, height: 22)
+                    .frame(
+                        width: EditorTokens.Layout.swatch,
+                        height: EditorTokens.Layout.swatch
+                    )
 
                 Circle()
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-                    .frame(width: 22, height: 22)
+                    .strokeBorder(
+                        EditorTokens.foreground.opacity(EditorTokens.Opacity.swatchBorder),
+                        lineWidth: EditorTokens.Layout.cardStroke
+                    )
+                    .frame(
+                        width: EditorTokens.Layout.swatch,
+                        height: EditorTokens.Layout.swatch
+                    )
 
                 Circle()
-                    .strokeBorder(Color.white, lineWidth: 1.5)
-                    .frame(width: 28, height: 28)
+                    .strokeBorder(
+                        EditorTokens.foreground,
+                        lineWidth: EditorTokens.Layout.selectedSwatchStroke
+                    )
+                    .frame(
+                        width: EditorTokens.Layout.selectedSwatch,
+                        height: EditorTokens.Layout.selectedSwatch
+                    )
                     .opacity(isSelected ? 1 : 0)
-                    .scaleEffect(isSelected ? 1 : 0.8)
+                    .scaleEffect(
+                        isSelected ? 1 : EditorTokens.Scale.swatchSelectionStart
+                    )
             }
-            .frame(width: 28, height: 28)
-            .scaleEffect(isHovered && !isSelected ? 1.08 : 1)
+            .frame(
+                width: EditorTokens.Layout.selectedSwatch,
+                height: EditorTokens.Layout.selectedSwatch
+            )
+            .scaleEffect(
+                isHovered && !isSelected ? EditorTokens.Scale.swatchHover : 1
+            )
         }
         .buttonStyle(.plain)
         .help(background.title)
@@ -719,8 +878,8 @@ private struct BackdropSwatch: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .pointingHandCursor()
         .onHover { isHovered = $0 }
-        .animation(.spring(response: 0.26, dampingFraction: 0.78), value: isSelected)
-        .animation(.easeOut(duration: 0.14), value: isHovered)
+        .animation(EditorTokens.Motion.selection, value: isSelected)
+        .animation(EditorTokens.Motion.hover, value: isHovered)
     }
 
     @ViewBuilder
@@ -728,11 +887,20 @@ private struct BackdropSwatch: View {
         switch background {
         case .none:
             ZStack {
-                Circle().fill(Color.white.opacity(0.08))
+                Circle().fill(
+                    EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.quietSurface)
+                )
                 Capsule()
-                    .fill(Color.white.opacity(0.7))
-                    .frame(width: 1.5, height: 16)
-                    .rotationEffect(.degrees(45))
+                    .fill(
+                        EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.secondary)
+                    )
+                    .frame(
+                        width: EditorTokens.Layout.emptySwatchMarkWidth,
+                        height: EditorTokens.Layout.emptySwatchMarkHeight
+                    )
+                    .rotationEffect(
+                        .degrees(EditorTokens.Layout.emptySwatchMarkRotation)
+                    )
             }
         case let .gradient(preset):
             LinearGradient(
@@ -746,7 +914,7 @@ private struct BackdropSwatch: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
-                Color.white.opacity(0.12)
+                EditorTokens.foreground.opacity(EditorTokens.Opacity.sliderTrack)
             }
         }
     }
@@ -761,13 +929,15 @@ private struct EditorSlider: View {
     @State private var isHovered = false
     @State private var isDragging = false
 
-    private let knobDiameter: CGFloat = 12
+    private let knobDiameter = EditorTokens.Layout.sliderKnob
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AssistDesignTokens.Spacing.small) {
             Text(title)
-                .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.55))
+                .font(EditorTokens.Typography.label)
+                .foregroundStyle(
+                    EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.muted)
+                )
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
 
@@ -779,18 +949,29 @@ private struct EditorSlider: View {
 
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(height: 4)
+                        .fill(EditorTokens.foreground.opacity(EditorTokens.Opacity.sliderTrack))
+                        .frame(height: EditorTokens.Layout.sliderTrackHeight)
 
                     Capsule()
-                        .fill(Color.white.opacity(0.92))
-                        .frame(width: knobX + knobDiameter / 2, height: 4)
+                        .fill(EditorTokens.foreground.opacity(EditorTokens.Opacity.sliderFill))
+                        .frame(
+                            width: knobX + knobDiameter / 2,
+                            height: EditorTokens.Layout.sliderTrackHeight
+                        )
 
                     Circle()
-                        .fill(Color.white)
+                        .fill(EditorTokens.foreground)
                         .frame(width: knobDiameter, height: knobDiameter)
-                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-                        .scaleEffect(isDragging ? 1.18 : (isHovered ? 1.08 : 1))
+                        .shadow(
+                            color: EditorTokens.canvas.opacity(EditorTokens.Opacity.sliderShadow),
+                            radius: AssistDesignTokens.Spacing.xxxSmall,
+                            y: 1
+                        )
+                        .scaleEffect(
+                            isDragging
+                                ? EditorTokens.Scale.sliderDrag
+                                : (isHovered ? EditorTokens.Scale.sliderHover : 1)
+                        )
                         .offset(x: knobX)
                 }
                 .frame(height: geometry.size.height)
@@ -812,13 +993,13 @@ private struct EditorSlider: View {
                         }
                 )
             }
-            .frame(height: 24)
+            .frame(height: EditorTokens.Layout.sliderHeight)
         }
         .frame(maxWidth: .infinity)
         .onHover { isHovered = $0 }
         .pointingHandCursor()
-        .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isDragging)
-        .animation(.easeOut(duration: 0.14), value: isHovered)
+        .animation(EditorTokens.Motion.sliderDrag, value: isDragging)
+        .animation(EditorTokens.Motion.hover, value: isHovered)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue("\(Int((value * 100).rounded())) percent")
@@ -863,12 +1044,23 @@ private struct EditorIconButton: View {
         Button(action: action) {
             HugeIcon(
                 icon,
-                size: 14,
-                color: .white.opacity(isEnabled ? (isHovered ? 0.96 : 0.7) : 0.28)
+                size: AssistDesignTokens.Icon.regular,
+                color: EditorTokens.foreground.opacity(
+                    isEnabled
+                        ? (isHovered
+                            ? AssistDesignTokens.Opacity.primary
+                            : AssistDesignTokens.Opacity.secondary)
+                        : AssistDesignTokens.Opacity.disabled
+                )
             )
-            .frame(width: 30, height: 30)
+            .frame(
+                width: EditorTokens.Layout.iconButton,
+                height: EditorTokens.Layout.iconButton
+            )
             .background(
-                Color.white.opacity(isEnabled && isHovered ? 0.12 : 0),
+                EditorTokens.foreground.opacity(
+                    isEnabled && isHovered ? AssistDesignTokens.Opacity.hoverSurface : 0
+                ),
                 in: Circle()
             )
         }
@@ -878,8 +1070,8 @@ private struct EditorIconButton: View {
         .accessibilityLabel(tooltip)
         .pointingHandCursor(isEnabled: isEnabled)
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.14), value: isHovered)
-        .animation(.easeOut(duration: 0.14), value: isEnabled)
+        .animation(EditorTokens.Motion.hover, value: isHovered)
+        .animation(EditorTokens.Motion.hover, value: isEnabled)
     }
 }
 
@@ -890,18 +1082,34 @@ private struct SaveButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                HugeIcon(.check, size: 12, color: .black)
+            HStack(spacing: AssistDesignTokens.Spacing.xSmall) {
+                HugeIcon(
+                    .check,
+                    size: AssistDesignTokens.Icon.small,
+                    color: EditorTokens.inverseForeground
+                )
                 Text(isSaving ? "Saving" : "Save")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.black)
+                    .font(EditorTokens.Typography.action)
+                    .foregroundStyle(EditorTokens.inverseForeground)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 28)
-            .background(Color.white.opacity(isSaving ? 0.7 : 1), in: Capsule())
-            .scaleEffect(isHovered && !isSaving ? 1.03 : 1)
-            .shadow(color: .white.opacity(isHovered && !isSaving ? 0.22 : 0), radius: 8)
+            .padding(.horizontal, EditorTokens.Layout.saveHorizontalInset)
+            .frame(height: EditorTokens.Layout.saveHeight)
+            .background(
+                EditorTokens.foreground.opacity(
+                    isSaving ? AssistDesignTokens.Opacity.secondary : 1
+                ),
+                in: Capsule()
+            )
+            .scaleEffect(
+                isHovered && !isSaving ? EditorTokens.Scale.saveHover : 1
+            )
+            .shadow(
+                color: EditorTokens.foreground.opacity(
+                    isHovered && !isSaving ? EditorTokens.Opacity.saveGlow : 0
+                ),
+                radius: AssistDesignTokens.Spacing.small
+            )
         }
         .buttonStyle(.plain)
         .disabled(isSaving)
@@ -910,8 +1118,8 @@ private struct SaveButton: View {
         .pointingHandCursor(isEnabled: !isSaving)
         .keyboardShortcut(.return, modifiers: [])
         .onHover { isHovered = $0 }
-        .animation(.spring(response: 0.24, dampingFraction: 0.72), value: isHovered)
-        .animation(.easeOut(duration: 0.16), value: isSaving)
+        .animation(EditorTokens.Motion.saveHover, value: isHovered)
+        .animation(EditorTokens.Motion.saving, value: isSaving)
     }
 }
 
@@ -919,19 +1127,24 @@ private struct ScreenshotEditorEntryProgress: View {
     let presentedAt: Date
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+        TimelineView(
+            .animation(minimumInterval: EditorTokens.Layout.progressFrameInterval)
+        ) { context in
             GeometryReader { geometry in
                 let elapsed = context.date.timeIntervalSince(presentedAt)
                 let remaining = max(0, 1 - elapsed / ScreenshotEditorMetrics.entryWindow)
 
                 Rectangle()
-                    .fill(Color.white.opacity(0.6))
-                    .frame(width: geometry.size.width * remaining, height: 2)
+                    .fill(EditorTokens.foreground.opacity(EditorTokens.Opacity.progress))
+                    .frame(
+                        width: geometry.size.width * remaining,
+                        height: EditorTokens.Layout.progressHeight
+                    )
                     .frame(maxWidth: .infinity, alignment: .center)
             }
         }
-        .frame(height: 2)
-        .offset(y: 1)
+        .frame(height: EditorTokens.Layout.progressHeight)
+        .offset(y: EditorTokens.Layout.cardStroke)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

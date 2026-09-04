@@ -637,9 +637,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     private func screenshotEditorPointerExited(sessionID: UUID) {
         guard activeScreenshotEditorSessionID == sessionID,
-              screenshotEditorPresence.shouldDismissWhenPointerExits(
-                hasUnsavedEdits: screenshotEditorViewModel.hasEdits
-              ) else { return }
+              screenshotEditorPresence.shouldDismissWhenPointerExits() else { return }
         dismissScreenshotEditor(
             sessionID: sessionID,
             reason: "pointer-exited",

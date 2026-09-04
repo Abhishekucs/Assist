@@ -247,10 +247,10 @@ struct ScreenshotEditorPresence: Equatable {
         hasPointerEntered = true
     }
 
-    /// The card follows the pointer away while it is only a preview. Once it holds unsaved edits,
-    /// a stray pointer must not throw that work away, so closing becomes explicit.
-    func shouldDismissWhenPointerExits(hasUnsavedEdits: Bool) -> Bool {
-        hasPointerEntered && !hasUnsavedEdits
+    /// Once the pointer has entered, its presence owns the card lifetime. Leaving dismisses the
+    /// draft while the original capture remains safely stored in history.
+    func shouldDismissWhenPointerExits() -> Bool {
+        hasPointerEntered
     }
 
     func shouldDismissWhenEntryWindowExpires() -> Bool {
@@ -259,43 +259,46 @@ struct ScreenshotEditorPresence: Equatable {
 }
 
 enum ScreenshotEditorMetrics {
-    static let preferredSize = CGSize(width: 384, height: 394)
-    static let controlsHeight: CGFloat = 128
-    /// Title-bar strip that carries the close and expand controls.
+    /// The compact card keeps the 116-point tool shelf while giving the preview's inset content
+    /// a 16:9 shape. Widescreen captures therefore fill the canvas without broad letterboxing.
+    static let preferredSize = CGSize(width: 740, height: 580)
+    /// The expanded card preserves the same landscape composition on a standard 1440 x 900 screen.
+    static let preferredExpandedSize = CGSize(width: 1120, height: 846)
+    /// The preview and tool shelf always retain the requested 80/20 split.
+    static let previewAreaFraction: CGFloat = 0.8
     static let headerHeight: CGFloat = 34
     static let canvasInset: CGFloat = 16
-    /// The header already separates the screenshot from the card edge, so the canvas adds little.
-    static let canvasTopInset: CGFloat = 4
+    static let canvasTopInset = canvasInset
     static let islandGap: CGFloat = 8
     static let screenMargin: CGFloat = 16
     static let cornerRadius: CGFloat = 18
     static let previewMaxDimension: CGFloat = 768
     /// The expanded card renders the screenshot far larger, so it needs a sharper preview.
     static let expandedPreviewMaxDimension: CGFloat = 2048
-    /// Largest screenshot box the expanded card aims for before the screen clamps it.
-    static let expandedImageBox = CGSize(width: 880, height: 560)
-    /// Everything the card spends on chrome, so sizing and the canvas agree on the image box.
-    static let cardChrome = CGSize(
-        width: canvasInset * 2,
-        height: headerHeight + canvasTopInset + canvasInset + controlsHeight
-    )
     static let entryWindow: TimeInterval = 5
     /// How long the pointer may sit outside the editor before it closes.
     static let exitGracePeriod: TimeInterval = 0.45
 
+    static func previewAreaHeight(forCardHeight cardHeight: CGFloat) -> CGFloat {
+        cardHeight * previewAreaFraction
+    }
+
+    static func controlsAreaHeight(forCardHeight cardHeight: CGFloat) -> CGFloat {
+        cardHeight - previewAreaHeight(forCardHeight: cardHeight)
+    }
+
     static func frame(
         below pillChromeFrame: CGRect,
         on screenFrame: CGRect,
-        expanded: Bool = false,
-        imageAspectRatio: CGFloat = 1
+        expanded: Bool = false
     ) -> CGRect {
         let available = CGSize(
             width: max(0, screenFrame.width - screenMargin * 2),
             height: max(0, pillChromeFrame.minY - islandGap - screenFrame.minY - screenMargin)
         )
         let size = expanded
-            ? expandedSize(imageAspectRatio: imageAspectRatio, available: available)
-            : collapsedSize(available: available)
+            ? fittedSize(preferredExpandedSize, available: available)
+            : fittedSize(preferredSize, available: available)
         let proposedX = pillChromeFrame.midX - size.width / 2
         let minimumX = screenFrame.minX + screenMargin
         let maximumX = screenFrame.maxX - screenMargin - size.width
@@ -309,37 +312,16 @@ enum ScreenshotEditorMetrics {
         )
     }
 
-    private static func collapsedSize(available: CGSize) -> CGSize {
+    /// Scale both axes uniformly when a screen cannot hold the preferred card, preserving its
+    /// landscape composition instead of independently squeezing either dimension.
+    private static func fittedSize(_ targetSize: CGSize, available: CGSize) -> CGSize {
         let scale = max(
             0,
-            min(1, available.width / preferredSize.width, available.height / preferredSize.height)
+            min(1, available.width / targetSize.width, available.height / targetSize.height)
         )
         return CGSize(
-            width: floor(preferredSize.width * scale),
-            height: floor(preferredSize.height * scale)
-        )
-    }
-
-    /// Sizes the expanded card around the screenshot itself so the preview fills it edge to edge
-    /// instead of floating in letterboxing.
-    private static func expandedSize(imageAspectRatio: CGFloat, available: CGSize) -> CGSize {
-        let collapsed = collapsedSize(available: available)
-        let chrome = cardChrome
-        let imageBox = CGSize(
-            width: min(expandedImageBox.width, available.width - chrome.width),
-            height: min(expandedImageBox.height, available.height - chrome.height)
-        )
-        guard imageAspectRatio > 0, imageBox.width > 0, imageBox.height > 0 else { return collapsed }
-
-        var imageSize = CGSize(width: imageBox.width, height: imageBox.width / imageAspectRatio)
-        if imageSize.height > imageBox.height {
-            imageSize = CGSize(width: imageBox.height * imageAspectRatio, height: imageBox.height)
-        }
-
-        // Expanding must never shrink the card, so a narrow screenshot keeps the collapsed width.
-        return CGSize(
-            width: max(collapsed.width, floor(imageSize.width + chrome.width)),
-            height: max(collapsed.height, floor(imageSize.height + chrome.height))
+            width: floor(targetSize.width * scale),
+            height: floor(targetSize.height * scale)
         )
     }
 }

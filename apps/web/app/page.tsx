@@ -30,7 +30,7 @@ const faqItems = [
   {
     question: "How do I take a full-screen screenshot?",
     answer:
-      "Press Control + Option to capture the full display immediately without entering annotation mode. The screenshot is saved right away and appears in Recent Items, where you can preview, copy, or drag it into another app."
+      "Press Control + Option to capture the full display immediately without entering annotation mode. The screenshot is saved right away and appears in your history under All, where you can preview, copy, or drag it into another app."
   },
   {
     question: "Can I crop or blur a screenshot after taking it?",
@@ -40,12 +40,12 @@ const faqItems = [
   {
     question: "What happens if I ignore the quick editor?",
     answer:
-      "Nothing is lost. The original screenshot is already saved, so the editor closes on its own after about five seconds if you never hover it, and it follows your pointer away once you do. If you have started editing, it stays put until you save it or close it, so a stray pointer cannot discard your work."
+      "Nothing is lost. The original screenshot is already saved, so the editor closes after about five seconds if you never hover it. Once you hover, it stays visible while your pointer is over it; leaving closes the editor and discards any unsaved draft, while saving first replaces the original capture with your edits."
   },
   {
     question: "How does clipboard history work?",
     answer:
-      "Copy text as usual and Assist keeps it in your local history alongside your screenshots. Hover the notch to find recent items, copy them again, or drag them into another app. You can delete individual items whenever you want."
+      "Copy text as usual and Assist keeps it in your local history alongside your screenshots. Hover the notch, then use All, Text, or Images to filter what you need, copy it again, or drag it into another app. You can delete individual items whenever you want."
   },
   {
     question: "Where does Assist store my screenshots and context?",
@@ -225,7 +225,7 @@ export default function Home() {
           </article>
           <article className="capability-card">
             <h3>Clipboard history</h3>
-            <p>Keep copied text alongside your captures. Find it in Recent Items, copy it again, or drag it into another app.</p>
+            <p>Keep copied text alongside your captures. Filter by All, Text, or Images, then copy an item again or drag it into another app.</p>
           </article>
         </div>
       </section>
