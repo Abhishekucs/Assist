@@ -34,6 +34,8 @@ final class WindowManager {
     private var collapsedRevealWorkItem: DispatchWorkItem?
     private var pointerScreenTimer: Timer?
     private var currentPillScreenID: CGDirectDisplayID?
+    private var screenshotEditorReturnScreenID: CGDirectDisplayID?
+    private var isResizingScreenshotEditor = false
     private var isPointerHoveringPillChrome = false
     private var isDraggingFromPill = false
     private var settingsCancellable: AnyCancellable?
@@ -108,9 +110,12 @@ final class WindowManager {
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()
 
-        if settings.followPointerDisplay {
-            currentPillScreenID = capturedScreen.displayID
+        if !screenshotEditorPanel.isVisible, !settings.followPointerDisplay {
+            screenshotEditorReturnScreenID = screenForCurrentPill()?.displayID
         }
+        // The editor belongs to the capture, so always present it on the captured display.
+        // A fixed pill is restored to its prior display when the short-lived editor closes.
+        currentPillScreenID = capturedScreen.displayID
 
         isPointerHoveringPillChrome = false
         isDraggingFromPill = false
@@ -122,21 +127,38 @@ final class WindowManager {
         pillPanel.orderFrontRegardless()
         positionScreenshotEditor()
         screenshotEditorPanel.orderFrontRegardless()
+        screenshotEditorPanel.contentView?.layoutSubtreeIfNeeded()
+        screenshotEditorPanel.displayIfNeeded()
 
         DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             // The system shadow follows the card's alpha, so refresh it once the content is drawn.
-            self?.screenshotEditorPanel.invalidateShadow()
-            self?.syncInitialScreenshotEditorHover()
+            self.screenshotEditorPanel.invalidateShadow()
+            self.syncScreenshotEditorHover()
+            DebugLogger.log("screenshot-editor.window-presented", [
+                "frame": DebugLogger.describe(self.screenshotEditorPanel.frame),
+                "isVisible": "\(self.screenshotEditorPanel.isVisible)",
+                "screenID": self.screenForCurrentPill().map { "\($0.displayID)" } ?? "unknown"
+            ])
         }
     }
 
     func hideScreenshotEditor() {
+        isResizingScreenshotEditor = false
         screenshotEditorPanel.orderOut(nil)
+
+        if !settings.followPointerDisplay, let screenshotEditorReturnScreenID {
+            currentPillScreenID = screenshotEditorReturnScreenID
+            setPillFrame(display: true)
+            pillPanel.orderFrontRegardless()
+        }
+        screenshotEditorReturnScreenID = nil
     }
 
     /// Resizes the editor card in place when the user expands or shrinks the preview.
     func screenshotEditorExpansionChanged() {
         guard screenshotEditorPanel.isVisible else { return }
+        isResizingScreenshotEditor = true
         positionScreenshotEditor(animated: true)
     }
 
@@ -217,7 +239,7 @@ final class WindowManager {
         screenshotEditorPanel.hasShadow = true
         screenshotEditorPanel.level = .statusBar
         screenshotEditorPanel.isMovable = false
-        screenshotEditorPanel.becomesKeyOnlyIfNeeded = true
+        screenshotEditorPanel.becomesKeyOnlyIfNeeded = false
         screenshotEditorPanel.acceptsMouseMovedEvents = true
         screenshotEditorPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         screenshotEditorPanel.hidesOnDeactivate = false
@@ -226,7 +248,8 @@ final class WindowManager {
         let hostingView = ScreenshotEditorHostingView(
             rootView: ScreenshotQuickEditorView(viewModel: screenshotEditorViewModel)
         )
-        hostingView.onHoverChanged = { [weak screenshotEditorViewModel] hovering in
+        hostingView.onHoverChanged = { [weak self, weak screenshotEditorViewModel] hovering in
+            guard self?.isResizingScreenshotEditor != true else { return }
             screenshotEditorViewModel?.pointerChanged(isInside: hovering)
         }
         screenshotEditorPanel.contentView = hostingView
@@ -444,7 +467,10 @@ final class WindowManager {
     }
 
     private func positionScreenshotEditor(animated: Bool = false) {
-        guard let screen = screenForCurrentPill() else { return }
+        guard let screen = screenForCurrentPill() else {
+            isResizingScreenshotEditor = false
+            return
+        }
         let collapsedSize = PillChromeMetrics.collapsedSize(settings: settings)
         let pillChromeFrame = CGRect(
             x: pillPanel.frame.midX - collapsedSize.width / 2,
@@ -468,25 +494,26 @@ final class WindowManager {
             context.duration = Metrics.editorResizeDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             screenshotEditorPanel.animator().setFrame(frame, display: true)
-        } completionHandler: { [weak screenshotEditorPanel] in
+        } completionHandler: { [weak self, weak screenshotEditorPanel] in
             // AppKit runs this on the main thread once the resize settles.
             MainActor.assumeIsolated {
                 // The system shadow keeps the pre-resize outline until it is invalidated.
                 screenshotEditorPanel?.invalidateShadow()
+                guard let self else { return }
+                self.isResizingScreenshotEditor = false
+                self.syncScreenshotEditorHover()
             }
         }
     }
 
-    private func syncInitialScreenshotEditorHover() {
+    private func syncScreenshotEditorHover() {
         guard screenshotEditorPanel.isVisible,
               let contentView = screenshotEditorPanel.contentView else { return }
         let point = contentView.convert(
             screenshotEditorPanel.mouseLocationOutsideOfEventStream,
             from: nil
         )
-        if contentView.bounds.contains(point) {
-            screenshotEditorViewModel.pointerChanged(isInside: true)
-        }
+        screenshotEditorViewModel.pointerChanged(isInside: contentView.bounds.contains(point))
     }
 
     private static func topCenterFrame(windowSize: CGSize, on screen: NSScreen?) -> CGRect {

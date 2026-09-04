@@ -1,5 +1,16 @@
 # Third-Party Notices
 
+## Hugeicons
+
+Assist bundles unmodified icons from `@hugeicons/static` version `0.1.5`.
+
+- Package: [Hugeicons Static](https://github.com/hugeicons/hugeicons-static)
+- Package license: MIT
+- Icon usage terms: [Hugeicons License Agreement](https://hugeicons.com/license-agreement)
+
+The package documentation permits icons to be used as-is and prohibits editing
+or redistributing the source icon files.
+
 ## WhisperKit
 
 Assist uses WhisperKit from

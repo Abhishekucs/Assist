@@ -62,6 +62,14 @@ private struct ScreenshotEditorHeader: View {
 
             Spacer(minLength: 0)
 
+            Text(headerTitle)
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.62))
+                .lineLimit(1)
+                .accessibilityLabel(headerTitle)
+
+            Spacer(minLength: 0)
+
             EditorIconButton(
                 icon: viewModel.isExpanded ? .collapse : .expand,
                 tooltip: viewModel.isExpanded
@@ -73,6 +81,15 @@ private struct ScreenshotEditorHeader: View {
             }
         }
         .padding(.horizontal, 10)
+    }
+
+    private var headerTitle: String {
+        if viewModel.isSaving {
+            return "Saving edits…"
+        }
+        return viewModel.hasPointerEntered
+            ? "Screenshot editor"
+            : "Screenshot saved · Hover to edit"
     }
 }
 
@@ -162,7 +179,11 @@ private struct ScreenshotEditorInteractionLayer: View {
             if viewModel.activeTool == .blur,
                let index = viewModel.activeBlurStrokeIndex,
                viewModel.draft.blurStrokes.indices.contains(index) {
-                BlurStrokeOverlay(stroke: viewModel.draft.blurStrokes[index])
+                let stroke = viewModel.draft.blurStrokes[index]
+                if let image = viewModel.previewImage {
+                    LiveBlurStrokeOverlay(image: image, stroke: stroke)
+                }
+                BlurStrokeOverlay(stroke: stroke)
             }
 
             Color.clear
@@ -289,6 +310,75 @@ private struct BlurStrokeOverlay: View {
                 )
             )
             .allowsHitTesting(false)
+        }
+    }
+}
+
+private struct LiveBlurStrokeOverlay: View {
+    let image: NSImage
+    let stroke: ScreenshotBlurStroke
+
+    var body: some View {
+        GeometryReader { geometry in
+            let blurRadius = min(geometry.size.width, geometry.size.height)
+                * stroke.blurRadiusFraction
+
+            Image(nsImage: image)
+                .resizable()
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .blur(radius: blurRadius)
+                .mask {
+                    BlurStrokeMask(stroke: stroke)
+                }
+                .clipped()
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+private struct BlurStrokeMask: View {
+    let stroke: ScreenshotBlurStroke
+
+    var body: some View {
+        GeometryReader { geometry in
+            let lineWidth = min(geometry.size.width, geometry.size.height)
+                * stroke.diameterFraction
+
+            if let first = stroke.points.first, stroke.points.count == 1 {
+                Circle()
+                    .fill(.white)
+                    .frame(width: lineWidth, height: lineWidth)
+                    .position(
+                        x: first.x * geometry.size.width,
+                        y: first.y * geometry.size.height
+                    )
+            } else {
+                Path { path in
+                    guard let first = stroke.points.first else { return }
+                    path.move(
+                        to: CGPoint(
+                            x: first.x * geometry.size.width,
+                            y: first.y * geometry.size.height
+                        )
+                    )
+                    for point in stroke.points.dropFirst() {
+                        path.addLine(
+                            to: CGPoint(
+                                x: point.x * geometry.size.width,
+                                y: point.y * geometry.size.height
+                            )
+                        )
+                    }
+                }
+                .stroke(
+                    .white,
+                    style: StrokeStyle(
+                        lineWidth: lineWidth,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+            }
         }
     }
 }
@@ -732,6 +822,33 @@ private struct EditorSlider: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue("\(Int((value * 100).rounded())) percent")
+        .accessibilityHint("Adjust with VoiceOver or the arrow keys")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                adjust(by: 1)
+            case .decrement:
+                adjust(by: -1)
+            @unknown default:
+                break
+            }
+        }
+        .focusable()
+        .onMoveCommand { direction in
+            switch direction {
+            case .left, .down:
+                adjust(by: -1)
+            case .right, .up:
+                adjust(by: 1)
+            default:
+                break
+            }
+        }
+    }
+
+    private func adjust(by stepCount: CGFloat) {
+        let step = (range.upperBound - range.lowerBound) / 20
+        onChange(min(max(value + step * stepCount, range.lowerBound), range.upperBound))
     }
 }
 

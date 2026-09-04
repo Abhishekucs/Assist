@@ -119,7 +119,7 @@ enum ScreenshotBlurBrush: String, CaseIterable, Equatable, Identifiable {
     }
 }
 
-struct ScreenshotBlurStroke: Equatable {
+struct ScreenshotBlurStroke: Equatable, Sendable {
     var points: [CGPoint]
     let diameterFraction: CGFloat
     let blurRadiusFraction: CGFloat
@@ -217,7 +217,7 @@ struct ScreenshotFrameStyle: Equatable, Sendable {
     }
 }
 
-struct ScreenshotEditDraft: Equatable {
+struct ScreenshotEditDraft: Equatable, Sendable {
     static let fullImageCrop = CGRect(x: 0, y: 0, width: 1, height: 1)
 
     var cropRect = fullImageCrop

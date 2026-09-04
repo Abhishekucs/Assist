@@ -1,5 +1,8 @@
 import AppKit
+import Darwin
+import ImageIO
 import SQLite3
+import UniformTypeIdentifiers
 
 final class CaptureStore {
     static let interruptedTranscriptionError =
@@ -10,6 +13,8 @@ final class CaptureStore {
     private let decoder: JSONDecoder
     private let supportDirectory: URL
     private let legacySupportDirectory: URL?
+    private let replacementDataWriter: @Sendable (Data, URL) throws -> Void
+    private let replacementDirectorySwapper: @Sendable (URL, URL) throws -> Void
 
     private var capturesDirectory: URL {
         supportDirectory.appendingPathComponent("Captures", isDirectory: true)
@@ -23,7 +28,11 @@ final class CaptureStore {
         supportDirectory.appendingPathComponent("captures.json")
     }
 
-    init(applicationSupportDirectory: URL? = nil) {
+    init(
+        applicationSupportDirectory: URL? = nil,
+        replacementDataWriter: (@Sendable (Data, URL) throws -> Void)? = nil,
+        replacementDirectorySwapper: (@Sendable (URL, URL) throws -> Void)? = nil
+    ) {
         if let applicationSupportDirectory {
             supportDirectory = applicationSupportDirectory
             legacySupportDirectory = nil
@@ -41,9 +50,15 @@ final class CaptureStore {
 
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        self.replacementDataWriter = replacementDataWriter ?? { data, url in
+            try data.write(to: url, options: .atomic)
+        }
+        self.replacementDirectorySwapper =
+            replacementDirectorySwapper ?? CaptureImageReplacementTarget.atomicSwap
 
         migrateLegacySupportDirectoryIfNeeded()
         try? fileManager.createDirectory(at: capturesDirectory, withIntermediateDirectories: true)
+        cleanupInterruptedImageReplacementDirectories()
         try? initializeDatabase()
         rewriteLegacyCapturePathsIfNeeded()
         migrateLegacyJSONIfNeeded()
@@ -157,6 +172,18 @@ final class CaptureStore {
     }
 
     func replaceImage(for item: CaptureItem, with image: NSImage) throws {
+        let target = try imageReplacementTarget(for: item)
+        guard let replacementImageData = image.pngData,
+              let replacementThumbnailData = image.thumbnail(maxDimension: 480).pngData else {
+            throw AppError.imageEncodingFailed
+        }
+        try target.replace(
+            imageData: replacementImageData,
+            thumbnailData: replacementThumbnailData
+        )
+    }
+
+    func imageReplacementTarget(for item: CaptureItem) throws -> CaptureImageReplacementTarget {
         guard let captureDirectoryURL = item.captureDirectoryURL else {
             throw StoreError.imageReplacement(
                 path: item.imagePath,
@@ -167,44 +194,13 @@ final class CaptureStore {
         let imageURL = captureDirectoryURL.appendingPathComponent("screenshot.png", isDirectory: false)
         let thumbnailURL = captureDirectoryURL.appendingPathComponent("thumbnail.png", isDirectory: false)
 
-        let originalImageData: Data
-        let originalThumbnailData: Data
-        do {
-            originalImageData = try Data(contentsOf: imageURL)
-            originalThumbnailData = try Data(contentsOf: thumbnailURL)
-        } catch {
-            throw StoreError.imageReplacement(
-                path: captureDirectoryURL.path,
-                message: "Unable to preserve the original capture before saving edits: \(error.localizedDescription)"
-            )
-        }
-
-        guard let replacementImageData = image.pngData,
-              let replacementThumbnailData = image.thumbnail(maxDimension: 480).pngData else {
-            throw AppError.imageEncodingFailed
-        }
-
-        do {
-            try replacementImageData.write(to: imageURL, options: .atomic)
-            try replacementThumbnailData.write(to: thumbnailURL, options: .atomic)
-        } catch {
-            let updateError = error
-            do {
-                try originalImageData.write(to: imageURL, options: .atomic)
-                try originalThumbnailData.write(to: thumbnailURL, options: .atomic)
-            } catch {
-                throw StoreError.imageRollback(
-                    path: captureDirectoryURL.path,
-                    updateMessage: updateError.localizedDescription,
-                    rollbackMessage: error.localizedDescription
-                )
-            }
-
-            throw StoreError.imageReplacement(
-                path: captureDirectoryURL.path,
-                message: updateError.localizedDescription
-            )
-        }
+        return CaptureImageReplacementTarget(
+            captureDirectoryURL: captureDirectoryURL,
+            imageURL: imageURL,
+            thumbnailURL: thumbnailURL,
+            dataWriter: replacementDataWriter,
+            directorySwapper: replacementDirectorySwapper
+        )
     }
 
     func update(item: CaptureItem) throws {
@@ -445,6 +441,54 @@ final class CaptureStore {
         }
     }
 
+    private func cleanupInterruptedImageReplacementDirectories() {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: capturesDirectory,
+            includingPropertiesForKeys: nil,
+            options: []
+        ) else {
+            return
+        }
+
+        var removedCount = 0
+        for entry in entries where Self.isImageReplacementStagingDirectory(entry) {
+            do {
+                try fileManager.removeItem(at: entry)
+                removedCount += 1
+            } catch {
+                let path = entry.path
+                let description = error.localizedDescription
+                Task { @MainActor in
+                    DebugLogger.log("store.image-replacement-cleanup.error", [
+                        "path": path,
+                        "description": description
+                    ])
+                }
+            }
+        }
+
+        if removedCount > 0 {
+            let completedCount = removedCount
+            Task { @MainActor [completedCount] in
+                DebugLogger.log("store.image-replacement-cleanup.completed", [
+                    "count": "\(completedCount)"
+                ])
+            }
+        }
+    }
+
+    private static func isImageReplacementStagingDirectory(_ url: URL) -> Bool {
+        let name = url.lastPathComponent
+        guard name.hasPrefix("."),
+              let marker = name.range(of: ".edit-") else {
+            return false
+        }
+
+        let captureID = String(name[name.index(after: name.startIndex)..<marker.lowerBound])
+        let transactionID = String(name[marker.upperBound...])
+        return UUID(uuidString: captureID) != nil && UUID(uuidString: transactionID) != nil
+    }
+
     private func migrateLegacySupportDirectoryIfNeeded() {
         guard let legacySupportDirectory,
               fileManager.fileExists(atPath: legacySupportDirectory.path),
@@ -595,10 +639,150 @@ final class CaptureStore {
     }
 }
 
+struct CaptureImageReplacementTarget: Sendable {
+    private let captureDirectoryURL: URL
+    private let imageURL: URL
+    private let thumbnailURL: URL
+    private let dataWriter: @Sendable (Data, URL) throws -> Void
+    private let directorySwapper: @Sendable (URL, URL) throws -> Void
+
+    init(
+        captureDirectoryURL: URL,
+        imageURL: URL,
+        thumbnailURL: URL,
+        dataWriter: @escaping @Sendable (Data, URL) throws -> Void,
+        directorySwapper: @escaping @Sendable (URL, URL) throws -> Void
+    ) {
+        self.captureDirectoryURL = captureDirectoryURL
+        self.imageURL = imageURL
+        self.thumbnailURL = thumbnailURL
+        self.dataWriter = dataWriter
+        self.directorySwapper = directorySwapper
+    }
+
+    func replace(with image: CGImage) throws {
+        guard let imageData = Self.pngData(for: image),
+              let thumbnail = Self.downscaled(image, maxDimension: 480),
+              let thumbnailData = Self.pngData(for: thumbnail) else {
+            throw AppError.imageEncodingFailed
+        }
+
+        try replace(imageData: imageData, thumbnailData: thumbnailData)
+    }
+
+    func replace(imageData: Data, thumbnailData: Data) throws {
+        let fileManager = FileManager.default
+        let parentDirectoryURL = captureDirectoryURL.deletingLastPathComponent()
+        let transactionID = UUID().uuidString
+        let stagingURL = parentDirectoryURL.appendingPathComponent(
+            ".\(captureDirectoryURL.lastPathComponent).edit-\(transactionID)",
+            isDirectory: true
+        )
+
+        defer {
+            if fileManager.fileExists(atPath: stagingURL.path) {
+                try? fileManager.removeItem(at: stagingURL)
+            }
+        }
+
+        do {
+            // Build a complete replacement next to the original. The final directory
+            // replacement is one filesystem operation, so image and thumbnail cannot split.
+            try fileManager.copyItem(at: captureDirectoryURL, to: stagingURL)
+            try dataWriter(
+                imageData,
+                stagingURL.appendingPathComponent(imageURL.lastPathComponent)
+            )
+            try dataWriter(
+                thumbnailData,
+                stagingURL.appendingPathComponent(thumbnailURL.lastPathComponent)
+            )
+        } catch {
+            throw StoreError.imageReplacement(
+                path: captureDirectoryURL.path,
+                message: "Unable to stage edited screenshot files: \(error.localizedDescription)"
+            )
+        }
+
+        do {
+            try directorySwapper(stagingURL, captureDirectoryURL)
+        } catch {
+            throw StoreError.imageReplacement(
+                path: captureDirectoryURL.path,
+                message: "Unable to atomically replace the capture directory: \(error.localizedDescription)"
+            )
+        }
+
+        // The atomic swap leaves the complete original at the staging path. Removal
+        // can be retried during startup if the process exits before this cleanup.
+        try? fileManager.removeItem(at: stagingURL)
+    }
+
+    /// `RENAME_SWAP` from rename(2). macOS guarantees one atomic exchange when
+    /// the underlying volume supports it; otherwise the syscall fails untouched.
+    private static let renameSwapFlag: UInt32 = 0x00000002
+
+    static func atomicSwap(from stagingURL: URL, to captureDirectoryURL: URL) throws {
+        let swapOutcome = stagingURL.path.withCString { stagingPath in
+            captureDirectoryURL.path.withCString { capturePath in
+                let result = renamex_np(stagingPath, capturePath, renameSwapFlag)
+                let errorCode = result == 0 ? 0 : Darwin.__error().pointee
+                return (result, errorCode)
+            }
+        }
+        guard swapOutcome.0 == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(swapOutcome.1))
+        }
+    }
+
+    private static func pngData(for image: CGImage) -> Data? {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            return nil
+        }
+
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return data as Data
+    }
+
+    private static func downscaled(_ image: CGImage, maxDimension: CGFloat) -> CGImage? {
+        let width = CGFloat(image.width)
+        let height = CGFloat(image.height)
+        guard width > 0, height > 0 else { return nil }
+
+        let scale = min(maxDimension / width, maxDimension / height, 1)
+        guard scale < 1 else { return image }
+
+        let targetWidth = max(1, Int((width * scale).rounded()))
+        let targetHeight = max(1, Int((height * scale).rounded()))
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: targetWidth,
+                height: targetHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else {
+            return nil
+        }
+
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+        return context.makeImage()
+    }
+}
+
 private enum StoreError: LocalizedError {
     case encodingFailed
     case imageReplacement(path: String, message: String)
-    case imageRollback(path: String, updateMessage: String, rollbackMessage: String)
     case contextRead(path: String, message: String)
     case contextWrite(path: String, message: String)
     case contextRollback(path: String, updateMessage: String, rollbackMessage: String)
@@ -610,8 +794,6 @@ private enum StoreError: LocalizedError {
             "Unable to encode screenshot details."
         case let .imageReplacement(path, message):
             "Unable to save the edited screenshot at \(path): \(message)"
-        case let .imageRollback(path, updateMessage, rollbackMessage):
-            "Saving the edited screenshot failed (\(updateMessage)), and Assist could not restore the original files at \(path): \(rollbackMessage)"
         case let .contextRead(path, message):
             "Unable to read the existing context file at \(path) before updating it: \(message)"
         case let .contextWrite(path, message):
