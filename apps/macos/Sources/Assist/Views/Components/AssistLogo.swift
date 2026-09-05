@@ -27,11 +27,12 @@ struct AssistLogo: View {
 
 @MainActor
 enum AssistLogoImageStore {
-    private static var cache: NSImage?
+    private static var logoCache: NSImage?
+    private static var menuBarCache: NSImage?
 
     static func image() -> NSImage? {
-        if let cache {
-            return cache
+        if let logoCache {
+            return logoCache
         }
 
         guard let url = logoURL(),
@@ -40,24 +41,30 @@ enum AssistLogoImageStore {
         }
 
         image.isTemplate = false
-        cache = image
+        logoCache = image
         return image
     }
 
     static func menuBarImage() -> NSImage? {
-        guard let image = image()?.copy() as? NSImage else {
+        if let menuBarCache {
+            return menuBarCache
+        }
+
+        guard let url = menuBarLogoURL(),
+              let image = NSImage(contentsOf: url) else {
             return nil
         }
 
         image.size = NSSize(width: 18, height: 18)
-        image.isTemplate = false
+        image.isTemplate = true
+        menuBarCache = image
         return image
     }
 
     private static func logoURL() -> URL? {
         if let url = Bundle.main.url(
             forResource: "assist-icon",
-            withExtension: "svg",
+            withExtension: "png",
             subdirectory: "Brand"
         ) {
             return url
@@ -65,7 +72,27 @@ enum AssistLogoImageStore {
 
         if let url = Bundle.module.url(
             forResource: "assist-icon",
-            withExtension: "svg",
+            withExtension: "png",
+            subdirectory: "Brand"
+        ) {
+            return url
+        }
+
+        return nil
+    }
+
+    private static func menuBarLogoURL() -> URL? {
+        if let url = Bundle.main.url(
+            forResource: "assist-menu-bar",
+            withExtension: "png",
+            subdirectory: "Brand"
+        ) {
+            return url
+        }
+
+        if let url = Bundle.module.url(
+            forResource: "assist-menu-bar",
+            withExtension: "png",
             subdirectory: "Brand"
         ) {
             return url

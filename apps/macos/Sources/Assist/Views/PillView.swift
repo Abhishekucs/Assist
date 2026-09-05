@@ -719,6 +719,16 @@ private struct DebugActionButton: View {
     }
 }
 
+enum HistoryCardActionVisibility {
+    static func isVisible(
+        cardHovered: Bool,
+        deleteActionHovered: Bool,
+        contextActionHovered: Bool
+    ) -> Bool {
+        cardHovered || deleteActionHovered || contextActionHovered
+    }
+}
+
 private struct CaptureGalleryCard: View {
     let item: CaptureItem
     let thumbnail: NSImage?
@@ -731,9 +741,14 @@ private struct CaptureGalleryCard: View {
     let deleteAction: () -> Void
     @State private var isHovered = false
     @State private var isDeleteHovered = false
+    @State private var isContextCopyHovered = false
 
-    private var isDeleteVisible: Bool {
-        isHovered || isDeleteHovered
+    private var isActionTrayVisible: Bool {
+        HistoryCardActionVisibility.isVisible(
+            cardHovered: isHovered,
+            deleteActionHovered: isDeleteHovered,
+            contextActionHovered: isContextCopyHovered
+        )
     }
 
     var body: some View {
@@ -761,7 +776,7 @@ private struct CaptureGalleryCard: View {
 
             HStack(spacing: 0) {
                 DeleteCardButton(
-                    isVisible: isDeleteVisible,
+                    isVisible: isActionTrayVisible,
                     isHovered: $isDeleteHovered,
                     action: deleteAction
                 )
@@ -769,6 +784,7 @@ private struct CaptureGalleryCard: View {
                 if item.hasVoiceContext {
                     CaptureContextCopyButton(
                         isEnabled: canCopyContext,
+                        isHovered: $isContextCopyHovered,
                         action: copyContextAction
                     )
                 }
@@ -776,12 +792,15 @@ private struct CaptureGalleryCard: View {
             .padding(AssistDesignTokens.Spacing.xxxSmall)
             .background(
                 AssistDesignTokens.Palette.paper.opacity(
-                    item.hasVoiceContext || isDeleteVisible ? 1 : 0
+                    isActionTrayVisible ? 1 : 0
                 ),
                 in: Capsule()
             )
             .padding(AssistDesignTokens.Spacing.xxSmall)
-            .animation(AssistDesignTokens.Motion.quick, value: isDeleteVisible)
+            .opacity(isActionTrayVisible ? 1 : 0)
+            .allowsHitTesting(isActionTrayVisible)
+            .accessibilityHidden(!isActionTrayVisible)
+            .animation(AssistDesignTokens.Motion.quick, value: isActionTrayVisible)
         }
         .frame(
             width: HistoryShelfTokens.cardSize,
@@ -890,8 +909,8 @@ private struct CaptureGalleryCard: View {
 
 private struct CaptureContextCopyButton: View {
     let isEnabled: Bool
+    @Binding var isHovered: Bool
     let action: () -> Void
-    @State private var isHovered = false
 
     private var tooltip: String {
         isEnabled ? "Copy context.md" : "context.md is not ready to copy"

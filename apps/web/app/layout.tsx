@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 const siteUrl = "https://assistapp.dev";
-const siteTitle = "Assist for Mac — Voice Annotation, Screenshots & Clipboard";
+const siteTitle = "Assist for Mac: Voice Annotation, Screenshots & Clipboard";
 const socialImageUrl = `${siteUrl}/og-image.png`;
 const siteDescription =
   "Annotate your Mac screen with voice, capture full-screen screenshots, and keep copied text ready to reuse from the notch.";
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: siteTitle,
-    template: "%s — Assist"
+    template: "%s | Assist"
   },
   description: siteDescription,
   applicationName: "Assist",
@@ -38,7 +38,10 @@ export const metadata: Metadata = {
     canonical: "/"
   },
   icons: {
-    icon: [{ url: "/favicon.ico", sizes: "48x48" }, { url: "/assist-icon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/assist-icon.png", sizes: "512x512", type: "image/png" }
+    ],
     apple: "/assist-icon.png"
   },
   openGraph: {

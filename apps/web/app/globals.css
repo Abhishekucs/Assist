@@ -440,10 +440,73 @@ p {
 .hero-video {
   display: block;
   width: 100%;
-  aspect-ratio: 3830 / 2022;
+  aspect-ratio: 16 / 9;
   background: #050505;
   border-radius: 11px;
   object-fit: cover;
+}
+
+.hero-video-play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 88px;
+  height: 88px;
+  padding: 0;
+  color: #ffffff;
+  background: #050505;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+  cursor: pointer;
+  opacity: 1;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.hero-video-frame.is-playing .hero-video-play-button {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.hero-video-frame.is-playing:hover .hero-video-play-button,
+.hero-video-frame.is-playing:focus-within .hero-video-play-button {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.hero-video-play-button:hover {
+  background: #171717;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+.hero-video-play-button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 4px;
+}
+
+.hero-video-play-icon {
+  display: block;
+  filter: brightness(0) invert(1);
+  transform: translateX(2px);
+}
+
+.hero-video-play-icon.is-pause {
+  transform: none;
+}
+
+@media (hover: none) {
+  .hero-video-frame.is-playing .hero-video-play-button {
+    pointer-events: auto;
+    opacity: 1;
+  }
 }
 
 .capability-section {
@@ -598,6 +661,10 @@ p {
   align-items: center;
 }
 
+.workflow-split-reverse {
+  grid-template-columns: minmax(0, 1.18fr) minmax(280px, 0.82fr);
+}
+
 .workflow-split-reverse .workflow-copy {
   grid-column: 2;
   grid-row: 1;
@@ -610,14 +677,6 @@ p {
 
 .workflow-copy {
   max-width: 510px;
-}
-
-.workflow-name {
-  margin: 0 0 14px;
-  color: #0779f2;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.2;
 }
 
 .workflow-copy h2 {
@@ -636,25 +695,9 @@ p {
   margin: 22px 0 0;
   color: rgba(0, 0, 0, 0.56);
   font-size: 17px;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.58;
   text-wrap: pretty;
-}
-
-.workflow-heading-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.72fr);
-  gap: 72px;
-  align-items: end;
-  margin-bottom: 42px;
-}
-
-.workflow-heading-row .workflow-copy {
-  max-width: none;
-}
-
-.workflow-heading-row .workflow-description {
-  margin: 0 0 4px;
 }
 
 .workflow-media {
@@ -667,136 +710,12 @@ p {
 }
 
 .workflow-media-video {
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   padding: 7px;
 }
 
 .workflow-media-video .feature-video {
   border-radius: 16px;
-}
-
-.workflow-media-cinematic {
-  aspect-ratio: 16 / 8.7;
-  padding: 8px;
-  border-radius: 24px;
-}
-
-.workflow-media-cinematic .feature-video {
-  border-radius: 17px;
-}
-
-.clipboard-stage {
-  aspect-ratio: 1.36;
-  padding: 20px;
-  background:
-    radial-gradient(circle at 84% 6%, rgba(7, 121, 242, 0.34), transparent 36%),
-    #09090b;
-}
-
-.clipboard-window {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 20px;
-  color: #fafafa;
-  background: #111113;
-  border-radius: 15px;
-}
-
-.clipboard-window-header {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 18px;
-}
-
-.clipboard-window-header > span {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.clipboard-filter-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.clipboard-filter-row span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  padding: 0 11px;
-  color: rgba(250, 250, 250, 0.58);
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.clipboard-filter-row .is-selected {
-  color: #09090b;
-  background: #fafafa;
-}
-
-.clipboard-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  min-height: 0;
-  flex: 1;
-}
-
-.clipboard-preview-card {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  min-height: 0;
-  overflow: hidden;
-  color: #fafafa;
-  background: #191919;
-  border-radius: 10px;
-}
-
-.clipboard-preview-card span {
-  position: relative;
-  z-index: 1;
-  padding: 14px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.clipboard-preview-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.clipboard-preview-image::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background: linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.32));
-}
-
-.clipboard-preview-text {
-  align-items: flex-start;
-}
-
-.clipboard-preview-text span,
-.clipboard-preview-note span {
-  max-width: 24ch;
-}
-
-.clipboard-preview-color {
-  color: #09090b;
-  background: #7c8af0;
-}
-
-.clipboard-preview-note {
-  background: #232326;
 }
 
 .feature-showcase-intro {
@@ -2290,22 +2209,7 @@ p {
     grid-row: 2;
   }
 
-  .workflow-heading-row {
-    grid-template-columns: 1fr;
-    gap: 24px;
-    align-items: start;
-    margin-bottom: 34px;
-  }
-
-  .workflow-heading-row .workflow-description {
-    margin: 0;
-  }
-
   .workflow-media-video {
-    aspect-ratio: 16 / 9;
-  }
-
-  .clipboard-stage {
     aspect-ratio: 16 / 9;
   }
 
@@ -2543,6 +2447,16 @@ p {
     border-radius: 9px;
   }
 
+  .hero-video-play-button {
+    width: 64px;
+    height: 64px;
+  }
+
+  .hero-video-play-icon {
+    width: 28px;
+    height: 28px;
+  }
+
   .capability-section {
     --section-overlap: 116px;
     --transition-midpoint: 48px;
@@ -2611,65 +2525,16 @@ p {
     font-size: 15px;
   }
 
-  .workflow-name {
-    margin-bottom: 11px;
-    font-size: 13px;
-  }
-
-  .workflow-heading-row {
-    gap: 18px;
-    margin-bottom: 26px;
-  }
-
-  .workflow-media,
-  .workflow-media-cinematic {
+  .workflow-media {
     border-radius: 14px;
   }
 
-  .workflow-media-video,
-  .workflow-media-cinematic {
+  .workflow-media-video {
     padding: 5px;
   }
 
-  .workflow-media-video .feature-video,
-  .workflow-media-cinematic .feature-video {
+  .workflow-media-video .feature-video {
     border-radius: 10px;
-  }
-
-  .clipboard-stage {
-    aspect-ratio: 1.12;
-    padding: 10px;
-  }
-
-  .clipboard-window {
-    padding: 14px;
-    border-radius: 10px;
-  }
-
-  .clipboard-window-header {
-    align-items: flex-start;
-    padding-bottom: 14px;
-  }
-
-  .clipboard-window-header > span {
-    display: none;
-  }
-
-  .clipboard-filter-row {
-    width: 100%;
-  }
-
-  .clipboard-filter-row span {
-    flex: 1;
-  }
-
-  .clipboard-preview-card {
-    border-radius: 8px;
-  }
-
-  .clipboard-preview-card span {
-    padding: 10px;
-    font-size: 10px;
   }
 
   .feature-panel {

@@ -1,16 +1,12 @@
 import Image from "next/image";
 import FeatureVideo from "./FeatureVideo";
+import HeroVideo from "./HeroVideo";
+import { marketingVideos } from "./marketingMedia";
 import MobileMenu from "./MobileMenu";
 
 const checkoutHref = "/api/checkout";
 const siteUrl = "https://assistapp.dev";
 const currentPrice = 20;
-const featureVideos = {
-  annotation:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/annotationedit.mp4",
-  screenshot:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/fullscreenedit.mp4"
-};
 
 const faqItems = [
   {
@@ -143,7 +139,7 @@ export default function Home() {
         <nav className="header-pill" aria-label="Primary navigation">
           <a className="brand" href="#top" aria-label="Assist home">
             <span className="brand-mark">
-              <Image src="/assist-icon.svg" alt="" width={30} height={30} />
+              <Image src="/assist-icon.png" alt="" width={30} height={30} />
             </span>
             <span>Assist</span>
           </a>
@@ -178,18 +174,7 @@ export default function Home() {
           </div>
           <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
         </div>
-        <div className="hero-video-frame">
-          <video
-            className="hero-video"
-            src={featureVideos.annotation}
-            aria-label="Assist capturing a voice-powered screen annotation"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-          />
-        </div>
+        <HeroVideo src={marketingVideos.hero} />
       </section>
       <section className="capability-section">
         <div className="trusted-by" aria-label="Companies where Assist users work">
@@ -210,8 +195,7 @@ export default function Home() {
       <section id="features" className="feature-showcase" aria-label="Assist features">
         <article id="voice-annotation" className="workflow-section workflow-split">
           <div className="workflow-copy">
-            <p className="workflow-name">Voice annotation</p>
-            <h2>Point at the screen. Say what you mean.</h2>
+            <h2>Point. Speak. Done.</h2>
             <p className="workflow-description">
               Hold Option anywhere on macOS to draw over what you see. Speak while
               you annotate and Assist adds a local transcript to the same capture,
@@ -219,62 +203,35 @@ export default function Home() {
             </p>
           </div>
           <div className="workflow-media workflow-media-video" aria-hidden="true">
-            <FeatureVideo src={featureVideos.annotation} />
+            <FeatureVideo src={marketingVideos.annotation} />
           </div>
         </article>
 
-        <article id="screenshots" className="workflow-section workflow-cinematic">
-          <div className="workflow-heading-row">
-            <div className="workflow-copy">
-              <p className="workflow-name">Screenshots</p>
-              <h2>Capture it clean. Finish it before sharing.</h2>
-            </div>
+        <article id="screenshots" className="workflow-section workflow-split workflow-split-reverse">
+          <div className="workflow-copy">
+            <h2>Capture. Edit.</h2>
             <p className="workflow-description">
               Press Control + Option for a clean screenshot of the full display.
               It saves immediately, and a quick editor drops under the notch in
-              case you want to crop, blur, or frame it before you share.
+              case you want to crop, blur, or frame it before using it.
             </p>
           </div>
-          <div className="workflow-media workflow-media-cinematic" aria-hidden="true">
-            <FeatureVideo src={featureVideos.screenshot} />
+          <div className="workflow-media workflow-media-video" aria-hidden="true">
+            <FeatureVideo src={marketingVideos.screenshot} />
           </div>
         </article>
 
-        <article id="clipboard" className="workflow-section workflow-split workflow-split-reverse">
+        <article id="clipboard" className="workflow-section workflow-split">
           <div className="workflow-copy">
-            <p className="workflow-name">Clipboard</p>
-            <h2>Everything you copy, still close at hand.</h2>
+            <h2>Copy once. Reuse anytime.</h2>
             <p className="workflow-description">
               Assist keeps copied text beside your screenshots in one local shelf.
               Open the notch, narrow the view to All, Text, or Images, and put an
               item back into your workflow in a click.
             </p>
           </div>
-          <div className="workflow-media clipboard-stage" aria-hidden="true">
-            <div className="clipboard-window">
-              <div className="clipboard-window-header">
-                <span>Assist</span>
-                <div className="clipboard-filter-row">
-                  <span className="is-selected">All</span>
-                  <span>Text</span>
-                  <span>Images</span>
-                </div>
-              </div>
-              <div className="clipboard-preview-grid">
-                <div className="clipboard-preview-card clipboard-preview-image">
-                  <Image src="/hero-meadow.png" alt="" width={320} height={180} sizes="(max-width: 640px) 38vw, 190px" />
-                </div>
-                <div className="clipboard-preview-card clipboard-preview-text">
-                  <span>Copy the exact item you need, then keep moving.</span>
-                </div>
-                <div className="clipboard-preview-card clipboard-preview-color">
-                  <span>#7C8AF0</span>
-                </div>
-                <div className="clipboard-preview-card clipboard-preview-note">
-                  <span>Voice annotation and screenshot history, together.</span>
-                </div>
-              </div>
-            </div>
+          <div className="workflow-media workflow-media-video" aria-hidden="true">
+            <FeatureVideo src={marketingVideos.clipboard} />
           </div>
         </article>
       </section>
@@ -335,7 +292,7 @@ export default function Home() {
         <div className="footer-cta">
           <Image className="footer-cta-icon" src="/assist-icon.png" alt="" width={72} height={72} />
           <h2>Keep every capture one gesture away.</h2>
-          <p>Voice annotation, clean screenshots, and clipboard history—built for your Mac.</p>
+          <p>Voice annotation, clean screenshots, and clipboard history, built for your Mac.</p>
           <a className="footer-cta-button" href={checkoutHref}>
             <span aria-hidden="true"></span>
             <span>Get Assist for Mac</span>
@@ -346,11 +303,11 @@ export default function Home() {
           <div className="footer-brand-block">
             <a className="footer-brand" href="#top" aria-label="Assist home">
               <span className="brand-mark">
-                <Image src="/assist-icon.svg" alt="" width={30} height={30} />
+                <Image src="/assist-icon.png" alt="" width={30} height={30} />
               </span>
               <span>Assist</span>
             </a>
-            <p>Voice annotation, screenshots, and clipboard history—right from your Mac notch.</p>
+            <p>Voice annotation, screenshots, and clipboard history, right from your Mac notch.</p>
           </div>
 
           <nav className="footer-link-grid" aria-label="Footer navigation">
