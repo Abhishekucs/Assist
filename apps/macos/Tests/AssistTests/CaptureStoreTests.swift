@@ -40,6 +40,182 @@ final class CaptureStoreTests: XCTestCase {
         )
     }
 
+    func testReplacingScreenshotPixelsKeepsTheCaptureIdentity() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        let item = try store.save(image: makeImage(), context: .saved)
+        let originalImageData = try Data(contentsOf: URL(fileURLWithPath: item.imagePath))
+        let contextFileURL = try XCTUnwrap(item.contextFileURL)
+        let originalContextData = try Data(contentsOf: contextFileURL)
+
+        try store.replaceImage(
+            for: item,
+            with: makeImage(
+                color: NSColor(calibratedRed: 0, green: 0.45, blue: 1, alpha: 1),
+                width: 7,
+                height: 5
+            )
+        )
+
+        let persistedItem = try XCTUnwrap(store.loadItems().first)
+        XCTAssertEqual(persistedItem.id, item.id)
+        XCTAssertEqual(persistedItem.imagePath, item.imagePath)
+        XCTAssertEqual(persistedItem.thumbnailPath, item.thumbnailPath)
+        XCTAssertEqual(persistedItem.context, item.context)
+        XCTAssertEqual(
+            persistedItem.createdAt.timeIntervalSince1970,
+            item.createdAt.timeIntervalSince1970,
+            accuracy: 0.001
+        )
+        let updatedImageData = try Data(contentsOf: URL(fileURLWithPath: item.imagePath))
+        XCTAssertNotEqual(updatedImageData, originalImageData)
+        XCTAssertEqual(try Data(contentsOf: contextFileURL), originalContextData)
+        let imageBitmap = try XCTUnwrap(NSBitmapImageRep(data: updatedImageData))
+        let thumbnailBitmap = try XCTUnwrap(
+            NSBitmapImageRep(data: Data(contentsOf: URL(fileURLWithPath: item.thumbnailPath)))
+        )
+        XCTAssertEqual(imageBitmap.pixelsWide, 7)
+        XCTAssertEqual(imageBitmap.pixelsHigh, 5)
+        XCTAssertEqual(
+            Double(imageBitmap.pixelsWide) / Double(imageBitmap.pixelsHigh),
+            7.0 / 5.0,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            Double(thumbnailBitmap.pixelsWide) / Double(thumbnailBitmap.pixelsHigh),
+            7.0 / 5.0,
+            accuracy: 0.001
+        )
+    }
+
+    func testReplacingScreenshotPixelsKeepsOriginalsAfterPartialStageWriteFailure() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+
+        let writeCounter = LockedWriteCounter()
+        let store = CaptureStore(
+            applicationSupportDirectory: supportDirectory,
+            replacementDataWriter: { data, url in
+                if writeCounter.increment() == 2 {
+                    throw TestWriteError.forcedFailure
+                }
+                try data.write(to: url, options: .atomic)
+            }
+        )
+        let item = try store.save(image: makeImage(), context: .saved)
+        let imageURL = URL(fileURLWithPath: item.imagePath)
+        let thumbnailURL = URL(fileURLWithPath: item.thumbnailPath)
+        let originalImageData = try Data(contentsOf: imageURL)
+        let originalThumbnailData = try Data(contentsOf: thumbnailURL)
+
+        XCTAssertThrowsError(
+            try store.replaceImage(
+                for: item,
+                with: makeImage(
+                    color: NSColor(calibratedRed: 0, green: 0.45, blue: 1, alpha: 1),
+                    width: 7,
+                    height: 5
+                )
+            )
+        )
+
+        XCTAssertEqual(writeCounter.value, 2)
+        XCTAssertEqual(try Data(contentsOf: imageURL), originalImageData)
+        XCTAssertEqual(try Data(contentsOf: thumbnailURL), originalThumbnailData)
+        XCTAssertEqual(store.loadItems().map(\.id), [item.id])
+    }
+
+    func testReplacingScreenshotPixelsKeepsOriginalsWhenAtomicSwapFails() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(
+            applicationSupportDirectory: supportDirectory,
+            replacementDirectorySwapper: { _, _ in
+                throw TestWriteError.forcedFailure
+            }
+        )
+        let item = try store.save(image: makeImage(), context: .saved)
+        let imageURL = URL(fileURLWithPath: item.imagePath)
+        let thumbnailURL = URL(fileURLWithPath: item.thumbnailPath)
+        let originalImageData = try Data(contentsOf: imageURL)
+        let originalThumbnailData = try Data(contentsOf: thumbnailURL)
+
+        XCTAssertThrowsError(
+            try store.replaceImage(
+                for: item,
+                with: makeImage(
+                    color: NSColor(calibratedRed: 0, green: 0.45, blue: 1, alpha: 1),
+                    width: 7,
+                    height: 5
+                )
+            )
+        )
+
+        XCTAssertEqual(try Data(contentsOf: imageURL), originalImageData)
+        XCTAssertEqual(try Data(contentsOf: thumbnailURL), originalThumbnailData)
+        let capturesDirectory = supportDirectory.appendingPathComponent("Captures")
+        let stagedItems = try FileManager.default.contentsOfDirectory(
+            at: capturesDirectory,
+            includingPropertiesForKeys: nil
+        ).filter { $0.lastPathComponent.contains(".edit-") }
+        XCTAssertTrue(stagedItems.isEmpty)
+    }
+
+    func testStartupRemovesInterruptedImageReplacementDirectories() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let capturesDirectory = supportDirectory.appendingPathComponent("Captures")
+        try FileManager.default.createDirectory(
+            at: capturesDirectory,
+            withIntermediateDirectories: true
+        )
+        let stagingURL = capturesDirectory.appendingPathComponent(
+            ".\(UUID().uuidString).edit-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let unrelatedURL = capturesDirectory.appendingPathComponent(
+            ".keep-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: stagingURL, withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: unrelatedURL, withIntermediateDirectories: false)
+
+        _ = CaptureStore(applicationSupportDirectory: supportDirectory)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unrelatedURL.path))
+    }
+
+    func testBackgroundReplacementTargetEncodesImageAndThumbnail() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        let item = try store.save(image: makeImage(), context: .saved)
+        let replacement = try makeImage(
+            color: NSColor(calibratedRed: 0.2, green: 0.8, blue: 0.4, alpha: 1),
+            width: 700,
+            height: 350
+        )
+        var proposedRect = CGRect(origin: .zero, size: replacement.size)
+        let replacementCGImage = try XCTUnwrap(
+            replacement.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil)
+        )
+
+        try store.imageReplacementTarget(for: item).replace(with: replacementCGImage)
+
+        let imageBitmap = try XCTUnwrap(
+            NSBitmapImageRep(data: Data(contentsOf: URL(fileURLWithPath: item.imagePath)))
+        )
+        let thumbnailBitmap = try XCTUnwrap(
+            NSBitmapImageRep(data: Data(contentsOf: URL(fileURLWithPath: item.thumbnailPath)))
+        )
+        XCTAssertEqual(imageBitmap.pixelsWide, 700)
+        XCTAssertEqual(imageBitmap.pixelsHigh, 350)
+        XCTAssertEqual(thumbnailBitmap.pixelsWide, 480)
+        XCTAssertEqual(thumbnailBitmap.pixelsHigh, 240)
+    }
+
     func testContextFileIsAtomicallyRewrittenForEveryTerminalState() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }
@@ -281,12 +457,16 @@ final class CaptureStoreTests: XCTestCase {
             .appendingPathComponent("AssistCaptureStoreTests-\(UUID().uuidString)", isDirectory: true)
     }
 
-    private func makeImage() throws -> NSImage {
+    private func makeImage(
+        color: NSColor = NSColor(calibratedRed: 1, green: 0, blue: 0, alpha: 1),
+        width: Int = 4,
+        height: Int = 4
+    ) throws -> NSImage {
         let bitmap = try XCTUnwrap(
             NSBitmapImageRep(
                 bitmapDataPlanes: nil,
-                pixelsWide: 4,
-                pixelsHigh: 4,
+                pixelsWide: width,
+                pixelsHigh: height,
                 bitsPerSample: 8,
                 samplesPerPixel: 4,
                 hasAlpha: true,
@@ -296,12 +476,12 @@ final class CaptureStoreTests: XCTestCase {
                 bitsPerPixel: 0
             )
         )
-        bitmap.setColor(
-            NSColor(calibratedRed: 1, green: 0, blue: 0, alpha: 1),
-            atX: 0,
-            y: 0
-        )
-        let image = NSImage(size: NSSize(width: 4, height: 4))
+        for y in 0..<height {
+            for x in 0..<width {
+                bitmap.setColor(color, atX: x, y: y)
+            }
+        }
+        let image = NSImage(size: NSSize(width: width, height: height))
         image.addRepresentation(bitmap)
         return image
     }
@@ -323,5 +503,27 @@ final class CaptureStoreTests: XCTestCase {
             modelRevision: VoiceContextService.modelRevision,
             errorDetails: errorDetails
         )
+    }
+}
+
+private enum TestWriteError: Error {
+    case forcedFailure
+}
+
+private final class LockedWriteCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func increment() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        count += 1
+        return count
     }
 }

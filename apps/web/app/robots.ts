@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+const siteUrl = "https://assistapp.dev";
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
@@ -9,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/api/", "/purchase/"]
       }
     ],
-    sitemap: "https://assistapp.dev/sitemap.xml"
+    sitemap: `${siteUrl}/sitemap.xml`,
+    host: siteUrl
   };
 }

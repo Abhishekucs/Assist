@@ -231,15 +231,13 @@ final class RetiredAgentHooksCleanupTests: XCTestCase {
     }
 
     @MainActor
-    func testCaptureOnlyGeometryPreservesCopyFeedbackAndCompactShelf() {
+    func testCaptureOnlyGeometryKeepsCollapsedWidthStableAndCompactShelf() {
         let settings = PillSettings(defaults: defaults)
         XCTAssertEqual(PillChromeMetrics.expandedSize(settings: settings).height, 210)
         XCTAssertEqual(PillChromeMetrics.collapsedSize(settings: settings), settings.collapsedSize)
-        XCTAssertEqual(PillChromeMetrics.collapsedSize(settings: settings, showingCopyFeedback: true).width,
-                       settings.collapsedWidth + 120)
         settings.collapsedWidth = 360
         settings.expandedWidth = 440
-        XCTAssertEqual(PillChromeMetrics.collapsedSize(settings: settings, showingCopyFeedback: true).width, 440)
+        XCTAssertEqual(PillChromeMetrics.collapsedSize(settings: settings).width, 360)
     }
 
     private func cleanup(environment: [String: String] = [:]) -> RetiredAgentHooksCleanup {
