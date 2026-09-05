@@ -22,6 +22,14 @@ final class ScreenshotEditorTests: XCTestCase {
         XCTAssertTrue(presence.shouldDismissWhenPointerExits())
     }
 
+    func testPointerExitCannotDismissAnInProgressSave() {
+        var presence = ScreenshotEditorPresence()
+        presence.pointerEntered()
+
+        XCTAssertFalse(presence.shouldDismissWhenPointerExits(isSaving: true))
+        XCTAssertTrue(presence.shouldDismissWhenPointerExits(isSaving: false))
+    }
+
     func testExpandedFrameGrowsAndRemainsLandscape() {
         let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
         let island = CGRect(x: 826, y: 1050, width: 268, height: 30)

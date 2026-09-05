@@ -162,6 +162,11 @@ final class WindowManager {
         positionScreenshotEditor(animated: true)
     }
 
+    /// Re-evaluates pointer presence after an operation that temporarily owned the editor lifetime.
+    func synchronizeScreenshotEditorHover() {
+        syncScreenshotEditorHover()
+    }
+
     func restorePillToFront(reason: String) {
         contentRevealWorkItem?.cancel()
         collapsedRevealWorkItem?.cancel()

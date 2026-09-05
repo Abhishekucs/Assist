@@ -247,10 +247,10 @@ struct ScreenshotEditorPresence: Equatable {
         hasPointerEntered = true
     }
 
-    /// Once the pointer has entered, its presence owns the card lifetime. Leaving dismisses the
-    /// draft while the original capture remains safely stored in history.
-    func shouldDismissWhenPointerExits() -> Bool {
-        hasPointerEntered
+    /// Once the pointer has entered, its presence owns the card lifetime. An explicit save takes
+    /// ownership while it is running so leaving cannot cancel or misreport that operation.
+    func shouldDismissWhenPointerExits(isSaving: Bool = false) -> Bool {
+        hasPointerEntered && !isSaving
     }
 
     func shouldDismissWhenEntryWindowExpires() -> Bool {

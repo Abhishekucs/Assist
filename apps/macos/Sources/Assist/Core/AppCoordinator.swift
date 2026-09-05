@@ -637,7 +637,9 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     private func screenshotEditorPointerExited(sessionID: UUID) {
         guard activeScreenshotEditorSessionID == sessionID,
-              screenshotEditorPresence.shouldDismissWhenPointerExits() else { return }
+              screenshotEditorPresence.shouldDismissWhenPointerExits(
+                isSaving: screenshotEditorViewModel.isSaving
+              ) else { return }
         dismissScreenshotEditor(
             sessionID: sessionID,
             reason: "pointer-exited",
@@ -753,6 +755,7 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
 
     private func handleScreenshotEditorSaveError(_ error: Error, sessionID: UUID) {
         screenshotEditorViewModel.setSaving(false, sessionID: sessionID)
+        windowManager.synchronizeScreenshotEditorHover()
         pillViewModel.statusText = "Edit save failed"
         pillViewModel.isBusy = false
         pillViewModel.diagnosticMessage = error.localizedDescription
