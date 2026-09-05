@@ -3,6 +3,15 @@ import XCTest
 @testable import Assist
 
 final class ScreenshotEditorTests: XCTestCase {
+    func testFloatingPanelsCanJoinTheCurrentApplicationSpace() {
+        let behavior = WindowManager.floatingPanelCollectionBehavior
+
+        XCTAssertTrue(behavior.contains(.canJoinAllSpaces))
+        XCTAssertTrue(behavior.contains(.canJoinAllApplications))
+        XCTAssertTrue(behavior.contains(.fullScreenAuxiliary))
+        XCTAssertTrue(behavior.contains(.stationary))
+    }
+
     func testEntryWindowDismissesOnlyBeforeTheFirstHover() {
         var presence = ScreenshotEditorPresence()
 

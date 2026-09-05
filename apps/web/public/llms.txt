@@ -14,8 +14,15 @@ Key facts:
 - Capture: Control + Option for a full-screen screenshot with a quick crop, blur, and framing editor; hold Option to draw and optionally dictate before capture
 - Reuse: drag recent screenshots, annotations, and copied text from the notch shelf into documents, chats, and design tools
 
-## Pages
+## Product
 
-- [Home](https://assistapp.dev/): product overview, feature tour, pricing, and FAQ
+- [Voice annotation](https://assistapp.dev/#voice-annotation): draw over the Mac screen and optionally add a local transcript
+- [Screenshots](https://assistapp.dev/#screenshots): capture a full display and quickly crop, blur, or frame the result
+- [Clipboard](https://assistapp.dev/#clipboard): keep recent copied text and screenshots ready to copy or drag
+- [Pricing](https://assistapp.dev/#pricing): $20 one-time purchase for one Mac
+- [FAQ](https://assistapp.dev/#faq): product behavior, privacy, requirements, and licensing
+
+## Legal
+
 - [Privacy Policy](https://assistapp.dev/privacy): how Assist handles local app content, purchase and license records, website analytics, and third-party services
 - [Terms of Use](https://assistapp.dev/terms): license, acceptable use, purchases, updates, warranties, and other terms for using Assist

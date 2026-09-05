@@ -9,6 +9,13 @@ private final class PillPanel: NSPanel {
 
 @MainActor
 final class WindowManager {
+    nonisolated static let floatingPanelCollectionBehavior: NSWindow.CollectionBehavior = [
+        .canJoinAllSpaces,
+        .canJoinAllApplications,
+        .fullScreenAuxiliary,
+        .stationary
+    ]
+
     private enum Metrics {
         static let islandAnimation = Animation.interactiveSpring(
             response: 0.38,
@@ -193,7 +200,7 @@ final class WindowManager {
         pillPanel.isMovableByWindowBackground = false
         pillPanel.becomesKeyOnlyIfNeeded = true
         pillPanel.acceptsMouseMovedEvents = true
-        pillPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        pillPanel.collectionBehavior = Self.floatingPanelCollectionBehavior
         pillPanel.hidesOnDeactivate = false
         pillPanel.isReleasedWhenClosed = false
         let hostingView = PillHostingView(
@@ -232,7 +239,7 @@ final class WindowManager {
         overlayPanel.hasShadow = false
         overlayPanel.level = .screenSaver
         overlayPanel.ignoresMouseEvents = true
-        overlayPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        overlayPanel.collectionBehavior = Self.floatingPanelCollectionBehavior
         overlayPanel.hidesOnDeactivate = false
         overlayPanel.isReleasedWhenClosed = false
         overlayPanel.contentView = overlayView
@@ -246,7 +253,7 @@ final class WindowManager {
         screenshotEditorPanel.isMovable = false
         screenshotEditorPanel.becomesKeyOnlyIfNeeded = false
         screenshotEditorPanel.acceptsMouseMovedEvents = true
-        screenshotEditorPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        screenshotEditorPanel.collectionBehavior = Self.floatingPanelCollectionBehavior
         screenshotEditorPanel.hidesOnDeactivate = false
         screenshotEditorPanel.isReleasedWhenClosed = false
 

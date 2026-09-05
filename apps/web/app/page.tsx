@@ -1,3 +1,4 @@
+import Image from "next/image";
 import FeatureVideo from "./FeatureVideo";
 import MobileMenu from "./MobileMenu";
 
@@ -20,7 +21,7 @@ const faqItems = [
   {
     question: "How does voice-powered screen annotation work?",
     answer:
-      "Hold Option anywhere on macOS, draw over the screen, and speak while you point things out. Release Option to save the annotated screenshot with its optional local transcript, ready to copy as structured context."
+      "Hold Option anywhere on macOS, draw over the screen, and speak while you point things out. Release Option to save the annotated screenshot with its optional local transcript, ready to copy together."
   },
   {
     question: "Does Assist send my voice recording to the cloud?",
@@ -48,9 +49,9 @@ const faqItems = [
       "Copy text as usual and Assist keeps it in your local history alongside your screenshots. Hover the notch, then use All, Text, or Images to filter what you need, copy it again, or drag it into another app. You can delete individual items whenever you want."
   },
   {
-    question: "Where does Assist store my screenshots and context?",
+    question: "Where does Assist store my screenshots and history?",
     answer:
-      "Screenshots, copied text, history, and optional transcripts are stored locally on your Mac. Assist does not OCR or interpret screenshots; you choose when to copy or drag the original context into another app."
+      "Screenshots, copied text, history, and optional transcripts are stored locally on your Mac. Assist does not OCR or interpret screenshots; you choose when to copy or drag the original capture into another app."
   },
   {
     question: "What are the Mac requirements?",
@@ -60,7 +61,7 @@ const faqItems = [
   {
     question: "Which macOS permissions does Assist need?",
     answer:
-      "Screen Recording is required for screenshots. Accessibility or Input Monitoring lets Assist detect the Option and Control + Option shortcuts. Microphone access is optional and requested only when you enable voice context."
+      "Screen Recording is required for screenshots. Accessibility or Input Monitoring lets Assist detect the Option and Control + Option shortcuts. Microphone access is optional and requested only when you enable voice transcription."
   },
   {
     question: "Is Assist a subscription?",
@@ -142,7 +143,7 @@ export default function Home() {
         <nav className="header-pill" aria-label="Primary navigation">
           <a className="brand" href="#top" aria-label="Assist home">
             <span className="brand-mark">
-              <img src="/assist-icon.svg" alt="" width="30" height="30" />
+              <Image src="/assist-icon.svg" alt="" width={30} height={30} />
             </span>
             <span>Assist</span>
           </a>
@@ -190,114 +191,92 @@ export default function Home() {
           />
         </div>
       </section>
-      <section id="features" className="capability-section">
+      <section className="capability-section">
         <div className="trusted-by" aria-label="Companies where Assist users work">
           <p>Trusted by people at</p>
           <div className="trusted-companies">
-            <span><img src="/brands/apple.svg" alt="" />Apple</span>
-            <span><img src="/brands/microsoft.svg" alt="" />Microsoft</span>
-            <span><img src="/brands/meta.svg" alt="" />Meta</span>
-            <span><img src="/brands/amazon.svg" alt="" />Amazon</span>
-            <span><img src="/brands/tiktok.svg" alt="" />TikTok</span>
+            <span><Image src="/brands/apple.svg" alt="" width={18} height={18} />Apple</span>
+            <span><Image src="/brands/microsoft.svg" alt="" width={18} height={18} />Microsoft</span>
+            <span><Image src="/brands/meta.svg" alt="" width={18} height={18} />Meta</span>
+            <span><Image src="/brands/amazon.svg" alt="" width={18} height={18} />Amazon</span>
+            <span><Image src="/brands/tiktok.svg" alt="" width={18} height={18} />TikTok</span>
             <span className="character-ai">(character.ai)</span>
-            <span><img src="/brands/mistral-ai.svg" alt="" />Mistral AI</span>
-            <span><img src="/brands/doordash.svg" alt="" />DoorDash</span>
+            <span><Image src="/brands/mistral-ai.svg" alt="" width={18} height={18} />Mistral AI</span>
+            <span><Image src="/brands/doordash.svg" alt="" width={18} height={18} />DoorDash</span>
           </div>
-        </div>
-
-        <div className="capability-intro">
-          <p className="section-kicker">One notch. Three focused workflows.</p>
-          <h2>The context layer for work on your Mac.</h2>
-          <p>
-            Capture what you see, add what you mean, and keep the things you copy
-            close at hand.
-          </p>
-        </div>
-
-        <div className="capability-grid" aria-label="Assist main features">
-          <article className="capability-card">
-            <h3>Voice-powered annotation</h3>
-            <p>Hold Option to draw on the screen and speak your intent into the same locally prepared capture.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Instant full-screen screenshots</h3>
-            <p>Press Control + Option to save a clean screenshot, then crop, blur, or frame it in the quick editor under the notch.</p>
-          </article>
-          <article className="capability-card">
-            <h3>Clipboard history</h3>
-            <p>Keep copied text alongside your captures. Filter by All, Text, or Images, then copy an item again or drag it into another app.</p>
-          </article>
         </div>
       </section>
 
-      <section className="feature-showcase" aria-labelledby="feature-tour-title">
-        <div className="feature-showcase-intro">
-          <p className="section-kicker">A closer look</p>
-          <h2 id="feature-tour-title">Capture it. Explain it.</h2>
-          <p>
-            Take a clean screenshot or add drawings and a local voice transcript.
-            Both are ready to copy or drag from the notch.
-          </p>
-        </div>
-
-        <article className="feature-panel feature-panel-wide">
-          <div className="feature-copy-block">
-            <p className="feature-kicker">Voice annotation for Mac</p>
-            <h3>Point at the screen. Say what you mean.</h3>
-            <p className="feature-description">
+      <section id="features" className="feature-showcase" aria-label="Assist features">
+        <article id="voice-annotation" className="workflow-section workflow-split">
+          <div className="workflow-copy">
+            <p className="workflow-name">Voice annotation</p>
+            <h2>Point at the screen. Say what you mean.</h2>
+            <p className="workflow-description">
               Hold Option anywhere on macOS to draw over what you see. Speak while
               you annotate and Assist adds a local transcript to the same capture,
               so the image and your intent stay together.
             </p>
-            <ul className="feature-detail-list">
-              <li>
-                <strong>Draw with one hold</strong>
-                <span>Hold Option, move the pointer, and release to save the annotated screenshot.</span>
-              </li>
-              <li>
-                <strong>Transcribe locally</strong>
-                <span>Optional Whisper transcription runs on Apple silicon, and raw audio is never saved.</span>
-              </li>
-              <li>
-                <strong>Copy useful context</strong>
-                <span>Reuse the original image and structured Markdown in chats, documents, and other apps.</span>
-              </li>
-            </ul>
           </div>
-          <div className="feature-visual feature-video-visual" aria-hidden="true">
+          <div className="workflow-media workflow-media-video" aria-hidden="true">
             <FeatureVideo src={featureVideos.annotation} />
           </div>
         </article>
 
-        <article className="feature-panel feature-panel-wide">
-          <div className="feature-copy-block">
-            <p className="feature-kicker">Full-screen screenshots</p>
-            <h3>Capture the screen before the moment passes.</h3>
-            <p className="feature-description">
+        <article id="screenshots" className="workflow-section workflow-cinematic">
+          <div className="workflow-heading-row">
+            <div className="workflow-copy">
+              <p className="workflow-name">Screenshots</p>
+              <h2>Capture it clean. Finish it before sharing.</h2>
+            </div>
+            <p className="workflow-description">
               Press Control + Option for a clean screenshot of the full display.
               It saves immediately, and a quick editor drops under the notch in
               case you want to crop, blur, or frame it before you share.
             </p>
-            <ul className="feature-detail-list">
-              <li>
-                <strong>One global shortcut</strong>
-                <span>Capture the full screen from any app without breaking your current flow.</span>
-              </li>
-              <li>
-                <strong>Crop, blur, and frame</strong>
-                <span>Trim the shot, blur what should stay private, or drop it on a backdrop—then expand for a closer look.</span>
-              </li>
-              <li>
-                <strong>Drag into any workflow</strong>
-                <span>Drop recent captures into messages, documents, or design tools.</span>
-              </li>
-            </ul>
           </div>
-          <div className="feature-visual feature-video-visual" aria-hidden="true">
+          <div className="workflow-media workflow-media-cinematic" aria-hidden="true">
             <FeatureVideo src={featureVideos.screenshot} />
           </div>
         </article>
 
+        <article id="clipboard" className="workflow-section workflow-split workflow-split-reverse">
+          <div className="workflow-copy">
+            <p className="workflow-name">Clipboard</p>
+            <h2>Everything you copy, still close at hand.</h2>
+            <p className="workflow-description">
+              Assist keeps copied text beside your screenshots in one local shelf.
+              Open the notch, narrow the view to All, Text, or Images, and put an
+              item back into your workflow in a click.
+            </p>
+          </div>
+          <div className="workflow-media clipboard-stage" aria-hidden="true">
+            <div className="clipboard-window">
+              <div className="clipboard-window-header">
+                <span>Assist</span>
+                <div className="clipboard-filter-row">
+                  <span className="is-selected">All</span>
+                  <span>Text</span>
+                  <span>Images</span>
+                </div>
+              </div>
+              <div className="clipboard-preview-grid">
+                <div className="clipboard-preview-card clipboard-preview-image">
+                  <Image src="/hero-meadow.png" alt="" width={320} height={180} sizes="(max-width: 640px) 38vw, 190px" />
+                </div>
+                <div className="clipboard-preview-card clipboard-preview-text">
+                  <span>Copy the exact item you need, then keep moving.</span>
+                </div>
+                <div className="clipboard-preview-card clipboard-preview-color">
+                  <span>#7C8AF0</span>
+                </div>
+                <div className="clipboard-preview-card clipboard-preview-note">
+                  <span>Voice annotation and screenshot history, together.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
       </section>
 
       <section id="pricing" className="pricing-section">
@@ -353,11 +332,21 @@ export default function Home() {
       </section>
 
       <footer className="site-footer">
+        <div className="footer-cta">
+          <Image className="footer-cta-icon" src="/assist-icon.png" alt="" width={72} height={72} />
+          <h2>Keep every capture one gesture away.</h2>
+          <p>Voice annotation, clean screenshots, and clipboard history—built for your Mac.</p>
+          <a className="footer-cta-button" href={checkoutHref}>
+            <span aria-hidden="true"></span>
+            <span>Get Assist for Mac</span>
+          </a>
+        </div>
+
         <div className="footer-links-wrap">
           <div className="footer-brand-block">
             <a className="footer-brand" href="#top" aria-label="Assist home">
               <span className="brand-mark">
-                <img src="/assist-icon.svg" alt="" width="30" height="30" />
+                <Image src="/assist-icon.svg" alt="" width={30} height={30} />
               </span>
               <span>Assist</span>
             </a>
@@ -366,15 +355,21 @@ export default function Home() {
 
           <nav className="footer-link-grid" aria-label="Footer navigation">
             <div>
-              <h3>Menu</h3>
-              <a href="#top">Home</a>
-              <a href="#features">Features</a>
+              <h3>Product</h3>
+              <a href="#voice-annotation">Voice annotation</a>
+              <a href="#screenshots">Screenshots</a>
+              <a href="#clipboard">Clipboard</a>
+            </div>
+            <div>
+              <h3>Buy</h3>
               <a href="#pricing">Pricing</a>
               <a href="#faq">FAQ</a>
+              <a href={checkoutHref}>Download</a>
             </div>
             <div>
               <h3>Company</h3>
               <a href="mailto:abhishek@thinkingsoundlab.com">Contact</a>
+              <a href="/llms.txt">LLM.txt</a>
             </div>
             <div>
               <h3>Legal</h3>
@@ -386,7 +381,7 @@ export default function Home() {
 
         <div className="footer-bottom">
           <p>© 2026 Assist. All rights reserved.</p>
-          <p>Built for focused Mac workflows.</p>
+          <a href="#top">Back to top</a>
         </div>
       </footer>
     </main>

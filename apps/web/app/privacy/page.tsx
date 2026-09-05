@@ -35,7 +35,7 @@ export default function PrivacyPage() {
         <p>
           Assist is a macOS utility for capturing screenshots, adding visual and voice
           annotations, and reusing copied text.
-          The desktop app is designed so that your working context stays on your Mac. Assist
+          The desktop app is designed so that your captures and copied content stay on your Mac. Assist
           does not upload your screenshots, annotations, voice transcripts, or copied
           text to Assist&apos;s servers unless you deliberately send that material through
           another service yourself.
@@ -145,7 +145,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Microphone</strong>{" "}to record speech only while you hold Option during an
-            annotation when voice context is enabled. Recording stops after 90 seconds. Raw audio
+            annotation when voice transcription is enabled. Recording stops after 90 seconds. Raw audio
             stays only in memory until its queued local transcription completes or Assist closes;
             it is never saved to disk or uploaded by Assist.
           </li>
@@ -184,7 +184,7 @@ export default function PrivacyPage() {
           Where applicable law requires a legal basis, we rely on performance of our contract,
           our legitimate interests in operating and securing Assist, compliance with legal
           obligations, and consent where required. We do not sell personal information or use
-          it for cross-context behavioral advertising.
+          it for cross-site behavioral advertising.
         </p>
       </section>
 
@@ -296,7 +296,7 @@ export default function PrivacyPage() {
         <h2>10. Your choices and privacy rights</h2>
         <p>
           You can delete local recent items in Assist, change macOS permissions, disable voice
-          context, or remove the app&apos;s local data. Depending on where you live, you may also
+          transcription, or remove the app&apos;s local data. Depending on where you live, you may also
           have rights to request access, correction, deletion, restriction, objection, or a copy
           of personal information we control, and to withdraw consent where processing relies on
           consent.
