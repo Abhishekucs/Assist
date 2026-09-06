@@ -7,6 +7,10 @@ import MobileMenu from "./MobileMenu";
 const checkoutHref = "/api/checkout";
 const siteUrl = "https://assistapp.dev";
 const currentPrice = 20;
+const productHuntHref =
+  "https://www.producthunt.com/products/assist-4?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-assist-4";
+const productHuntBadgeSrc =
+  "https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1242727&theme=light&t=1788689369583";
 
 const faqItems = [
   {
@@ -173,6 +177,20 @@ export default function Home() {
             </a>
           </div>
           <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
+          <a
+            className="product-hunt-badge"
+            href={productHuntHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View Assist on Product Hunt"
+          >
+            <img
+              src={productHuntBadgeSrc}
+              alt="Assist — Voice Screenshot and Clipboard on Product Hunt"
+              width="250"
+              height="54"
+            />
+          </a>
         </div>
         <HeroVideo src={marketingVideos.hero} />
       </section>
