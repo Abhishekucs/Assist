@@ -389,6 +389,33 @@ p {
   font-weight: 500;
 }
 
+.product-hunt-badge {
+  display: inline-flex;
+  width: 250px;
+  max-width: 100%;
+  margin-top: 20px;
+  line-height: 0;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.product-hunt-badge:hover {
+  opacity: 0.94;
+  transform: translateY(-1px);
+}
+
+.product-hunt-badge:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 4px;
+}
+
+.product-hunt-badge img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .hero-download-button {
   display: inline-flex;
   align-items: center;
