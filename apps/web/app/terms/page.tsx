@@ -255,9 +255,9 @@ export default function TermsPage() {
           practical, we will give notice and an opportunity to resolve the issue.
         </p>
         <p>
-          Terms that by their nature should survive termination—including payment obligations,
-          open-source rights, intellectual-property provisions, disclaimers, liability limits,
-          and dispute provisions—will survive.
+          Payment obligations, open-source rights, intellectual-property provisions,
+          disclaimers, liability limits, and dispute provisions will survive termination when
+          their nature requires it.
         </p>
       </section>
 

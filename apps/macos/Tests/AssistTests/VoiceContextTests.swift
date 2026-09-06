@@ -433,8 +433,9 @@ final class VoiceContextTests: XCTestCase {
 
         item.context.dictation = nil
         viewModel.replaceScreenshot(item)
-        XCTAssertTrue(viewModel.showsCopySelectedContext)
-        XCTAssertTrue(viewModel.canCopySelectedContext)
+        XCTAssertFalse(viewModel.showsCopySelectedContext)
+        XCTAssertFalse(viewModel.canCopySelectedContext)
+        XCTAssertFalse(viewModel.canCopyContextMarkdown(item))
     }
 
     @MainActor

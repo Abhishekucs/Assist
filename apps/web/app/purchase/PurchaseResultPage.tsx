@@ -122,7 +122,7 @@ export default async function PurchaseResultPage({
       >
         <a className="purchase-brand" href="/" aria-label="Assist home">
           <span className="brand-mark">
-            <img src="/assist-icon.svg" alt="" width="30" height="30" />
+            <img src="/assist-icon.png" alt="" width="30" height="30" />
           </span>
           <span>Assist</span>
         </a>

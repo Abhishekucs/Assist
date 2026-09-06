@@ -112,17 +112,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let store = CaptureStore()
         let settings = PillSettings()
         let voiceContextService = VoiceContextService()
+        let screenshotEditRenderer = ScreenshotEditRenderer()
+        let screenshotEditorViewModel = ScreenshotEditorViewModel(renderer: screenshotEditRenderer)
         let pillViewModel = PillViewModel(
             settings: settings,
             voiceContextService: voiceContextService
         )
-        let windowManager = WindowManager(pillViewModel: pillViewModel, settings: settings)
+        let windowManager = WindowManager(
+            pillViewModel: pillViewModel,
+            screenshotEditorViewModel: screenshotEditorViewModel,
+            settings: settings
+        )
         let controlPanelController = ControlPanelWindowController(settings: settings, pillViewModel: pillViewModel)
         let coordinator = AppCoordinator(
             windowManager: windowManager,
             captureService: CaptureService(),
             store: store,
             pillViewModel: pillViewModel,
+            screenshotEditorViewModel: screenshotEditorViewModel,
+            screenshotEditRenderer: screenshotEditRenderer,
             voiceContextService: voiceContextService
         )
 

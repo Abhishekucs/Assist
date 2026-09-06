@@ -17,7 +17,7 @@ export function createLegalMetadata(
       canonical: path
     },
     openGraph: {
-      title: `${title} — Assist`,
+      title: `${title} | Assist`,
       description,
       url,
       siteName: "Assist",
@@ -34,7 +34,7 @@ export function createLegalMetadata(
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} — Assist`,
+      title: `${title} | Assist`,
       description,
       images: [
         {

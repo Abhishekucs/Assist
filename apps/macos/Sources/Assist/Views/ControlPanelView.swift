@@ -2,6 +2,8 @@ import AppKit
 import Combine
 import SwiftUI
 
+private typealias LibraryTokens = AssistDesignTokens.CaptureLibrary
+
 struct ControlPanelView: View {
     @ObservedObject var settings: PillSettings
     @ObservedObject var viewModel: PillViewModel
@@ -228,21 +230,23 @@ private struct AppTopBar: View {
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
     @Environment(\.assistTheme) private var theme
-    @State private var selectedFilter: LibraryFilter = .all
+    @State private var selectedFilter: ClipboardHistoryFilter = .all
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: 210, maximum: 240), spacing: 14, alignment: .top)]
+        [
+            GridItem(
+                .adaptive(
+                    minimum: LibraryTokens.minimumCardWidth,
+                    maximum: LibraryTokens.maximumCardWidth
+                ),
+                spacing: LibraryTokens.gridSpacing,
+                alignment: .top
+            )
+        ]
     }
 
     private var filteredItems: [ClipboardHistoryItem] {
-        viewModel.historyItems.filter { item in
-            switch (selectedFilter, item) {
-            case (.all, _), (.images, .screenshot), (.text, .text):
-                true
-            default:
-                false
-            }
-        }
+        viewModel.historyItems.filter(selectedFilter.includes)
     }
 
     var body: some View {
@@ -273,7 +277,11 @@ private struct CaptureLibraryView: View {
                         EmptyFilteredLibraryView(filter: selectedFilter)
                     } else {
                         ScrollView {
-                            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                            LazyVGrid(
+                                columns: columns,
+                                alignment: .leading,
+                                spacing: LibraryTokens.gridSpacing
+                            ) {
                                 ForEach(filteredItems) { item in
                                     CaptureLibraryCard(
                                         item: item,
@@ -284,7 +292,7 @@ private struct CaptureLibraryView: View {
                                     )
                                 }
                             }
-                            .padding(18)
+                            .padding(LibraryTokens.contentInset)
                         }
                         .background(theme.background)
                     }
@@ -363,27 +371,8 @@ private struct CapturePermissionBanner: View {
     }
 }
 
-private enum LibraryFilter: String, CaseIterable, Identifiable {
-    case all
-    case text
-    case images
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .all:
-            "All"
-        case .text:
-            "Text"
-        case .images:
-            "Images"
-        }
-    }
-}
-
 private struct LibraryFilterBar: View {
-    @Binding var selectedFilter: LibraryFilter
+    @Binding var selectedFilter: ClipboardHistoryFilter
     let shownCount: Int
     let totalCount: Int
     @Environment(\.assistTheme) private var theme
@@ -391,7 +380,7 @@ private struct LibraryFilterBar: View {
     var body: some View {
         HStack(spacing: 20) {
             HStack(spacing: 24) {
-                ForEach(LibraryFilter.allCases) { filter in
+                ForEach(ClipboardHistoryFilter.allCases) { filter in
                     Button {
                         selectedFilter = filter
                     } label: {
@@ -434,7 +423,7 @@ private struct LibraryFilterBar: View {
 }
 
 private struct EmptyFilteredLibraryView: View {
-    let filter: LibraryFilter
+    let filter: ClipboardHistoryFilter
     @Environment(\.assistTheme) private var theme
 
     var body: some View {
@@ -476,8 +465,6 @@ private struct EmptyCaptureLibraryView: View {
 }
 
 private struct CaptureLibraryCard: View {
-    private static let cardHeight: CGFloat = 122
-
     let item: ClipboardHistoryItem
     let isSelected: Bool
     let thumbnail: NSImage?
@@ -495,25 +482,41 @@ private struct CaptureLibraryCard: View {
         ZStack(alignment: .topTrailing) {
             Button(action: selectAction) {
                 preview
-                    .frame(maxWidth: .infinity, minHeight: Self.cardHeight, maxHeight: Self.cardHeight, alignment: .topLeading)
-                .background(cardBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(height: LibraryTokens.cardHeight)
+                .background(
+                    cardBackground,
+                    in: RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+                )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(isSelected ? theme.foreground.opacity(0.42) : .clear, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+                        .stroke(
+                            isSelected ? theme.foreground.opacity(0.42) : .clear,
+                            lineWidth: LibraryTokens.selectionStroke
+                        )
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .clipShape(
+                    RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+                )
                 .shadow(color: .black.opacity(theme.isDark ? 0.16 : 0.08), radius: 9, y: 5)
             }
+            .frame(maxWidth: .infinity)
             .buttonStyle(.plain)
             .onDrag { item.dragProvider }
             .help(helpText)
 
             DeleteIconButton(isHovered: $isDeleteHovered, action: deleteAction)
-                .opacity(isDeleteVisible ? 1 : 0.001)
+                .opacity(isDeleteVisible ? 1 : 0)
+                .allowsHitTesting(isDeleteVisible)
+                .accessibilityHidden(!isDeleteVisible)
                 .zIndex(1)
-                .padding(7)
+                .padding(LibraryTokens.actionInset)
         }
-        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .frame(height: LibraryTokens.cardHeight)
+        .contentShape(
+            RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
+        )
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isHovered)
     }
@@ -522,30 +525,52 @@ private struct CaptureLibraryCard: View {
     private var preview: some View {
         switch item {
         case .screenshot:
-            ZStack {
-                if let thumbnail {
-                    Image(nsImage: thumbnail)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                } else {
-                    HugeIcon(.image, size: 30)
-                        .foregroundStyle(theme.muted)
+            GeometryReader { geometry in
+                ZStack {
+                    if let thumbnail {
+                        Image(nsImage: thumbnail)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height
+                            )
+                            .clipped()
+                    } else {
+                        HugeIcon(.image, size: 30)
+                            .foregroundStyle(theme.muted)
+                    }
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .clipped()
             }
         case let .text(textClip):
-            VStack(alignment: .leading, spacing: 12) {
-                HugeIcon(.document, size: 18)
-                    .foregroundStyle(theme.muted)
-                Text(textClip.preview)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(theme.foreground)
-                    .lineLimit(4)
-                    .multilineTextAlignment(.leading)
+            if let colorCode = textClip.colorCode {
+                ZStack(alignment: .bottomLeading) {
+                    Color(clipboardColor: colorCode)
+
+                    Text(colorCode.displayValue)
+                        .font(AssistFont.mono())
+                        .foregroundStyle(
+                            colorCode.usesDarkForeground(over: theme.cardColorComponents)
+                                ? AssistDesignTokens.Palette.ink
+                                : AssistDesignTokens.Palette.paper
+                        )
+                        .padding(AssistDesignTokens.Spacing.large)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    HugeIcon(.document, size: 18)
+                        .foregroundStyle(theme.muted)
+                    Text(textClip.preview)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(4)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -570,13 +595,15 @@ private struct DeleteIconButton: View {
     let action: () -> Void
     @Environment(\.assistTheme) private var theme
 
-    private var red: Color {
-        Color(hex: 0xFF453A)
-    }
-
     var body: some View {
         Button(action: action) {
-            HugeIcon(.trash, size: 15, color: red.opacity(isHovered ? 1 : 0.9))
+            HugeIcon(
+                .trash,
+                size: 15,
+                color: AssistDesignTokens.Palette.danger.opacity(
+                    isHovered ? 1 : AssistDesignTokens.Opacity.primary
+                )
+            )
                 .frame(width: 34, height: 34)
                 .background(backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
@@ -588,7 +615,13 @@ private struct DeleteIconButton: View {
     }
 
     private var backgroundColor: Color {
-        red.opacity(isHovered ? (theme.isDark ? 0.24 : 0.16) : (theme.isDark ? 0.16 : 0.1))
+        if isHovered {
+            return AssistDesignTokens.Palette.danger.opacity(
+                AssistDesignTokens.Opacity.destructiveHoverSurface
+            )
+        }
+
+        return theme.card
     }
 }
 

@@ -27,7 +27,7 @@ export default function LegalDocument({
         <nav className="header-pill" aria-label="Primary navigation">
           <a className="brand" href="/" aria-label="Assist home">
             <span className="brand-mark">
-              <img src="/assist-icon.svg" alt="" width="30" height="30" />
+              <img src="/assist-icon.png" alt="" width="30" height="30" />
             </span>
             <span>Assist</span>
           </a>
@@ -72,11 +72,11 @@ export default function LegalDocument({
           <div className="footer-brand-block">
             <a className="footer-brand" href="/" aria-label="Assist home">
               <span className="brand-mark">
-                <img src="/assist-icon.svg" alt="" width="30" height="30" />
+                <img src="/assist-icon.png" alt="" width="30" height="30" />
               </span>
               <span>Assist</span>
             </a>
-            <p>Voice annotation, screenshots, and clipboard history—right from your Mac notch.</p>
+            <p>Voice annotation, screenshots, and clipboard history, right from your Mac notch.</p>
           </div>
 
           <nav className="footer-link-grid" aria-label="Footer navigation">

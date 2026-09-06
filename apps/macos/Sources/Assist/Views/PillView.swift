@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+private typealias HistoryShelfTokens = AssistDesignTokens.HistoryShelf
+
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var settings: PillSettings
@@ -16,10 +18,7 @@ struct PillView: View {
     }
 
     private var collapsedSize: CGSize {
-        PillChromeMetrics.collapsedSize(
-            settings: settings,
-            showingCopyFeedback: viewModel.copyFeedback != nil
-        )
+        PillChromeMetrics.collapsedSize(settings: settings)
     }
 
     private var expandedSize: CGSize {
@@ -35,11 +34,7 @@ struct PillView: View {
     }
 
     private var islandAnimation: Animation {
-        .interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
-    }
-
-    private var copyFeedbackAnimation: Animation {
-        .spring(response: 0.52, dampingFraction: 0.96, blendDuration: 0.04)
+        AssistDesignTokens.Motion.island
     }
 
     private var shouldShowLoadingBorder: Bool {
@@ -82,7 +77,6 @@ struct PillView: View {
             }
             .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
             .animation(islandAnimation, value: viewModel.isExpanded)
-            .animation(copyFeedbackAnimation, value: viewModel.copyFeedback != nil)
             .background {
                 BoringNotchShape(
                     topCornerRadius: chromeTopCornerRadius,
@@ -126,57 +120,42 @@ struct PillView: View {
     }
 }
 
+// The idle island is deliberately quiet. Short-lived feedback is text-led and
+// anchored to the leading edge; navigation and branding live in expanded UI.
 private struct CollapsedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
 
-    var body: some View {
-        HStack(spacing: 8) {
-            AssistLogo(size: 16)
-                .help(AppIdentity.name)
-
-            if let feedback = viewModel.copyFeedback {
-                CopyFeedbackRow(feedback: feedback)
-                    .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
-                    .scaleEffect(viewModel.isCopyFeedbackVisible ? 1 : 0.985)
-                    .transition(
-                        .opacity
-                            .combined(with: .scale(scale: 0.96))
-                            .animation(.easeOut(duration: 0.16))
-                    )
-            } else {
-                Text(viewModel.statusText)
-                    .font(AssistFont.roundedFootnote(.medium))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.86)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(.horizontal, 18)
-        .animation(.easeOut(duration: 0.16), value: viewModel.copyFeedback)
-        .animation(.easeOut(duration: 0.18), value: viewModel.isCopyFeedbackVisible)
+    private var feedbackAnimation: Animation {
+        AssistDesignTokens.Motion.feedback
     }
-}
-
-private struct CopyFeedbackRow: View {
-    let feedback: CopyFeedback
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(feedback.preview)
-                .font(AssistFont.roundedFootnote(.medium))
-                .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(spacing: 0) {
+            if let feedback = viewModel.copyFeedback {
+                Text(feedback.badge)
+                    .font(AssistFont.roundedFootnote(.semibold))
+                    .foregroundStyle(feedbackForeground(for: feedback.kind))
+                    .lineLimit(1)
+                    .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
+                    .transition(.opacity)
+                    .help("\(feedback.badge): \(feedback.preview)")
+                    .accessibilityLabel("\(feedback.badge). \(feedback.preview)")
+            }
 
-            Text(feedback.badge)
-                .font(AssistFont.roundedFootnote(.semibold))
-                .foregroundStyle(.black)
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .frame(height: 19)
-                .background(Color.white, in: Capsule())
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, AssistDesignTokens.Spacing.xLarge)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .animation(feedbackAnimation, value: viewModel.copyFeedback)
+        .animation(feedbackAnimation, value: viewModel.isCopyFeedbackVisible)
+    }
+
+    private func feedbackForeground(for kind: CopyFeedback.Kind) -> Color {
+        switch kind {
+        case .success:
+            AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.strong)
+        case .warning:
+            AssistDesignTokens.Palette.warning
         }
     }
 }
@@ -287,17 +266,22 @@ private struct LoadingNotchBorderShape: Shape {
 struct ExpandedIslandView: View {
     @ObservedObject var viewModel: PillViewModel
     let onDragChanged: (Bool) -> Void
-    private static let galleryLeadingAnchorID = "gallery-leading-anchor"
-    private static let galleryClipInset: CGFloat = 2
-    private static let galleryViewportHeight: CGFloat = 144
+    @State private var selectedFilter: ClipboardHistoryFilter = .all
 
     var body: some View {
-        let historyItems = Array(viewModel.historyItems.prefix(24))
-        let selectedID = viewModel.selectedItem?.id
+        let filteredItems = viewModel.historyItems.filter(selectedFilter.includes)
+        let historyItems = Array(filteredItems.prefix(24))
+        let visibleSelectedItem = historyItems.first { $0.id == viewModel.selectedItem?.id }
+            ?? historyItems.first
+        let selectedID = visibleSelectedItem?.id
 
-        VStack(alignment: .leading, spacing: 10) {
-            ExpandedIslandHeader(viewModel: viewModel)
-                .frame(height: 24)
+        VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.medium) {
+            ExpandedIslandHeader(
+                viewModel: viewModel,
+                selectedFilter: $selectedFilter,
+                selectedItem: visibleSelectedItem
+            )
+                .frame(height: AssistDesignTokens.Control.regularHeight)
                 .zIndex(1)
 
             if let issue = viewModel.captureIssue {
@@ -305,103 +289,108 @@ struct ExpandedIslandView: View {
             } else if !historyItems.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 0) {
-                            Color.clear
-                                .frame(width: 0, height: 1)
-                                .id(Self.galleryLeadingAnchorID)
-                                .accessibilityHidden(true)
-
-                            LazyHStack(spacing: 12) {
-                                ForEach(historyItems) { item in
-                                    Group {
-                                        switch item {
-                                        case let .screenshot(capture):
-                                            CaptureGalleryCard(
-                                                item: capture,
-                                                thumbnail: viewModel.thumbnail(for: capture),
-                                                contextPreview: viewModel.contextPreview(for: capture),
-                                                canCopyContext: viewModel.canCopyContextMarkdown(capture),
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyImageItem(capture)
-                                            } copyContextAction: {
-                                                viewModel.copyContextMarkdown(capture)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
-                                            }
-                                        case let .text(textClip):
-                                            TextClipGalleryCard(
-                                                item: textClip,
-                                                isSelected: item.id == selectedID,
-                                                onDragChanged: onDragChanged
-                                            ) {
-                                                viewModel.copyTextItem(textClip)
-                                            } deleteAction: {
-                                                viewModel.delete(item)
-                                            }
+                        LazyHStack(
+                            alignment: .top,
+                            spacing: HistoryShelfTokens.cardSpacing
+                        ) {
+                            ForEach(historyItems) { item in
+                                Group {
+                                    switch item {
+                                    case let .screenshot(capture):
+                                        CaptureGalleryCard(
+                                            item: capture,
+                                            thumbnail: viewModel.thumbnail(for: capture),
+                                            contextPreview: viewModel.contextPreview(for: capture),
+                                            canCopyContext: viewModel.canCopyContextMarkdown(capture),
+                                            isSelected: item.id == selectedID,
+                                            onDragChanged: onDragChanged
+                                        ) {
+                                            viewModel.copyImageItem(capture)
+                                        } copyContextAction: {
+                                            viewModel.copyContextMarkdown(capture)
+                                        } deleteAction: {
+                                            viewModel.delete(item)
+                                        }
+                                    case let .text(textClip):
+                                        TextClipGalleryCard(
+                                            item: textClip,
+                                            isSelected: item.id == selectedID,
+                                            onDragChanged: onDragChanged
+                                        ) {
+                                            viewModel.copyTextItem(textClip)
+                                        } deleteAction: {
+                                            viewModel.delete(item)
                                         }
                                     }
-                                    .id(item.id)
                                 }
+                                .frame(
+                                    width: HistoryShelfTokens.cardSize,
+                                    height: HistoryShelfTokens.cardSize,
+                                    alignment: .top
+                                )
+                                .id(item.id)
                             }
-                            .padding(.horizontal, Self.galleryClipInset)
                         }
-                        .padding(.vertical, 1)
                     }
-                    .frame(height: Self.galleryViewportHeight, alignment: .top)
+                    .frame(height: HistoryShelfTokens.cardSize, alignment: .top)
                     .onAppear {
-                        alignGalleryToLeadingEdge(proxy)
+                        alignGalleryToLeadingEdge(
+                            proxy,
+                            firstItemID: historyItems.first?.id
+                        )
                     }
                     .onChange(of: historyItems.first?.id) { _, firstItemID in
-                        guard firstItemID != nil else { return }
-                        alignGalleryToLeadingEdge(proxy)
+                        alignGalleryToLeadingEdge(proxy, firstItemID: firstItemID)
                     }
                 }
             } else {
-                VStack(alignment: .center, spacing: 10) {
-                    Text("No items yet")
-                        .font(.headline)
-
-                    Text("Hold Option to annotate, press Control + Option for a clean screenshot, or copy text.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    DebugActionsView(viewModel: viewModel)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .multilineTextAlignment(.center)
+                IslandHistoryEmptyState(
+                    filter: selectedFilter,
+                    showsDebugActions: viewModel.historyItems.isEmpty,
+                    viewModel: viewModel
+                )
             }
         }
-        .padding(.horizontal, 30)
-        .padding(.top, 6)
-        .padding(.bottom, 14)
+        .padding(.horizontal, AssistDesignTokens.Spacing.shelfInset)
+        .padding(.top, AssistDesignTokens.Spacing.xSmall)
+        .padding(.bottom, AssistDesignTokens.Spacing.xLarge)
     }
 
-    private func alignGalleryToLeadingEdge(_ proxy: ScrollViewProxy) {
-        func align() {
-            var transaction = Transaction(animation: nil)
-            transaction.disablesAnimations = true
+    private func alignGalleryToLeadingEdge(
+        _ proxy: ScrollViewProxy,
+        firstItemID: ClipboardHistoryItem.ID?
+    ) {
+        guard let firstItemID else { return }
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
 
-            withTransaction(transaction) {
-                proxy.scrollTo(Self.galleryLeadingAnchorID, anchor: .leading)
-            }
+        withTransaction(transaction) {
+            proxy.scrollTo(firstItemID, anchor: .leading)
         }
-
-        align()
-        DispatchQueue.main.async(execute: align)
     }
 }
 
 private struct ExpandedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
+    @Binding var selectedFilter: ClipboardHistoryFilter
+    let selectedItem: ClipboardHistoryItem?
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(viewModel.captureIssue == nil ? "Recent items" : "Needs attention")
-                .font(AssistFont.roundedHeadline())
-                .foregroundStyle(.white.opacity(0.86))
+        HStack(spacing: AssistDesignTokens.Spacing.medium) {
+            if viewModel.captureIssue == nil {
+                HStack(spacing: AssistDesignTokens.Spacing.xxSmall) {
+                    ForEach(ClipboardHistoryFilter.allCases) { filter in
+                        IslandHistoryFilterChip(
+                            filter: filter,
+                            selectedFilter: $selectedFilter
+                        )
+                    }
+                }
+            } else {
+                Text("Needs attention")
+                    .font(AssistFont.roundedHeadline())
+                    .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
+            }
 
             Spacer()
 
@@ -409,32 +398,132 @@ private struct ExpandedIslandHeader: View {
                 viewModel.openControls()
             }
 
-            if viewModel.showsCopySelectedContext {
-                IslandIconButton(
-                    icon: .copy,
-                    tooltip: viewModel.canCopySelectedContext
-                        ? "Copy saved Markdown context and screenshot"
-                        : "Context is still transcribing",
-                    isEnabled: viewModel.canCopySelectedContext
-                ) {
-                    viewModel.copyLatestContext()
+            if case let .screenshot(capture) = selectedItem {
+                if viewModel.showsCopyContext(for: capture) {
+                    IslandIconButton(
+                        icon: .copy,
+                        tooltip: viewModel.canCopyContext(for: capture)
+                            ? "Copy saved Markdown context and screenshot"
+                            : "Context is still transcribing",
+                        isEnabled: viewModel.canCopyContext(for: capture)
+                    ) {
+                        viewModel.selectScreenshot(capture)
+                        viewModel.copyLatestContext()
+                    }
                 }
-            }
 
-            if viewModel.canCopySelectedImage {
                 IslandIconButton(icon: .image, tooltip: "Copy selected screenshot image") {
-                    viewModel.copyLatestImage()
+                    viewModel.copyImageItem(capture)
                 }
-            }
 
-            if viewModel.canRevealSelectedScreenshot {
                 IslandIconButton(icon: .folder, tooltip: "Reveal selected screenshot in Finder") {
-                    viewModel.revealSelectedScreenshotInFinder()
+                    viewModel.revealScreenshotInFinder(capture)
                 }
             }
-
         }
         .foregroundStyle(.white)
+    }
+}
+
+private struct IslandHistoryFilterChip: View {
+    let filter: ClipboardHistoryFilter
+    @Binding var selectedFilter: ClipboardHistoryFilter
+
+    private var isSelected: Bool {
+        filter == selectedFilter
+    }
+
+    var body: some View {
+        Button {
+            selectedFilter = filter
+        } label: {
+            Text(filter.title)
+                .font(AssistFont.roundedFootnote(isSelected ? .semibold : .medium))
+                .foregroundStyle(
+                    isSelected
+                        ? AssistDesignTokens.Palette.ink
+                        : AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.secondary)
+                )
+                .lineLimit(1)
+                .padding(.horizontal, AssistDesignTokens.Spacing.medium)
+                .frame(height: AssistDesignTokens.Control.compactHeight)
+                .background(
+                    isSelected ? AssistDesignTokens.Palette.paper : .clear,
+                    in: Capsule()
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+        .accessibilityLabel("Show \(filter.title.lowercased())")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .animation(AssistDesignTokens.Motion.quick, value: isSelected)
+    }
+}
+
+private struct IslandHistoryEmptyState: View {
+    let filter: ClipboardHistoryFilter
+    let showsDebugActions: Bool
+    @ObservedObject var viewModel: PillViewModel
+
+    private var icon: HugeIconKind {
+        switch filter {
+        case .all:
+            .camera
+        case .images:
+            .image
+        case .text:
+            .document
+        }
+    }
+
+    private var title: String {
+        switch filter {
+        case .all:
+            "No captures yet"
+        case .text:
+            "No text yet"
+        case .images:
+            "No images yet"
+        }
+    }
+
+    private var message: String {
+        switch filter {
+        case .all:
+            "Hold ⌥ to annotate  ·  ⌃⌥ for a clean screenshot"
+        case .text:
+            "Copied text will appear here"
+        case .images:
+            "Captured screenshots will appear here"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .center, spacing: AssistDesignTokens.Spacing.small) {
+            HugeIcon(
+                icon,
+                size: 20,
+                color: .white.opacity(AssistDesignTokens.Opacity.subtle)
+            )
+            .padding(.bottom, AssistDesignTokens.Spacing.xxxSmall)
+
+            Text(title)
+                .font(AssistFont.roundedHeadline())
+                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.primary))
+
+            Text(message)
+                .font(AssistFont.roundedFootnote(.medium))
+                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.muted))
+                .fixedSize(horizontal: false, vertical: true)
+
+            if showsDebugActions {
+                DebugActionsView(viewModel: viewModel)
+                    .padding(.top, AssistDesignTokens.Spacing.xxSmall)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .multilineTextAlignment(.center)
     }
 }
 
@@ -533,38 +622,49 @@ private struct IslandIconButton: View {
         Button(action: action) {
             HugeIcon(
                 icon,
-                size: 14,
-                color: .white.opacity(isEnabled ? (isHovered ? 0.96 : 0.7) : 0.34)
+                size: AssistDesignTokens.Icon.regular,
+                color: .white.opacity(
+                    isEnabled
+                        ? (isHovered ? AssistDesignTokens.Opacity.primary : AssistDesignTokens.Opacity.secondary)
+                        : AssistDesignTokens.Opacity.disabled
+                )
             )
-                .frame(width: 30, height: 30)
+                .frame(
+                    width: AssistDesignTokens.Control.iconButton,
+                    height: AssistDesignTokens.Control.iconButton
+                )
                 .background(
-                    Color.white.opacity(isEnabled && isHovered ? 0.14 : 0),
-                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    Color.white.opacity(
+                        isEnabled && isHovered ? AssistDesignTokens.Opacity.hoverSurface : 0
+                    ),
+                    in: RoundedRectangle(
+                        cornerRadius: AssistDesignTokens.Radius.control,
+                        style: .continuous
+                    )
                 )
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-        .help(tooltip)
         .accessibilityLabel(tooltip)
         .pointingHandCursor(isEnabled: isEnabled)
         .overlay(alignment: .bottomTrailing) {
             if isHovered {
                 Text(tooltip)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.94))
+                    .foregroundStyle(AssistDesignTokens.Palette.ink)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                    .padding(.horizontal, 8)
-                    .frame(height: 22)
-                    .background(Color.white.opacity(0.14), in: Capsule())
-                    .offset(y: 26)
+                    .padding(.horizontal, AssistDesignTokens.Spacing.small)
+                    .frame(height: AssistDesignTokens.Control.tooltipHeight)
+                    .background(AssistDesignTokens.Palette.paper, in: Capsule())
+                    .offset(y: AssistDesignTokens.Spacing.xxxLarge + AssistDesignTokens.Spacing.xxxSmall)
                     .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
                     .allowsHitTesting(false)
             }
         }
         .zIndex(isHovered ? 20 : 0)
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .animation(AssistDesignTokens.Motion.quick, value: isHovered)
     }
 
     @State private var isHovered = false
@@ -619,9 +719,17 @@ private struct DebugActionButton: View {
     }
 }
 
-private struct CaptureGalleryCard: View {
-    private static let folderBlue = Color(hex: 0x118AF3)
+enum HistoryCardActionVisibility {
+    static func isVisible(
+        cardHovered: Bool,
+        deleteActionHovered: Bool,
+        contextActionHovered: Bool
+    ) -> Bool {
+        cardHovered || deleteActionHovered || contextActionHovered
+    }
+}
 
+private struct CaptureGalleryCard: View {
     let item: CaptureItem
     let thumbnail: NSImage?
     let contextPreview: String
@@ -633,9 +741,14 @@ private struct CaptureGalleryCard: View {
     let deleteAction: () -> Void
     @State private var isHovered = false
     @State private var isDeleteHovered = false
+    @State private var isContextCopyHovered = false
 
-    private var isDeleteVisible: Bool {
-        isHovered || isDeleteHovered
+    private var isActionTrayVisible: Bool {
+        HistoryCardActionVisibility.isVisible(
+            cardHovered: isHovered,
+            deleteActionHovered: isDeleteHovered,
+            contextActionHovered: isContextCopyHovered
+        )
     }
 
     var body: some View {
@@ -651,87 +764,153 @@ private struct CaptureGalleryCard: View {
                 onClick: action,
                 onDragChanged: onDragChanged
             ) {
-                ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(Self.folderBlue)
-                        .frame(width: 58, height: 18)
-
-                    VStack(spacing: 0) {
-                        ZStack {
-                            if let image = thumbnail {
-                                Image(nsImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 142, height: 84)
-                                    .clipped()
-                            } else {
-                                HugeIcon(.image, size: 24, color: .white.opacity(0.52))
-                                    .help("Screenshot thumbnail")
-                            }
-                        }
-                        .frame(width: 142, height: 84)
-
-                        HStack(alignment: .top, spacing: 5) {
-                            HugeIcon(.document, size: 11, color: .white.opacity(0.48))
-                                .padding(.top, 1)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("context.md")
-                                    .font(.system(size: 8.5, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(.white.opacity(0.48))
-
-                                Text(contextPreview)
-                                    .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.white.opacity(0.82))
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-                            }
-
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 7)
-                        .frame(width: 142, height: 50, alignment: .topLeading)
-                        .background(Color.black.opacity(0.26))
-                    }
-                    .frame(width: 142, height: 134, alignment: .top)
-                    .background(Self.folderBlue)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(isSelected ? Color.white.opacity(0.72) : .clear, lineWidth: 1)
-                    }
-                    .offset(y: 8)
-                }
-                .frame(width: 142, height: 142, alignment: .topLeading)
+                cardPreview
             }
             .help("Click card to copy screenshot")
-            .accessibilityLabel("Capture folder. \(contextPreview)")
+            .accessibilityLabel(
+                item.hasVoiceContext
+                    ? "Capture with voice context. \(contextPreview)"
+                    : "Screenshot"
+            )
             .accessibilityAddTraits(.isButton)
 
             HStack(spacing: 0) {
                 DeleteCardButton(
-                    isVisible: isDeleteVisible,
+                    isVisible: isActionTrayVisible,
                     isHovered: $isDeleteHovered,
                     action: deleteAction
                 )
 
-                CaptureContextCopyButton(
-                    isEnabled: canCopyContext,
-                    action: copyContextAction
-                )
+                if item.hasVoiceContext {
+                    CaptureContextCopyButton(
+                        isEnabled: canCopyContext,
+                        isHovered: $isContextCopyHovered,
+                        action: copyContextAction
+                    )
+                }
             }
-            .padding(.top, 4)
-            .padding(.trailing, 4)
+            .padding(AssistDesignTokens.Spacing.xxxSmall)
+            .background(
+                AssistDesignTokens.Palette.paper.opacity(
+                    isActionTrayVisible ? 1 : 0
+                ),
+                in: Capsule()
+            )
+            .padding(AssistDesignTokens.Spacing.xxSmall)
+            .opacity(isActionTrayVisible ? 1 : 0)
+            .allowsHitTesting(isActionTrayVisible)
+            .accessibilityHidden(!isActionTrayVisible)
+            .animation(AssistDesignTokens.Motion.quick, value: isActionTrayVisible)
         }
+        .frame(
+            width: HistoryShelfTokens.cardSize,
+            height: HistoryShelfTokens.cardSize
+        )
+        .contentShape(Rectangle())
         .onHover { isHovered = $0 }
+    }
+
+    @ViewBuilder
+    private var cardPreview: some View {
+        if item.hasVoiceContext {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.small, style: .continuous)
+                    .fill(AssistDesignTokens.Palette.folder)
+                    .frame(width: 58, height: 18)
+
+                VStack(spacing: 0) {
+                    screenshotThumbnail(height: 84)
+
+                    HStack(alignment: .top, spacing: AssistDesignTokens.Spacing.xSmall) {
+                        HugeIcon(
+                            .document,
+                            size: 11,
+                            color: .white.opacity(AssistDesignTokens.Opacity.muted)
+                        )
+                        .padding(.top, 1)
+
+                        VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xxxSmall) {
+                            Text("context.md")
+                                .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.muted))
+
+                            Text(contextPreview)
+                                .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, AssistDesignTokens.Spacing.xSmall)
+                    .frame(
+                        width: HistoryShelfTokens.cardSize,
+                        height: 50,
+                        alignment: .topLeading
+                    )
+                    .background(AssistDesignTokens.Palette.ink.opacity(0.26))
+                }
+                .frame(
+                    width: HistoryShelfTokens.cardSize,
+                    height: HistoryShelfTokens.cardSize - AssistDesignTokens.Spacing.small,
+                    alignment: .top
+                )
+                .background(AssistDesignTokens.Palette.folder)
+                .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
+                .overlay { selectionStroke }
+                .offset(y: AssistDesignTokens.Spacing.small)
+            }
+            .frame(
+                width: HistoryShelfTokens.cardSize,
+                height: HistoryShelfTokens.cardSize,
+                alignment: .topLeading
+            )
+        } else {
+            screenshotThumbnail(height: HistoryShelfTokens.cardSize)
+                .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
+                .overlay { selectionStroke }
+        }
+    }
+
+    private func screenshotThumbnail(height: CGFloat) -> some View {
+        ZStack {
+            AssistDesignTokens.Palette.elevatedInk
+
+            if let image = thumbnail {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: HistoryShelfTokens.cardSize, height: height)
+                    .clipped()
+            } else {
+                HugeIcon(
+                    .image,
+                    size: 24,
+                    color: .white.opacity(AssistDesignTokens.Opacity.muted)
+                )
+                .help("Screenshot thumbnail")
+            }
+        }
+        .frame(width: HistoryShelfTokens.cardSize, height: height)
+    }
+
+    private var selectionStroke: some View {
+        RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
+            .stroke(
+                isSelected
+                    ? AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
+                    : .clear,
+                lineWidth: HistoryShelfTokens.selectionStroke
+            )
     }
 }
 
 private struct CaptureContextCopyButton: View {
     let isEnabled: Bool
+    @Binding var isHovered: Bool
     let action: () -> Void
-    @State private var isHovered = false
 
     private var tooltip: String {
         isEnabled ? "Copy context.md" : "context.md is not ready to copy"
@@ -740,19 +919,36 @@ private struct CaptureContextCopyButton: View {
     var body: some View {
         ZStack {
             Color.clear
-                .frame(width: 32, height: 32)
+                .frame(
+                    width: HistoryShelfTokens.actionHitArea,
+                    height: HistoryShelfTokens.actionHitArea
+                )
                 .contentShape(Rectangle())
 
             Button(action: action) {
                 HugeIcon(
                     .copy,
                     size: 12,
-                    color: .white.opacity(isEnabled ? (isHovered ? 0.96 : 0.76) : 0.32)
+                    color: isEnabled
+                        ? AssistDesignTokens.Palette.ink.opacity(
+                            isHovered
+                                ? AssistDesignTokens.Opacity.primary
+                                : AssistDesignTokens.Opacity.strong
+                        )
+                        : AssistDesignTokens.Palette.zinc.opacity(AssistDesignTokens.Opacity.disabled)
                 )
-                .frame(width: 24, height: 24)
+                .frame(
+                    width: HistoryShelfTokens.actionControl,
+                    height: HistoryShelfTokens.actionControl
+                )
                 .background(
-                    Color.white.opacity(isEnabled && isHovered ? 0.14 : 0),
-                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    isEnabled && isHovered
+                        ? AssistDesignTokens.Palette.softPaper
+                        : .clear,
+                    in: RoundedRectangle(
+                        cornerRadius: AssistDesignTokens.Radius.control,
+                        style: .continuous
+                    )
                 )
             }
             .buttonStyle(.plain)
@@ -782,33 +978,102 @@ private struct TextClipGalleryCard: View {
         ZStack(alignment: .topTrailing) {
             IslandDraggableCard(
                 pasteboardWriter: { item.dragPasteboardWriter },
-                dragImage: { IslandDragPreview.text(item.preview) },
+                dragImage: { IslandDragPreview.text(item) },
                 onClick: action,
                 onDragChanged: onDragChanged
             ) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(item.preview)
-                        .font(AssistFont.roundedFootnote(.medium))
-                        .foregroundStyle(.white.opacity(0.86))
-                        .lineLimit(7)
-                }
-                .padding(12)
-                .frame(width: 142, height: 142, alignment: .topLeading)
-                .background(Color.white.opacity(isSelected ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                textPreview
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(isSelected ? Color.white.opacity(0.72) : .clear, lineWidth: 1)
+                    RoundedRectangle(
+                        cornerRadius: AssistDesignTokens.Radius.medium,
+                        style: .continuous
+                    )
+                        .stroke(
+                            selectionColor,
+                            lineWidth: HistoryShelfTokens.selectionStroke
+                        )
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: AssistDesignTokens.Radius.medium,
+                        style: .continuous
+                    )
+                )
             }
             .help("Click card to copy text")
-            .accessibilityLabel("Text clip")
+            .accessibilityLabel(
+                item.colorCode.map { "Color \($0.displayValue)" } ?? "Text clip"
+            )
             .accessibilityAddTraits(.isButton)
 
             DeleteCardButton(isVisible: isDeleteVisible, isHovered: $isDeleteHovered, action: deleteAction)
-                .padding(5)
+                .padding(AssistDesignTokens.Spacing.xxxSmall)
+                .background(AssistDesignTokens.Palette.paper, in: Capsule())
+                .padding(AssistDesignTokens.Spacing.xxSmall)
+                .opacity(isDeleteVisible ? 1 : 0)
         }
+        .frame(
+            width: HistoryShelfTokens.cardSize,
+            height: HistoryShelfTokens.cardSize
+        )
         .onHover { isHovered = $0 }
+    }
+
+    @ViewBuilder
+    private var textPreview: some View {
+        if let colorCode = item.colorCode {
+            ZStack(alignment: .bottomLeading) {
+                Color(clipboardColor: colorCode)
+
+                Text(colorCode.displayValue)
+                    .font(AssistFont.mono())
+                    .foregroundStyle(
+                        colorCode.usesDarkForeground(
+                            over: AssistDesignTokens.Palette.inkComponents
+                        )
+                            ? AssistDesignTokens.Palette.ink
+                            : AssistDesignTokens.Palette.paper
+                    )
+                    .padding(AssistDesignTokens.Spacing.large)
+            }
+            .frame(
+                width: HistoryShelfTokens.cardSize,
+                height: HistoryShelfTokens.cardSize
+            )
+        } else {
+            VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xSmall) {
+                Text(item.preview)
+                    .font(AssistFont.roundedFootnote(.medium))
+                    .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
+                    .lineLimit(7)
+            }
+            .padding(AssistDesignTokens.Spacing.large)
+            .frame(
+                width: HistoryShelfTokens.cardSize,
+                height: HistoryShelfTokens.cardSize,
+                alignment: .topLeading
+            )
+            .background(
+                Color.white.opacity(
+                    isSelected
+                        ? AssistDesignTokens.Opacity.hoverSurface
+                        : AssistDesignTokens.Opacity.quietSurface
+                ),
+                in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
+            )
+        }
+    }
+
+    private var selectionColor: Color {
+        guard isSelected else { return .clear }
+        guard let colorCode = item.colorCode else {
+            return AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
+        }
+
+        return (colorCode.usesDarkForeground(over: AssistDesignTokens.Palette.inkComponents)
+            ? AssistDesignTokens.Palette.ink
+            : AssistDesignTokens.Palette.paper
+        ).opacity(AssistDesignTokens.Opacity.selectedStroke)
     }
 }
 
@@ -979,7 +1244,10 @@ private final class IslandDragSourceView: NSView, NSDraggingSource {
 }
 
 private enum IslandDragPreview {
-    static let cardSize = NSSize(width: 142, height: 142)
+    static let cardSize = NSSize(
+        width: HistoryShelfTokens.cardSize,
+        height: HistoryShelfTokens.cardSize
+    )
     static let cornerRadius: CGFloat = 10
 
     static func screenshot(thumbnail: NSImage?, imagePath: String) -> NSImage {
@@ -999,19 +1267,33 @@ private enum IslandDragPreview {
         }
     }
 
-    static func text(_ preview: String) -> NSImage {
+    static func text(_ item: TextClipItem) -> NSImage {
         cardImage { rect in
+            if let colorCode = item.colorCode {
+                NSColor(
+                    calibratedRed: colorCode.red,
+                    green: colorCode.green,
+                    blue: colorCode.blue,
+                    alpha: colorCode.alpha
+                ).setFill()
+                rect.fill()
+            }
+
             let insetRect = rect.insetBy(dx: 12, dy: 12)
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.lineBreakMode = .byTruncatingTail
 
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.86),
+                .foregroundColor: item.colorCode?.usesDarkForeground(
+                    over: AssistDesignTokens.Palette.inkComponents
+                ) == true
+                    ? NSColor.black.withAlphaComponent(0.9)
+                    : NSColor.white.withAlphaComponent(0.9),
                 .paragraphStyle: paragraphStyle
             ]
 
-            NSString(string: preview).draw(
+            NSString(string: item.colorCode?.displayValue ?? item.preview).draw(
                 with: insetRect,
                 options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
                 attributes: attributes
@@ -1081,22 +1363,35 @@ private struct DeleteCardButton: View {
     @Binding var isHovered: Bool
     let action: () -> Void
 
-    private var red: Color {
-        Color(hex: 0xFF453A)
-    }
-
     var body: some View {
         ZStack {
             Color.clear
-                .frame(width: 32, height: 32)
+                .frame(
+                    width: HistoryShelfTokens.actionHitArea,
+                    height: HistoryShelfTokens.actionHitArea
+                )
                 .contentShape(Rectangle())
 
             Button(action: action) {
-                HugeIcon(.trash, size: 12, color: red.opacity(isHovered ? 1 : 0.9))
-                    .frame(width: 24, height: 24)
+                HugeIcon(
+                    .trash,
+                    size: 12,
+                    color: AssistDesignTokens.Palette.danger.opacity(
+                        isHovered ? 1 : AssistDesignTokens.Opacity.primary
+                    )
+                )
+                    .frame(
+                        width: HistoryShelfTokens.actionControl,
+                        height: HistoryShelfTokens.actionControl
+                    )
                     .background(
-                        red.opacity(isHovered ? 0.26 : 0.16),
-                        in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        AssistDesignTokens.Palette.danger.opacity(
+                            isHovered ? AssistDesignTokens.Opacity.destructiveHoverSurface : 0
+                        ),
+                        in: RoundedRectangle(
+                            cornerRadius: AssistDesignTokens.Radius.control,
+                            style: .continuous
+                        )
                     )
             }
             .buttonStyle(.plain)
@@ -1105,6 +1400,8 @@ private struct DeleteCardButton: View {
             .opacity(isVisible ? 1 : 0)
             .scaleEffect(isVisible ? 1 : 0.92)
         }
+        .allowsHitTesting(isVisible)
+        .accessibilityHidden(!isVisible)
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.12), value: isHovered)
         .animation(.easeOut(duration: 0.12), value: isVisible)
