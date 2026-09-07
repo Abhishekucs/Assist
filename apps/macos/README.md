@@ -15,6 +15,36 @@ The first version is intentionally small:
 - Keep recent copied text in a local library alongside screenshots.
 - Copy or drag saved items into other apps. Assist performs no OCR.
 - Built-in diagnostic actions help isolate overlay and capture issues.
+- Optional keyboard sounds with four offline presets, previews, volume, and stereo positioning.
+
+## Keyboard sounds
+
+Open Settings → Sounds. Choose Soft, Thock, Clicky, or Typewriter and use its
+play button to preview a complete press/release. Previews work before enabling
+global keyboard sounds or granting Input Monitoring. New installs start muted.
+
+Enable Keyboard sounds and allow this copy of Assist in macOS Input Monitoring
+when requested. Only transient physical key codes are used; typed text is not
+read, saved, or transmitted. Auto-repeat does not retrigger a held key. Playback
+pauses while Assist records voice context and while the user session is inactive.
+The output engine stops after eight seconds without playback and restarts on the
+next hit. Audio device changes reset queued hits before subsequent playback.
+
+The presets are four processed sound designs based on licensed recordings,
+including separate releases and Space/Return/Backspace sounds. Typewriter is a
+vintage-inspired treatment. Attribution, processing details and a reproducible
+asset script are documented in `Sources/Assist/Resources/Sounds/README.md`.
+There is no keyboard visualizer in this release.
+
+The sound engine uses AVAudioEngine with a small C renderer: immutable preloaded
+PCM samples, a single-producer/single-consumer atomic queue, and 32 overlapping
+voices. File loading and UI work never occur on the audio render thread.
+
+Validation: `swift test`, `swift build`, and `make run`. On hardware, check fast
+typing and held modifiers in another app, Input Monitoring revocation/regrant,
+voice recording/cancellation, sleep/wake, and speaker/headphone changes. Confirm
+that disabling sounds clears pending previews and releases, and that no typing
+contents appear in logs.
 
 ## Why Native Swift
 

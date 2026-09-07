@@ -17,9 +17,11 @@ let package = Package(
         )
     ],
     targets: [
+        .target(name: "KeyboardAudioRender", path: "Sources/KeyboardAudioRender"),
         .executableTarget(
             name: "Assist",
             dependencies: [
+                "KeyboardAudioRender",
                 .product(name: "WhisperKit", package: "argmax-oss-swift")
             ],
             path: "Sources/Assist",
@@ -29,6 +31,7 @@ let package = Package(
                 .copy("Resources/Brand"),
                 .copy("Resources/Fonts"),
                 .copy("Resources/Icons"),
+                .copy("Resources/Sounds"),
                 .copy("Resources/ThirdPartyNotices.md")
             ],
             linkerSettings: [

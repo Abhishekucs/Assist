@@ -302,6 +302,7 @@ final class VoiceContextService: ObservableObject {
     @Published private(set) var modelState: VoiceModelState
     @Published private(set) var microphoneAccessState: MicrophoneAccessState
     @Published private(set) var audioInputState: AudioInputState
+    @Published private(set) var isRecording = false
 
     private static let modelRepository = "argmaxinc/whisperkit-coreml"
     private static let modelFolderName = "openai_whisper-small.en"
@@ -428,6 +429,7 @@ final class VoiceContextService: ObservableObject {
         guard activeRecordingSessionID == nil else { throw VoiceContextError.recordingAlreadyActive }
 
         activeRecordingSessionID = sessionID
+        isRecording = true
         recordedSampleCount = 0
         didReachRecordingLimit = false
 
@@ -448,6 +450,7 @@ final class VoiceContextService: ObservableObject {
         } catch {
             let details = error.localizedDescription
             activeRecordingSessionID = nil
+            isRecording = false
             recordedSampleCount = 0
             didReachRecordingLimit = false
             audioInputState = .failed(details)
@@ -470,6 +473,7 @@ final class VoiceContextService: ObservableObject {
             "session": sessionID.uuidString
         ])
         activeRecordingSessionID = nil
+        isRecording = false
         recordedSampleCount = 0
         didReachRecordingLimit = false
         return VoiceRecording(sessionID: sessionID, samples: samples)
@@ -480,6 +484,7 @@ final class VoiceContextService: ObservableObject {
         audioRecorder.stop()
         _ = audioRecorder.takeSamples()
         activeRecordingSessionID = nil
+        isRecording = false
         recordedSampleCount = 0
         didReachRecordingLimit = false
     }
