@@ -1,9 +1,6 @@
 export const marketingVideos = {
-  hero: "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/AssistDemoNew.mp4",
-  annotation:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/annotationedit.mp4",
-  screenshot:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/SSDemo.mp4",
-  clipboard:
-    "https://m94bitnxyzpsrcu1.public.blob.vercel-storage.com/HeroIsland/AssistCopy.mp4"
+  hero: "/videos/assist-demo.mp4",
+  annotation: "/videos/voice-annotation.mp4",
+  screenshot: "/videos/screenshot-editor.mp4",
+  clipboard: "/videos/clipboard-history.mp4"
 } as const;
