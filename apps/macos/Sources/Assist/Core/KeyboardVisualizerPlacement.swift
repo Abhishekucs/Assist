@@ -1,7 +1,7 @@
 import CoreGraphics
 
 enum KeyboardVisualizerPlacement {
-    static let size = CGSize(width: 364, height: 156)
+    static let size = KeyboardVisualizerLayout.size
     static let margin: CGFloat = 18
 
     /// AppKit screen coordinates, including displays left of or below the primary.

@@ -16,7 +16,7 @@ struct KeyboardSoundSettingsPane: View {
                              isOn: $settings.configuration.enabled)
 
             SettingsSection("Keyboard visualizer") {
-                SettingToggleRow(title: "Show keyboard", detail: "Light up a floating keyboard as you type, even with sounds off.",
+                SettingToggleRow(title: "Show keyboard while typing", detail: "Appears as you type and hides after one second of inactivity.",
                                  isOn: $settings.configuration.visualizerEnabled)
                 if settings.configuration.visualizerEnabled {
                     HStack {

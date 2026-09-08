@@ -36,10 +36,13 @@ including separate releases and Space/Return/Backspace sounds. Typewriter is a
 vintage-inspired treatment. Attribution, processing details and a reproducible
 asset script are documented in `Sources/Assist/Resources/Sounds/README.md`.
 
-Enable Show keyboard in the same Sounds pane for a live mini keyboard. It works
+Enable Show keyboard while typing in the same Sounds pane for a live mini keyboard. It works
 with sounds off and uses the same Input Monitoring permission and event tap.
+The compact 280 × 117-point panel stays hidden until a key press, remains visible
+while keys are held, and hides one second after the last release. Typing again
+cancels the pending hide; Caps Lock being on does not keep the panel visible.
 Choose Follow pointer, Bottom left, or Bottom right. Fixed positions stay on the
-display where they were enabled; pointer mode moves between displays and flips
+display where first shown; pointer mode moves between displays and flips
 away from screen edges. The panel never takes keyboard focus and clicks pass
 through it. It follows Assist's light/dark appearance and Reduce Motion setting.
 
@@ -49,7 +52,8 @@ provide ISO/JIS/numpad layouts. Caps Lock reflects its toggle state when changed
 Only currently held key codes exist in memory. Disabling the visualizer, recording,
 session suspension, permission loss, and event-tap interruptions clear highlights;
 app switches also reset held keys in case the destination consumed a release.
-Pointer updates use native mouse events; there is no polling or continuous animation.
+Pointer updates use native mouse events only while visible; there is no polling
+or continuous animation. A cancellable one-shot timer owns the idle grace period.
 
 The sound engine uses AVAudioEngine with a small C renderer: immutable preloaded
 PCM samples, a single-producer/single-consumer atomic queue, and 32 overlapping

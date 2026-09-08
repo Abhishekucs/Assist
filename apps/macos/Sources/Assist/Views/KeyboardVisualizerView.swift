@@ -6,21 +6,21 @@ struct KeyboardVisualizerView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let gap = AssistDesignTokens.Spacing.xxSmall
+            let gap = KeyboardVisualizerLayout.keyGap
             let pitch = (geometry.size.width + gap) / KeyboardVisualizerLayout.rowUnits
             VStack(spacing: gap) {
                 ForEach(KeyboardVisualizerLayout.rows.indices, id: \.self) { row in
                     HStack(spacing: gap) {
                         ForEach(KeyboardVisualizerLayout.rows[row]) { key in
                             KeyboardVisualizerKeycap(key: key, pressed: state.pressedKeys.contains(key.code))
-                                .frame(width: key.units * pitch - gap, height: 20)
+                                .frame(width: key.units * pitch - gap, height: KeyboardVisualizerLayout.keyHeight)
                         }
                     }
                 }
             }
         }
-        .frame(height: 140)
-        .padding(AssistDesignTokens.Spacing.small)
+        .frame(height: KeyboardVisualizerLayout.contentHeight)
+        .padding(KeyboardVisualizerLayout.inset)
         .background(theme.card, in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Keyboard visualizer, US layout")

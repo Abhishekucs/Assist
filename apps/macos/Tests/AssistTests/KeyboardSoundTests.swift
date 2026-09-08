@@ -193,10 +193,12 @@ final class KeyboardSoundTests: XCTestCase {
         let (controller, monitor, player) = makeController(permission: true)
         controller.settings.configuration.visualizerEnabled = true
         XCTAssertEqual(controller.status, .ready)
-        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.isEnabled)
+        XCTAssertFalse(controller.visualizer.isVisible)
         XCTAssertEqual(player.prepares, 0)
         monitor.onEvent?(.init(keyCode: 0, phase: .down))
         XCTAssertEqual(controller.visualizer.pressedKeys, [0])
+        XCTAssertTrue(controller.visualizer.isVisible)
         XCTAssertEqual(player.hits, 0)
         controller.settings.configuration.enabled = true
         monitor.onEvent?(.init(keyCode: 49, phase: .down))
@@ -220,6 +222,7 @@ final class KeyboardSoundTests: XCTestCase {
         monitor.onEvent?(.init(keyCode: 55, phase: .down))
         monitor.onInterruption?()
         XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        XCTAssertFalse(controller.visualizer.isVisible)
         monitor.onEvent?(.init(keyCode: 0, phase: .down))
         controller.setRecording(true)
         XCTAssertFalse(controller.visualizer.isVisible)
@@ -227,7 +230,8 @@ final class KeyboardSoundTests: XCTestCase {
         monitor.onEvent?(.init(keyCode: 1, phase: .down))
         XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
         controller.setRecording(false)
-        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.isEnabled)
+        XCTAssertFalse(controller.visualizer.isVisible)
         monitor.onEvent?(.init(keyCode: 0, phase: .down))
         monitor.hasPermission = false
         monitor.onInterruption?()
@@ -236,12 +240,14 @@ final class KeyboardSoundTests: XCTestCase {
         XCTAssertEqual(controller.status, .needsPermission)
         monitor.hasPermission = true
         controller.refresh()
-        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.isEnabled)
+        XCTAssertFalse(controller.visualizer.isVisible)
         XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
         controller.stop()
         XCTAssertFalse(controller.visualizer.isVisible)
         controller.start(voiceContext: VoiceContextService(modelStateOverride: .notInstalled, microphoneAccessStateOverride: .notDetermined))
-        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.isEnabled)
+        XCTAssertFalse(controller.visualizer.isVisible)
         controller.settings.configuration.visualizerEnabled = false
         XCTAssertFalse(controller.visualizer.isVisible)
         controller.stop()
@@ -254,10 +260,12 @@ final class KeyboardSoundTests: XCTestCase {
         player.failPrepare = true
         controller.settings.configuration.enabled = true
         guard case .failed = controller.status else { return XCTFail("Audio error must be surfaced") }
-        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.isEnabled)
+        XCTAssertFalse(controller.visualizer.isVisible)
         XCTAssertTrue(monitor.isRunning)
         monitor.onEvent?(.init(keyCode: 0, phase: .down))
         XCTAssertEqual(controller.visualizer.pressedKeys, [0])
+        XCTAssertTrue(controller.visualizer.isVisible)
         XCTAssertEqual(player.hits, 0)
         player.failPrepare = false
         controller.refresh()

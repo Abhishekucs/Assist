@@ -16,26 +16,69 @@ enum KeyboardVisualizerPosition: String, CaseIterable, Codable, Identifiable, Se
 /// Holds only the keys currently down, with no text or event history.
 @MainActor
 final class KeyboardVisualizerState: ObservableObject {
+    typealias IdleScheduler = @MainActor (TimeInterval, @escaping @MainActor () -> Void) -> AnyCancellable
+    static let idleDelay: TimeInterval = 1
+
+    private(set) var isEnabled = false
     @Published private(set) var isVisible = false
     @Published private(set) var pressedKeys: Set<UInt16> = []
+    private let scheduleIdleHide: IdleScheduler
+    private var idleHide: AnyCancellable?
+    private var activityGeneration: UInt64 = 0
 
-    func setVisible(_ visible: Bool) {
-        if !visible { reset() }
-        if isVisible != visible { isVisible = visible }
+    init(scheduleIdleHide: @escaping IdleScheduler = KeyboardVisualizerState.scheduleTimer) {
+        self.scheduleIdleHide = scheduleIdleHide
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        if !enabled { reset() }
     }
 
     func receive(_ event: KeyboardSoundEvent) {
-        guard isVisible, KeyboardVisualizerLayout.keyCodes.contains(event.keyCode) else { return }
+        guard isEnabled, KeyboardVisualizerLayout.keyCodes.contains(event.keyCode) else { return }
         switch event.phase {
         case .down:
             if !pressedKeys.contains(event.keyCode) { pressedKeys.insert(event.keyCode) }
         case .up:
-            if pressedKeys.contains(event.keyCode) { pressedKeys.remove(event.keyCode) }
+            guard pressedKeys.contains(event.keyCode) else { return }
+            pressedKeys.remove(event.keyCode)
+        }
+        cancelIdleHide()
+        if !isVisible { isVisible = true }
+
+        // Keep held keys (including auto-repeat) visible. Caps Lock is a latch,
+        // so leaving it on must not keep the panel on screen indefinitely.
+        if pressedKeys.subtracting([57]).isEmpty {
+            let generation = activityGeneration
+            idleHide = scheduleIdleHide(Self.idleDelay) { [weak self] in
+                guard let self, self.isEnabled, self.activityGeneration == generation else { return }
+                self.idleHide = nil
+                self.isVisible = false
+            }
         }
     }
 
     func reset() {
+        cancelIdleHide()
         if !pressedKeys.isEmpty { pressedKeys.removeAll(keepingCapacity: true) }
+        if isVisible { isVisible = false }
+    }
+
+    private func cancelIdleHide() {
+        activityGeneration &+= 1
+        idleHide?.cancel()
+        idleHide = nil
+    }
+
+    private static func scheduleTimer(after delay: TimeInterval, action: @escaping @MainActor () -> Void) -> AnyCancellable {
+        // This timer defines the requested idle grace period; it does not poll
+        // input or delay key events. It exists only after the last key release.
+        let timer = Timer(timeInterval: delay, repeats: false) { _ in
+            MainActor.assumeIsolated { action() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        return AnyCancellable { timer.invalidate() }
     }
 }
 
@@ -48,6 +91,11 @@ struct KeyboardVisualizerKey: Identifiable, Sendable {
 
 /// Physical US ANSI layout. Labels are static key legends, never translated text.
 enum KeyboardVisualizerLayout {
+    static let keyHeight: CGFloat = 15
+    static let keyGap: CGFloat = 3
+    static let inset: CGFloat = 6
+    static var contentHeight: CGFloat { CGFloat(rows.count) * keyHeight + CGFloat(rows.count - 1) * keyGap }
+    static var size: CGSize { CGSize(width: 280, height: contentHeight + inset * 2) }
     static let rows: [[KeyboardVisualizerKey]] = [
         [.init(code: 53, label: "esc", units: 1.5),
          .init(code: 122, label: "F1"), .init(code: 120, label: "F2"), .init(code: 99, label: "F3"),

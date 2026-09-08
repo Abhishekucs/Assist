@@ -84,7 +84,7 @@ final class KeyboardSoundController: ObservableObject {
         monitor.stop()
         player.suspend()
         audioReady = false
-        visualizer.setVisible(false)
+        visualizer.setEnabled(false)
         subscriptions.removeAll()
         status = .off
     }
@@ -114,17 +114,17 @@ final class KeyboardSoundController: ObservableObject {
         if recording || asleep || sessionInactive {
             monitor.stop()
             player.suspend()
-            visualizer.setVisible(false)
+            visualizer.setEnabled(false)
             status = recording ? .recording : .suspended
         } else if !configuration.enabled && !configuration.visualizerEnabled {
             monitor.stop()
             player.suspend()
-            visualizer.setVisible(false)
+            visualizer.setEnabled(false)
             status = .off
         } else if !monitor.hasPermission {
             monitor.stop()
             player.suspend()
-            visualizer.setVisible(false)
+            visualizer.setEnabled(false)
             status = .needsPermission
         } else {
             do {
@@ -132,11 +132,11 @@ final class KeyboardSoundController: ObservableObject {
             } catch {
                 monitor.stop()
                 player.suspend()
-                visualizer.setVisible(false)
+                visualizer.setEnabled(false)
                 status = .failed(error.localizedDescription)
                 return
             }
-            visualizer.setVisible(configuration.visualizerEnabled)
+            visualizer.setEnabled(configuration.visualizerEnabled)
             if configuration.enabled {
                 do {
                     try player.prepare()

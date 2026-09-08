@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import Assist
 
@@ -7,23 +8,116 @@ final class KeyboardVisualizerTests: XCTestCase {
         let state = KeyboardVisualizerState()
         state.receive(.init(keyCode: 0, phase: .down))
         XCTAssertTrue(state.pressedKeys.isEmpty)
-        state.setVisible(true)
+        state.setEnabled(true)
+        XCTAssertFalse(state.isVisible)
         // Both Command keys and a letter can be down together.
         for code: UInt16 in [55, 54, 0, 0, 65535] {
             state.receive(.init(keyCode: code, phase: .down))
         }
         XCTAssertEqual(state.pressedKeys, [55, 54, 0])
+        XCTAssertTrue(state.isVisible)
         state.receive(.init(keyCode: 55, phase: .up))
         XCTAssertEqual(state.pressedKeys, [54, 0])
         state.receive(.init(keyCode: 1, phase: .up))
         XCTAssertEqual(state.pressedKeys, [54, 0])
-        state.setVisible(false)
+        state.setEnabled(false)
         XCTAssertTrue(state.pressedKeys.isEmpty)
-        state.setVisible(true)
+        state.setEnabled(true)
+        XCTAssertFalse(state.isVisible)
         XCTAssertTrue(state.pressedKeys.isEmpty)
         state.receive(.init(keyCode: 49, phase: .down))
         state.reset()
         XCTAssertTrue(state.pressedKeys.isEmpty)
+        XCTAssertFalse(state.isVisible)
+    }
+
+    @MainActor
+    func testTypingShowsImmediatelyAndOnlyLatestReleaseCanHide() {
+        let scheduler = VisualizerIdleSchedulerSpy()
+        let state = KeyboardVisualizerState(scheduleIdleHide: scheduler.schedule)
+        state.setEnabled(true)
+        XCTAssertFalse(state.isVisible)
+        state.receive(.init(keyCode: 0, phase: .up))
+        XCTAssertFalse(state.isVisible, "An orphan release must not reveal the keyboard")
+        state.receive(.init(keyCode: 0, phase: .down))
+        XCTAssertTrue(state.isVisible)
+        XCTAssertTrue(scheduler.callbacks.isEmpty, "Held keys and auto-repeat must stay visible")
+        state.receive(.init(keyCode: 0, phase: .up))
+        XCTAssertTrue(state.isVisible, "Short gaps between keys must not flicker")
+        XCTAssertEqual(scheduler.delays, [1])
+        state.receive(.init(keyCode: 1, phase: .down))
+        scheduler.callbacks[0]()
+        XCTAssertTrue(state.isVisible, "A stale hide must not interrupt new typing")
+        state.setEnabled(true)
+        XCTAssertTrue(state.isVisible, "Refreshing eligibility must not interrupt typing")
+        state.receive(.init(keyCode: 1, phase: .up))
+        scheduler.callbacks[1]()
+        XCTAssertFalse(state.isVisible)
+        XCTAssertTrue(state.isEnabled)
+        state.receive(.init(keyCode: 2, phase: .down))
+        XCTAssertTrue(state.isVisible)
+    }
+
+    @MainActor
+    func testNativeTimerPublishesHiddenAfterTheIdleGracePeriod() async {
+        let state = KeyboardVisualizerState()
+        state.setEnabled(true)
+        state.receive(.init(keyCode: 0, phase: .down))
+        let hidden = XCTestExpectation(description: "Idle keyboard becomes hidden")
+        let subscription = state.$isVisible.filter { !$0 }.first().sink { _ in hidden.fulfill() }
+        let releasedAt = ProcessInfo.processInfo.systemUptime
+        state.receive(.init(keyCode: 0, phase: .up))
+        XCTAssertTrue(state.isVisible)
+        await fulfillment(of: [hidden], timeout: 3)
+        XCTAssertFalse(state.isVisible)
+        XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - releasedAt, 0.9)
+        withExtendedLifetime(subscription) {}
+    }
+
+    @MainActor
+    func testCapsLockAndHeldModifiersDoNotBreakIdleLifecycle() {
+        let scheduler = VisualizerIdleSchedulerSpy()
+        let state = KeyboardVisualizerState(scheduleIdleHide: scheduler.schedule)
+        state.setEnabled(true)
+        state.receive(.init(keyCode: 57, phase: .down))
+        scheduler.callbacks[0]()
+        XCTAssertFalse(state.isVisible, "Caps Lock is a latch, not a held key")
+        state.receive(.init(keyCode: 55, phase: .down))
+        state.receive(.init(keyCode: 0, phase: .down))
+        state.receive(.init(keyCode: 0, phase: .up))
+        XCTAssertEqual(scheduler.callbacks.count, 1, "The modifier is still held")
+        state.receive(.init(keyCode: 55, phase: .up))
+        scheduler.callbacks[1]()
+        XCTAssertFalse(state.isVisible)
+        state.receive(.init(keyCode: 57, phase: .up))
+        XCTAssertTrue(state.isVisible)
+        scheduler.callbacks[2]()
+        XCTAssertFalse(state.isVisible)
+        XCTAssertTrue(state.pressedKeys.isEmpty)
+    }
+
+    @MainActor
+    func testResetAndDisableInvalidateOutstandingHideCallbacks() {
+        let scheduler = VisualizerIdleSchedulerSpy()
+        let state = KeyboardVisualizerState(scheduleIdleHide: scheduler.schedule)
+        state.setEnabled(true)
+        state.receive(.init(keyCode: 0, phase: .down))
+        state.receive(.init(keyCode: 0, phase: .up))
+        state.reset()
+        XCTAssertFalse(state.isVisible)
+        state.receive(.init(keyCode: 1, phase: .down))
+        scheduler.callbacks[0]()
+        XCTAssertTrue(state.isVisible)
+        state.receive(.init(keyCode: 1, phase: .up))
+        state.setEnabled(false)
+        state.setEnabled(true)
+        XCTAssertFalse(state.isVisible)
+        state.receive(.init(keyCode: 2, phase: .down))
+        scheduler.callbacks[1]()
+        XCTAssertTrue(state.isVisible)
+        state.setEnabled(false)
+        state.receive(.init(keyCode: 3, phase: .down))
+        XCTAssertFalse(state.isVisible)
     }
 
     func testLayoutHasUniquePhysicalCodesAndAlignedRows() {
@@ -77,5 +171,18 @@ final class KeyboardVisualizerTests: XCTestCase {
         configuration.visualizerPosition = .bottomRight
         let reloaded = try JSONDecoder().decode(KeyboardSoundConfiguration.self, from: JSONEncoder().encode(configuration))
         XCTAssertEqual(configuration, reloaded)
+    }
+}
+
+@MainActor
+private final class VisualizerIdleSchedulerSpy {
+    var delays: [TimeInterval] = []
+    var callbacks: [@MainActor () -> Void] = []
+
+    func schedule(after delay: TimeInterval, action: @escaping @MainActor () -> Void) -> AnyCancellable {
+        delays.append(delay)
+        callbacks.append(action)
+        // Deliberately allow cancelled callbacks to fire to test invalidation.
+        return AnyCancellable {}
     }
 }
