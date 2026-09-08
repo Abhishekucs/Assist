@@ -8,6 +8,7 @@ final class KeyboardSoundController: ObservableObject {
     }
 
     let settings: KeyboardSoundSettings
+    let visualizer = KeyboardVisualizerState()
     @Published private(set) var status: Status = .off
     @Published private(set) var previewError: String?
     private let monitor: any KeyboardEventMonitoring
@@ -19,6 +20,7 @@ final class KeyboardSoundController: ObservableObject {
     private var recording = false
     private var asleep = false
     private var sessionInactive = false
+    private var audioReady = false
 
     init(settings: KeyboardSoundSettings,
          monitor: (any KeyboardEventMonitoring)? = nil,
@@ -31,6 +33,7 @@ final class KeyboardSoundController: ObservableObject {
         self.monitor.onInterruption = { [weak self] in
             guard let self else { return }
             self.player.silence()
+            self.visualizer.reset()
             if !self.monitor.hasPermission { self.refresh() }
         }
         self.player.onConfigurationChange = { [weak self] in self?.refresh() }
@@ -40,7 +43,9 @@ final class KeyboardSoundController: ObservableObject {
             self.configuration = value.validated
             if previous.pack != value.pack { self.player.silence() }
             self.player.setVolume(self.configuration.volume)
-            if previous.enabled != value.enabled { self.refresh() }
+            if previous.enabled != value.enabled || previous.visualizerEnabled != value.visualizerEnabled {
+                self.refresh()
+            }
         }
     }
 
@@ -63,6 +68,11 @@ final class KeyboardSoundController: ObservableObject {
         workspace.publisher(for: NSWorkspace.sessionDidBecomeActiveNotification).receive(on: RunLoop.main).sink { [weak self] _ in
             self?.sessionInactive = false; self?.refresh()
         }.store(in: &subscriptions)
+        workspace.publisher(for: NSWorkspace.didActivateApplicationNotification).receive(on: RunLoop.main).sink { [weak self] _ in
+            // An app switch can consume a shortcut's release events.
+            self?.monitor.resetPressedKeys()
+            self?.visualizer.reset()
+        }.store(in: &subscriptions)
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification).receive(on: RunLoop.main).sink { [weak self] _ in
             self?.refresh()
         }.store(in: &subscriptions)
@@ -73,6 +83,8 @@ final class KeyboardSoundController: ObservableObject {
         started = false
         monitor.stop()
         player.suspend()
+        audioReady = false
+        visualizer.setVisible(false)
         subscriptions.removeAll()
         status = .off
     }
@@ -98,28 +110,45 @@ final class KeyboardSoundController: ObservableObject {
     func refresh() {
         previewError = nil
         guard started else { return }
+        audioReady = false
         if recording || asleep || sessionInactive {
             monitor.stop()
             player.suspend()
+            visualizer.setVisible(false)
             status = recording ? .recording : .suspended
-        } else if !configuration.enabled {
+        } else if !configuration.enabled && !configuration.visualizerEnabled {
             monitor.stop()
             player.suspend()
+            visualizer.setVisible(false)
             status = .off
         } else if !monitor.hasPermission {
             monitor.stop()
             player.suspend()
+            visualizer.setVisible(false)
             status = .needsPermission
         } else {
             do {
-                try player.prepare()
                 try monitor.start()
-                status = .ready
             } catch {
                 monitor.stop()
                 player.suspend()
+                visualizer.setVisible(false)
                 status = .failed(error.localizedDescription)
+                return
             }
+            visualizer.setVisible(configuration.visualizerEnabled)
+            if configuration.enabled {
+                do {
+                    try player.prepare()
+                    audioReady = true
+                } catch {
+                    failPlayback(error)
+                    return
+                }
+            } else {
+                player.suspend()
+            }
+            status = .ready
         }
     }
 
@@ -132,14 +161,22 @@ final class KeyboardSoundController: ObservableObject {
     }
 
     private func receive(_ event: KeyboardSoundEvent) {
-        guard started, configuration.enabled, !recording, !asleep, !sessionInactive,
-              monitor.hasPermission else { return }
+        guard started, !recording, !asleep, !sessionInactive else { return }
+        guard monitor.hasPermission else { refresh(); return }
+        visualizer.receive(event)
+        guard configuration.enabled, audioReady else { return }
         do {
             try player.play(event, configuration: configuration)
         } catch {
-            monitor.stop()
-            player.suspend()
-            status = .failed(error.localizedDescription)
+            failPlayback(error)
         }
+    }
+
+    private func failPlayback(_ error: any Error) {
+        audioReady = false
+        player.suspend()
+        // Audio and visualization are independent consumers of the same tap.
+        if !configuration.visualizerEnabled { monitor.stop() }
+        status = .failed(error.localizedDescription)
     }
 }

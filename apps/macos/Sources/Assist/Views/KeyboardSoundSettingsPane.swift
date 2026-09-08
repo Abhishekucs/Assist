@@ -15,6 +15,33 @@ struct KeyboardSoundSettingsPane: View {
             SettingToggleRow(title: "Keyboard sounds", detail: "Play sounds as you press and release keys.",
                              isOn: $settings.configuration.enabled)
 
+            SettingsSection("Keyboard visualizer") {
+                SettingToggleRow(title: "Show keyboard", detail: "Light up a floating keyboard as you type, even with sounds off.",
+                                 isOn: $settings.configuration.visualizerEnabled)
+                if settings.configuration.visualizerEnabled {
+                    HStack {
+                        Text("Position").font(.footnote.weight(.semibold))
+                        Spacer()
+                        Picker("Visualizer position", selection: $settings.configuration.visualizerPosition) {
+                            ForEach(KeyboardVisualizerPosition.allCases) { position in
+                                Text(position.title).tag(position)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 166)
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    Text("US keyboard layout. Clicks pass through to the app underneath.")
+                        .font(.caption)
+                        .foregroundStyle(theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
+                }
+            }
+
             statusMessage
 
             SettingsSection("Sound pack") {
@@ -43,7 +70,7 @@ struct KeyboardSoundSettingsPane: View {
                                  isOn: $settings.configuration.stereo)
             }
 
-            Text("Sounds stay on your Mac. Typed text is never saved. Playback pauses while Assist records voice context.")
+            Text("Keyboard feedback stays on your Mac. Typed text is never saved. Sounds and the visualizer pause while Assist records voice context.")
                 .font(.caption)
                 .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -98,7 +125,7 @@ struct KeyboardSoundSettingsPane: View {
         switch controller.status {
         case .needsPermission:
             VStack(alignment: .leading, spacing: 8) {
-                Text("Allow Input Monitoring to hear sounds while typing in other apps. You can preview every pack here first.")
+                Text("Allow Input Monitoring for keyboard sounds and the visualizer in other apps. You can preview every sound pack here first.")
                     .font(.caption).foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Allow Input Monitoring") { controller.requestPermission() }

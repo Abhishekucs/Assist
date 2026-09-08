@@ -94,6 +94,7 @@ struct SettingToggleRow: View {
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
+                .accessibilityLabel(title)
                 .toggleStyle(.switch)
                 .tint(Color(hex: 0x30D158))
                 .controlSize(.small)

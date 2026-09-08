@@ -189,6 +189,86 @@ final class KeyboardSoundTests: XCTestCase {
     }
 
     @MainActor
+    func testVisualizerRunsWithSoundsOffAndDoesNotPrepareAudio() {
+        let (controller, monitor, player) = makeController(permission: true)
+        controller.settings.configuration.visualizerEnabled = true
+        XCTAssertEqual(controller.status, .ready)
+        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertEqual(player.prepares, 0)
+        monitor.onEvent?(.init(keyCode: 0, phase: .down))
+        XCTAssertEqual(controller.visualizer.pressedKeys, [0])
+        XCTAssertEqual(player.hits, 0)
+        controller.settings.configuration.enabled = true
+        monitor.onEvent?(.init(keyCode: 49, phase: .down))
+        XCTAssertEqual(player.hits, 1)
+        XCTAssertEqual(controller.visualizer.pressedKeys, [0, 49])
+        controller.settings.configuration.visualizerEnabled = false
+        XCTAssertFalse(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        monitor.onEvent?(.init(keyCode: 49, phase: .up))
+        XCTAssertEqual(player.hits, 2)
+        controller.settings.configuration.enabled = false
+        XCTAssertEqual(controller.status, .off)
+        XCTAssertFalse(monitor.isRunning)
+        controller.stop()
+    }
+
+    @MainActor
+    func testVisualizerResetsOnInterruptionRecordingAndPermissionLoss() {
+        let (controller, monitor, _) = makeController(permission: true)
+        controller.settings.configuration.visualizerEnabled = true
+        monitor.onEvent?(.init(keyCode: 55, phase: .down))
+        monitor.onInterruption?()
+        XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        monitor.onEvent?(.init(keyCode: 0, phase: .down))
+        controller.setRecording(true)
+        XCTAssertFalse(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        monitor.onEvent?(.init(keyCode: 1, phase: .down))
+        XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        controller.setRecording(false)
+        XCTAssertTrue(controller.visualizer.isVisible)
+        monitor.onEvent?(.init(keyCode: 0, phase: .down))
+        monitor.hasPermission = false
+        monitor.onInterruption?()
+        XCTAssertFalse(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        XCTAssertEqual(controller.status, .needsPermission)
+        monitor.hasPermission = true
+        controller.refresh()
+        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        controller.stop()
+        XCTAssertFalse(controller.visualizer.isVisible)
+        controller.start(voiceContext: VoiceContextService(modelStateOverride: .notInstalled, microphoneAccessStateOverride: .notDetermined))
+        XCTAssertTrue(controller.visualizer.isVisible)
+        controller.settings.configuration.visualizerEnabled = false
+        XCTAssertFalse(controller.visualizer.isVisible)
+        controller.stop()
+    }
+
+    @MainActor
+    func testAudioFailureDoesNotStopEnabledVisualizer() {
+        let (controller, monitor, player) = makeController(permission: true)
+        controller.settings.configuration.visualizerEnabled = true
+        player.failPrepare = true
+        controller.settings.configuration.enabled = true
+        guard case .failed = controller.status else { return XCTFail("Audio error must be surfaced") }
+        XCTAssertTrue(controller.visualizer.isVisible)
+        XCTAssertTrue(monitor.isRunning)
+        monitor.onEvent?(.init(keyCode: 0, phase: .down))
+        XCTAssertEqual(controller.visualizer.pressedKeys, [0])
+        XCTAssertEqual(player.hits, 0)
+        player.failPrepare = false
+        controller.refresh()
+        player.failPlay = true
+        monitor.onEvent?(.init(keyCode: 0, phase: .up))
+        XCTAssertTrue(controller.visualizer.pressedKeys.isEmpty)
+        XCTAssertTrue(monitor.isRunning)
+        controller.stop()
+    }
+
+    @MainActor
     private func makeController(permission: Bool) -> (KeyboardSoundController, KeyboardMonitorSpy, KeyboardPlayerSpy) {
         let monitor = KeyboardMonitorSpy()
         monitor.hasPermission = permission
@@ -246,9 +326,11 @@ private final class KeyboardMonitorSpy: KeyboardEventMonitoring {
     var hasPermission = true
     var starts = 0
     var failStart = false
+    var isRunning = false
     func requestPermission() {}
-    func start() throws { if failStart { throw KeyboardSoundError.eventTap }; starts += 1 }
-    func stop() {}
+    func start() throws { if failStart { throw KeyboardSoundError.eventTap }; starts += 1; isRunning = true }
+    func stop() { isRunning = false }
+    func resetPressedKeys() {}
 }
 
 @MainActor
@@ -257,8 +339,17 @@ private final class KeyboardPlayerSpy: KeyboardSoundPlaying {
     var previews: [KeyboardSoundPack] = []
     var hits = 0
     var suspends = 0
-    func prepare() throws {}
-    func play(_ event: KeyboardSoundEvent, configuration: KeyboardSoundConfiguration) throws { hits += 1 }
+    var prepares = 0
+    var failPrepare = false
+    var failPlay = false
+    func prepare() throws {
+        prepares += 1
+        if failPrepare { throw KeyboardSoundError.rendererUnavailable }
+    }
+    func play(_ event: KeyboardSoundEvent, configuration: KeyboardSoundConfiguration) throws {
+        if failPlay { throw KeyboardSoundError.rendererUnavailable }
+        hits += 1
+    }
     func preview(_ pack: KeyboardSoundPack, configuration: KeyboardSoundConfiguration) throws { previews.append(pack) }
     func setVolume(_ volume: Double) {}
     func silence() {}

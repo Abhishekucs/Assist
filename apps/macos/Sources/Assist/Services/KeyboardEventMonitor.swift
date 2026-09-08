@@ -10,6 +10,7 @@ protocol KeyboardEventMonitoring: AnyObject {
     func requestPermission()
     func start() throws
     func stop()
+    func resetPressedKeys()
 }
 
 @MainActor
@@ -22,6 +23,8 @@ final class KeyboardEventMonitor: KeyboardEventMonitoring {
     private var state = KeyboardPressState()
 
     func requestPermission() { _ = CGRequestListenEventAccess() }
+
+    func resetPressedKeys() { state.reset() }
 
     func start() throws {
         guard tap == nil else { return }
@@ -108,7 +111,7 @@ enum KeyboardSoundError: LocalizedError {
     case inputPermission, eventTap, missingSamples, rendererUnavailable
     var errorDescription: String? {
         switch self {
-        case .inputPermission: "Allow Assist in Privacy & Security → Input Monitoring to hear typing sounds."
+        case .inputPermission: "Allow Assist in Privacy & Security → Input Monitoring for keyboard sounds and the visualizer."
         case .eventTap: "Keyboard listening could not start. Check Input Monitoring for this copy of Assist, then retry."
         case .missingSamples: "The bundled keyboard sounds are missing or invalid. Reinstall Assist to restore them."
         case .rendererUnavailable: "The keyboard audio renderer could not be created."

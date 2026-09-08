@@ -16,6 +16,7 @@ The first version is intentionally small:
 - Copy or drag saved items into other apps. Assist performs no OCR.
 - Built-in diagnostic actions help isolate overlay and capture issues.
 - Optional keyboard sounds with four offline presets, previews, volume, and stereo positioning.
+- Optional floating keyboard visualizer that lights up keys as you type.
 
 ## Keyboard sounds
 
@@ -34,7 +35,21 @@ The presets are four processed sound designs based on licensed recordings,
 including separate releases and Space/Return/Backspace sounds. Typewriter is a
 vintage-inspired treatment. Attribution, processing details and a reproducible
 asset script are documented in `Sources/Assist/Resources/Sounds/README.md`.
-There is no keyboard visualizer in this release.
+
+Enable Show keyboard in the same Sounds pane for a live mini keyboard. It works
+with sounds off and uses the same Input Monitoring permission and event tap.
+Choose Follow pointer, Bottom left, or Bottom right. Fixed positions stay on the
+display where they were enabled; pointer mode moves between displays and flips
+away from screen edges. The panel never takes keyboard focus and clicks pass
+through it. It follows Assist's light/dark appearance and Reduce Motion setting.
+
+The visualizer uses a compact US ANSI layout with static legends, function keys,
+arrows, and separate left/right modifiers. It does not translate IME text or
+provide ISO/JIS/numpad layouts. Caps Lock reflects its toggle state when changed.
+Only currently held key codes exist in memory. Disabling the visualizer, recording,
+session suspension, permission loss, and event-tap interruptions clear highlights;
+app switches also reset held keys in case the destination consumed a release.
+Pointer updates use native mouse events; there is no polling or continuous animation.
 
 The sound engine uses AVAudioEngine with a small C renderer: immutable preloaded
 PCM samples, a single-producer/single-consumer atomic queue, and 32 overlapping
@@ -45,6 +60,10 @@ typing and held modifiers in another app, Input Monitoring revocation/regrant,
 voice recording/cancellation, sleep/wake, and speaker/headphone changes. Confirm
 that disabling sounds clears pending previews and releases, and that no typing
 contents appear in logs.
+Also check visualization with sounds off, simultaneous modifiers and release,
+click-through and focus preservation, full-screen apps, display edges and display
+removal. Screen-placement, settings migration, held-state reset, and independent
+audio/visual routing have automated regression coverage.
 
 ## Why Native Swift
 

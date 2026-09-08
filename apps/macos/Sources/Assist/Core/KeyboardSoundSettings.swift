@@ -21,11 +21,32 @@ struct KeyboardSoundConfiguration: Codable, Equatable, Sendable {
     var pack: KeyboardSoundPack = .thock
     var volume: Double = 0.35
     var stereo = true
+    var visualizerEnabled = false
+    var visualizerPosition: KeyboardVisualizerPosition = .followPointer
 
     var validated: Self {
         var result = self
         result.volume = volume.isFinite ? min(1, max(0, volume)) : 0.35
         return result
+    }
+}
+
+extension KeyboardSoundConfiguration {
+    private enum CodingKeys: String, CodingKey {
+        case enabled, pack, volume, stereo, visualizerEnabled, visualizerPosition
+    }
+
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            enabled: try values.decode(Bool.self, forKey: .enabled),
+            pack: try values.decode(KeyboardSoundPack.self, forKey: .pack),
+            volume: try values.decode(Double.self, forKey: .volume),
+            stereo: try values.decode(Bool.self, forKey: .stereo),
+            // Existing sound preferences survive upgrading to the visualizer.
+            visualizerEnabled: try values.decodeIfPresent(Bool.self, forKey: .visualizerEnabled) ?? false,
+            visualizerPosition: try values.decodeIfPresent(KeyboardVisualizerPosition.self, forKey: .visualizerPosition) ?? .followPointer
+        )
     }
 }
 

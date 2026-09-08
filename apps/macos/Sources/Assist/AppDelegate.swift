@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pillViewModel: PillViewModel?
     private var statusItem: NSStatusItem?
     private var keyboardSoundController: KeyboardSoundController?
+    private var keyboardVisualizerController: KeyboardVisualizerWindowController?
     private var settingsCancellable: AnyCancellable?
     private let licenseActivationStore = LicenseActivationStore()
     private let licenseValidationService = LicenseValidationService()
@@ -49,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugLogger.log("app.terminate")
         coordinator?.stop()
         keyboardSoundController?.stop()
+        keyboardVisualizerController?.stop()
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -147,6 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.controlPanelController = controlPanelController
         self.coordinator = coordinator
         self.keyboardSoundController = keyboardSoundController
+        self.keyboardVisualizerController = KeyboardVisualizerWindowController(controller: keyboardSoundController, settings: settings)
         configureStatusItem(settings: settings)
         keyboardSoundController.start(voiceContext: voiceContextService)
         coordinator.start()
