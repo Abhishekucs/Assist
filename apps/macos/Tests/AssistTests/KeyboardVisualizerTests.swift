@@ -167,8 +167,10 @@ final class KeyboardVisualizerTests: XCTestCase {
         XCTAssertFalse(configuration.stereo)
         XCTAssertFalse(configuration.visualizerEnabled)
         XCTAssertEqual(configuration.visualizerPosition, .followPointer)
+        XCTAssertEqual(configuration.visualizerStyle, .assist)
         configuration.visualizerEnabled = true
         configuration.visualizerPosition = .bottomRight
+        configuration.visualizerStyle = .mint
         let reloaded = try JSONDecoder().decode(KeyboardSoundConfiguration.self, from: JSONEncoder().encode(configuration))
         XCTAssertEqual(configuration, reloaded)
     }

@@ -1,21 +1,6 @@
 import Combine
 import Foundation
 
-enum KeyboardSoundPack: String, CaseIterable, Codable, Identifiable, Sendable {
-    case soft, thock, clicky, typewriter
-    var id: String { rawValue }
-    var title: String { rawValue.capitalized }
-    var detail: String {
-        switch self {
-        case .soft: "Quiet, cushioned taps"
-        case .thock: "Deep, rounded taps"
-        case .clicky: "Bright, crisp taps"
-        case .typewriter: "Vintage-inspired mechanical taps"
-        }
-    }
-    var sampleOffset: Int { Self.allCases.firstIndex(of: self)! * 12 }
-}
-
 struct KeyboardSoundConfiguration: Codable, Equatable, Sendable {
     var enabled = false
     var pack: KeyboardSoundPack = .thock
@@ -23,6 +8,7 @@ struct KeyboardSoundConfiguration: Codable, Equatable, Sendable {
     var stereo = true
     var visualizerEnabled = false
     var visualizerPosition: KeyboardVisualizerPosition = .followPointer
+    var visualizerStyle: KeyboardVisualizerStyle = .assist
 
     var validated: Self {
         var result = self
@@ -33,7 +19,7 @@ struct KeyboardSoundConfiguration: Codable, Equatable, Sendable {
 
 extension KeyboardSoundConfiguration {
     private enum CodingKeys: String, CodingKey {
-        case enabled, pack, volume, stereo, visualizerEnabled, visualizerPosition
+        case enabled, pack, volume, stereo, visualizerEnabled, visualizerPosition, visualizerStyle
     }
 
     init(from decoder: any Decoder) throws {
@@ -45,7 +31,8 @@ extension KeyboardSoundConfiguration {
             stereo: try values.decode(Bool.self, forKey: .stereo),
             // Existing sound preferences survive upgrading to the visualizer.
             visualizerEnabled: try values.decodeIfPresent(Bool.self, forKey: .visualizerEnabled) ?? false,
-            visualizerPosition: try values.decodeIfPresent(KeyboardVisualizerPosition.self, forKey: .visualizerPosition) ?? .followPointer
+            visualizerPosition: try values.decodeIfPresent(KeyboardVisualizerPosition.self, forKey: .visualizerPosition) ?? .followPointer,
+            visualizerStyle: try values.decodeIfPresent(KeyboardVisualizerStyle.self, forKey: .visualizerStyle) ?? .assist
         )
     }
 }

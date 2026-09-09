@@ -15,13 +15,13 @@ The first version is intentionally small:
 - Keep recent copied text in a local library alongside screenshots.
 - Copy or drag saved items into other apps. Assist performs no OCR.
 - Built-in diagnostic actions help isolate overlay and capture issues.
-- Optional keyboard sounds with four offline presets, previews, volume, and stereo positioning.
+- Optional keyboard sounds with four Assist presets and ten recorded switch packs, previews, volume, and stereo positioning.
 - Optional floating keyboard visualizer that lights up keys as you type.
 
 ## Keyboard sounds
 
-Open Settings → Sounds. Choose Soft, Thock, Clicky, or Typewriter and use its
-play button to preview a complete press/release. Previews work before enabling
+Open Settings → Sounds. Search or browse the 14 packs and use a pack's play
+button to preview a complete press/release. Previews work before enabling
 global keyboard sounds or granting Input Monitoring. New installs start muted.
 
 Enable Keyboard sounds and allow this copy of Assist in macOS Input Monitoring
@@ -31,10 +31,12 @@ pauses while Assist records voice context and while the user session is inactive
 The output engine stops after eight seconds without playback and restarts on the
 next hit. Audio device changes reset queued hits before subsequent playback.
 
-The presets are four processed sound designs based on licensed recordings,
+Soft, Thock, Clicky, and Typewriter are four processed sound designs based on licensed recordings,
 including separate releases and Space/Return/Backspace sounds. Typewriter is a
-vintage-inspired treatment. Attribution, processing details and a reproducible
-asset script are documented in `Sources/Assist/Resources/Sounds/README.md`.
+vintage-inspired treatment. Attribution, processing details and reproducible
+asset scripts are documented in `Sources/Assist/Resources/Sounds/README.md`.
+The ten recorded switches add Alpaca, Ink Black, Ink Red, Turquoise Tealios,
+Cream, Holy Panda, Box Navy, Buckling Spring, Topre, and SKCM Blue.
 
 Enable Show keyboard while typing in the same Sounds pane for a live mini keyboard. It works
 with sounds off and uses the same Input Monitoring permission and event tap.
@@ -44,7 +46,10 @@ cancels the pending hide; Caps Lock being on does not keep the panel visible.
 Choose Follow pointer, Bottom left, or Bottom right. Fixed positions stay on the
 display where first shown; pointer mode moves between displays and flips
 away from screen edges. The panel never takes keyboard focus and clicks pass
-through it. It follows Assist's light/dark appearance and Reduce Motion setting.
+through it. Match Assist follows the app's light/dark appearance. Classic, Mint,
+Royal, Dolch, Sand, and Scarlet add six independently selectable keycap palettes
+with a preview in settings. All designs respect Reduce Motion and keep the same
+compact typing-only behavior. Reference coverage is documented in `docs/keyboard-catalog.md`.
 
 The visualizer uses a compact US ANSI layout with static legends, function keys,
 arrows, and separate left/right modifiers. It does not translate IME text or

@@ -40,7 +40,7 @@ final class KeyboardVisualizerWindowController {
         panel.isReleasedWhenClosed = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = WindowManager.floatingPanelCollectionBehavior
-        panel.contentView = NSHostingView(rootView: KeyboardVisualizerOverlay(state: state, settings: settings))
+        panel.contentView = NSHostingView(rootView: KeyboardVisualizerOverlay(state: state, settings: settings, soundSettings: controller.settings))
 
         state.$isVisible.removeDuplicates().sink { [weak self] visible in
             self?.setVisible(visible)

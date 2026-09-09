@@ -70,9 +70,11 @@ SOFTWARE.
 
 ## Keyboard sound recordings
 
-The four sound presets derive from Thomas Lai's [kbsim](https://github.com/tplai/kbsim)
+The four Assist sound presets derive from Thomas Lai's [kbsim](https://github.com/tplai/kbsim)
 recordings, distributed in Mechvibes at revision
 `326252a13e7bef4f1c35d08ef0189b5af6f8ba02`.
+Ten additional recorded switch packs come directly from kbsim at revision
+`ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4`, under the same MIT license below.
 See `Sounds/README.md` for processing and source details.
 
 Copyright (c) Thomas Lai
@@ -82,3 +84,11 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Keyboard visualizer reference
+
+The Classic, Mint, Royal, Dolch, Sand, and Scarlet visualizer palettes are native
+SwiftUI interpretations of the keyboard color themes in the user-provided
+[Keeby website](https://getkeeby.com/) reference, whose keyboard component is
+credited to [Himanshu](https://x.com/himanhacks). Assist does not bundle Keeby's
+web code, keycap artwork, logos, or audio files.

@@ -19,7 +19,7 @@ final class KeyboardSoundRenderStorage: @unchecked Sendable {
     let pointer: OpaquePointer
 
     init() throws {
-        guard let pointer = keyboard_audio_create(UInt32(KeyboardSoundPack.allCases.count * 12)) else {
+        guard let pointer = keyboard_audio_create(UInt32(KeyboardSoundPack.sampleCount)) else {
             throw KeyboardSoundError.rendererUnavailable
         }
         self.pointer = pointer

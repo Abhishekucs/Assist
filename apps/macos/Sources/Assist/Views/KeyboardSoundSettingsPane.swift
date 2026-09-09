@@ -4,6 +4,14 @@ struct KeyboardSoundSettingsPane: View {
     @ObservedObject var controller: KeyboardSoundController
     @ObservedObject private var settings: KeyboardSoundSettings
     @Environment(\.assistTheme) private var theme
+    @State private var search = ""
+
+    private var matchingPacks: [KeyboardSoundPack] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return KeyboardSoundPack.allCases.filter {
+            query.isEmpty || "\($0.title) \($0.detail)".localizedCaseInsensitiveContains(query)
+        }
+    }
 
     init(controller: KeyboardSoundController) {
         self.controller = controller
@@ -15,40 +23,25 @@ struct KeyboardSoundSettingsPane: View {
             SettingToggleRow(title: "Keyboard sounds", detail: "Play sounds as you press and release keys.",
                              isOn: $settings.configuration.enabled)
 
-            SettingsSection("Keyboard visualizer") {
-                SettingToggleRow(title: "Show keyboard while typing", detail: "Appears as you type and hides after one second of inactivity.",
-                                 isOn: $settings.configuration.visualizerEnabled)
-                if settings.configuration.visualizerEnabled {
-                    HStack {
-                        Text("Position").font(.footnote.weight(.semibold))
-                        Spacer()
-                        Picker("Visualizer position", selection: $settings.configuration.visualizerPosition) {
-                            ForEach(KeyboardVisualizerPosition.allCases) { position in
-                                Text(position.title).tag(position)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(width: 166)
-                        .controlSize(.small)
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(height: 36)
-                    Text("US keyboard layout. Clicks pass through to the app underneath.")
-                        .font(.caption)
-                        .foregroundStyle(theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
-                }
-            }
+            KeyboardVisualizerSettingsSection(controller: controller)
 
             statusMessage
 
             SettingsSection("Sound pack") {
+                TextField("Find a sound or switch", text: $search)
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
+                    .accessibilityLabel("Find a sound or switch")
+                    .padding(.bottom, 8)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(KeyboardSoundPack.allCases) { pack in
+                    ForEach(matchingPacks) { pack in
                         soundPack(pack)
                     }
+                }
+                if matchingPacks.isEmpty {
+                    Text("No sounds match your search.")
+                        .font(.caption).foregroundStyle(theme.muted)
+                        .padding(.vertical, 12)
                 }
             }
 

@@ -43,10 +43,10 @@ final class KeyboardSoundTests: XCTestCase {
         XCTAssertFalse(KeyboardSoundSettings(defaults: defaults).configuration.enabled)
     }
 
-    func testAllFourBundledPacksRenderNonSilentFiniteAudio() throws {
+    func testEveryBundledPackRendersNonSilentFiniteAudio() throws {
         let storage = try KeyboardSoundRenderStorage()
         try storage.loadSamples()
-        for index in 0..<48 {
+        for index in 0..<KeyboardSoundPack.sampleCount {
             keyboard_audio_reset(storage.pointer)
             XCTAssertTrue(keyboard_audio_enqueue(storage.pointer, UInt32(index), 1, 0, 1))
             let (left, right) = render(storage.pointer, frames: 24_000)
@@ -54,6 +54,22 @@ final class KeyboardSoundTests: XCTestCase {
             XCTAssertGreaterThan(left.map(abs).max() ?? 0, 0.002, "Silent sample \(index)")
             XCTAssertEqual(left, right)
         }
+    }
+
+    func testSoundCatalogSampleRangesAreDistinctAndComplete() {
+        var indices: Set<Int> = []
+        for pack in KeyboardSoundPack.allCases {
+            for phase in [KeyboardSoundPhase.down, .up] {
+                for variation in 0..<3 {
+                    indices.insert(KeyboardSoundEvent(keyCode: 0, phase: phase).sampleIndex(pack: pack, variation: variation))
+                }
+                for key: UInt16 in [49, 36, 51] {
+                    indices.insert(KeyboardSoundEvent(keyCode: key, phase: phase).sampleIndex(pack: pack, variation: 0))
+                }
+            }
+        }
+        XCTAssertEqual(indices, Set(0..<KeyboardSoundPack.sampleCount))
+        XCTAssertEqual(KeyboardSoundPack.allCases.filter(\.isRecordedSwitch).count, 10)
     }
 
     func testRendererMixesOverlappingHitsAndPans() throws {
