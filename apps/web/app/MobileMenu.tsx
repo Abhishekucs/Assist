@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 const menuItems = [
   { hash: "#features", label: "Features" },
@@ -24,11 +25,7 @@ export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
       >
-        <span className="mobile-menu-icon" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </span>
+        <Image src={`/icons/${isOpen ? "cancel-01" : "menu-01"}.svg`} width={18} height={18} alt="" aria-hidden="true" />
       </button>
       <div className="mobile-menu-panel" aria-hidden={!isOpen}>
         {menuItems.map((item) => (
@@ -40,6 +37,7 @@ export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
             {item.label}
           </a>
         ))}
+        <a href="/fun" onClick={() => setIsOpen(false)}>Fun mode</a>
         <a
           className="mobile-menu-download"
           href="/api/checkout"

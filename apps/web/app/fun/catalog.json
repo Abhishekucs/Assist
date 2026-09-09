@@ -1,0 +1,27 @@
+{
+  "sounds": [
+    {"id":"soft","title":"Soft","detail":"Quiet, cushioned taps"},
+    {"id":"thock","title":"Thock","detail":"Deep, rounded taps"},
+    {"id":"clicky","title":"Clicky","detail":"Bright, crisp taps"},
+    {"id":"typewriter","title":"Typewriter","detail":"Vintage-inspired mechanical taps"},
+    {"id":"alpaca","title":"Alpaca","detail":"Durock · Linear"},
+    {"id":"ink-black","title":"Ink Black","detail":"Gateron · Linear"},
+    {"id":"ink-red","title":"Ink Red","detail":"Gateron · Linear"},
+    {"id":"turquoise-tealios","title":"Turquoise Tealios","detail":"Gateron · Linear"},
+    {"id":"cream","title":"Cream","detail":"NovelKeys · Linear"},
+    {"id":"holy-panda","title":"Holy Panda","detail":"Drop · Tactile"},
+    {"id":"box-navy","title":"Box Navy","detail":"Kailh · Clicky"},
+    {"id":"buckling-spring","title":"Buckling Spring","detail":"IBM · Clicky"},
+    {"id":"topre","title":"Topre","detail":"Topre · Tactile"},
+    {"id":"alps-blue","title":"SKCM Blue","detail":"Alps · Clicky"}
+  ],
+  "designs": [
+    {"id":"assist","title":"Match Assist","alpha":"#27272a","modifier":"#27272a","accent":"#27272a"},
+    {"id":"classic","title":"Classic","alpha":"#f5f5f5","modifier":"#737373","accent":"#f57644"},
+    {"id":"mint","title":"Mint","alpha":"#eeeeee","modifier":"#447b82","accent":"#86c8ac"},
+    {"id":"royal","title":"Royal","alpha":"#324974","modifier":"#3a3b35","accent":"#e4d440"},
+    {"id":"dolch","title":"Dolch","alpha":"#4f5e78","modifier":"#3e3b4c","accent":"#d73e42"},
+    {"id":"sand","title":"Sand","alpha":"#efefef","modifier":"#893d36","accent":"#c94e41"},
+    {"id":"scarlet","title":"Scarlet","alpha":"#e4d7d7","modifier":"#d5868a","accent":"#e1e1e1"}
+  ]
+}

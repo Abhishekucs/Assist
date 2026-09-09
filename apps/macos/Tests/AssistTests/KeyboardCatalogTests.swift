@@ -28,7 +28,12 @@ final class KeyboardCatalogTests: XCTestCase {
             let pressed = try render(state: state, style: style)
             XCTAssertNotEqual(idle, pressed, "No press feedback for \(style)")
             state.reset()
-            XCTAssertEqual(try render(state: state, style: style), idle)
+            let restored = try render(state: state, style: style)
+            XCTAssertEqual(restored.count, idle.count)
+            // Core Graphics antialiasing can round a channel by one level on
+            // consecutive renders. A held-key fill change is much larger.
+            let largestDifference = zip(restored, idle).map { abs(Int($0) - Int($1)) }.max() ?? 0
+            XCTAssertLessThanOrEqual(largestDifference, 1, "Reset preview differs for \(style)")
         }
         XCTAssertEqual(rendered.count, KeyboardVisualizerStyle.allCases.count)
     }
@@ -66,7 +71,8 @@ final class KeyboardCatalogTests: XCTestCase {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try data.write(to: folder.appendingPathComponent("\(style.rawValue).png"))
         }
-        return data
+        // Compare pixels rather than encoded PNG container bytes.
+        return try XCTUnwrap(image.dataProvider?.data) as Data
     }
 }
 

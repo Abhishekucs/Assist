@@ -2,7 +2,7 @@ import Image from "next/image";
 import FeatureVideo from "./FeatureVideo";
 import HeroVideo from "./HeroVideo";
 import { marketingVideos } from "./marketingMedia";
-import MobileMenu from "./MobileMenu";
+import SiteHeader from "./SiteHeader";
 
 const checkoutHref = "/api/checkout";
 const siteUrl = "https://assistapp.dev";
@@ -13,6 +13,11 @@ const productHuntBadgeSrc =
   "https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1242727&theme=light&t=1788689369583";
 
 const faqItems = [
+  {
+    question: "Can I try the keyboard sounds before buying?",
+    answer:
+      "Yes. Open Fun mode to try all 14 sound packs and seven keyboard designs in your browser. In the Mac app, sounds and the typing-only keyboard work across apps, with quick controls in the menu bar. Both are optional."
+  },
   {
     question: "What does Assist for Mac do?",
     answer:
@@ -100,7 +105,10 @@ const structuredData = {
         "Local clipboard text history",
         "Screenshot and copied-text history",
         "Drag and drop from the notch",
-        "Local-first storage"
+        "Local-first storage",
+        "14 offline keyboard sound packs",
+        "Seven typing-only keyboard visualizer designs",
+        "Keyboard controls in the macOS menu bar"
       ]
     },
     {
@@ -139,26 +147,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <header className="site-header" aria-label="Site header">
-        <nav className="header-pill" aria-label="Primary navigation">
-          <a className="brand" href="#top" aria-label="Assist home">
-            <span className="brand-mark">
-              <Image src="/assist-icon.png" alt="" width={30} height={30} />
-            </span>
-            <span>Assist</span>
-          </a>
-          <div className="nav-links">
-            <a href="#features">Features</a>
-            <a href="#faq">FAQ</a>
-            <a href="#pricing">Pricing</a>
-          </div>
-          <a className="download-button" href={checkoutHref} aria-label="Download Assist">
-            <span aria-hidden="true"></span>
-            <span>Download</span>
-          </a>
-          <MobileMenu />
-        </nav>
-      </header>
+      <SiteHeader />
 
       <section id="top" className="hero">
         <div className="hero-content">
@@ -175,6 +164,7 @@ export default function Home() {
               <span aria-hidden="true"></span>
               <span>Download for Mac</span>
             </a>
+            <a className="hero-fun-link" href="/fun">Try Fun mode</a>
           </div>
           <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
           <a
@@ -256,7 +246,7 @@ export default function Home() {
 
       <section id="pricing" className="pricing-section">
         <div className="section-heading">
-          <h2>One Mac. All three workflows.</h2>
+          <h2>One Mac. All of Assist.</h2>
           <p>Pay once for the complete Assist experience. No subscription.</p>
         </div>
 
@@ -275,6 +265,7 @@ export default function Home() {
             <li>Quick crop, blur, and backdrop editing</li>
             <li>Local clipboard history</li>
             <li>Recent screenshots and copied text</li>
+            <li>14 keyboard sounds and seven keyboard designs</li>
             <li>Native, local-first macOS app</li>
           </ul>
 
@@ -334,6 +325,7 @@ export default function Home() {
               <a href="#voice-annotation">Voice annotation</a>
               <a href="#screenshots">Screenshots</a>
               <a href="#clipboard">Clipboard</a>
+              <a href="/fun">Fun mode</a>
             </div>
             <div>
               <h3>Buy</h3>

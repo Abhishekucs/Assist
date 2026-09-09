@@ -6,3 +6,4 @@ private-downloads/*
 *.local
 tsconfig.tsbuildinfo
 .vercel
+.test-build/

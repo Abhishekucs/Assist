@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var keyboardSoundController: KeyboardSoundController?
     private var keyboardVisualizerController: KeyboardVisualizerWindowController?
+    private var keyboardFeedbackMenuController: KeyboardFeedbackMenuController?
     private var settingsCancellable: AnyCancellable?
     private let licenseActivationStore = LicenseActivationStore()
     private let licenseValidationService = LicenseValidationService()
@@ -194,8 +195,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.toolTip = AppIdentity.name
 
         let menu = NSMenu()
+        menu.autoenablesItems = false
         menu.addItem(menuItem(title: "Open Assist", action: #selector(openControls), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
+        if let keyboardSoundController {
+            let feedbackMenu = KeyboardFeedbackMenuController(controller: keyboardSoundController)
+            feedbackMenu.appendItems(to: menu)
+            keyboardFeedbackMenuController = feedbackMenu
+            menu.addItem(NSMenuItem.separator())
+        }
         menu.addItem(menuItem(title: "Test Screenshot", action: #selector(testScreenshot), keyEquivalent: ""))
         menu.addItem(menuItem(title: "Test Overlay", action: #selector(testOverlay), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())

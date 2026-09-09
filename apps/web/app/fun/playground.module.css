@@ -1,0 +1,67 @@
+.playground {
+  --surface: #f5f5f5;
+  --ink: #050505;
+  --muted: #636363;
+  width: min(880px, 100%);
+  margin: 0 auto;
+  padding: 96px 28px 28px;
+  color: var(--ink);
+}
+
+.heading { text-align: center; margin-bottom: 28px; }
+.heading h1 { margin: 0 0 14px; font-size: clamp(34px, 5vw, 48px); font-weight: 600; line-height: 1.08; letter-spacing: -0.05em; }
+.heading > p:last-child { margin: 0; font-size: 16px; color: var(--muted); }
+.controls { display: flex; align-items: end; justify-content: center; gap: 14px; }
+.choice { display: flex; flex-direction: column; gap: 7px; flex: 1; max-width: 218px; min-width: 0; }
+.choice > span, .volume > span { font-size: 12px; color: var(--muted); }
+.choice select { width: 100%; min-height: 40px; padding: 0 12px; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 0; border-radius: 8px; cursor: pointer; }
+.soundToggle { height: 40px; border: 0; background: var(--surface); border-radius: 8px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
+.soundToggle[aria-pressed="false"] { color: var(--muted); }
+.volume { width: 110px; display: flex; flex-direction: column; gap: 7px; }
+.volume input { height: 40px; width: 100%; margin: 0; accent-color: var(--ink); }
+.pad { position: relative; margin: 28px 0 22px; padding: 18px; background: var(--surface); border-radius: 10px; }
+.pad textarea { display: block; width: 100%; height: 70px; resize: none; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 22px; line-height: 1.5; padding: 0; outline-offset: 6px; }
+.pad textarea::placeholder { color: #737373; }
+.startRow { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.startRow > span { color: var(--muted); font-size: 12px; }
+.start { flex-shrink: 0; border: 0; border-radius: 7px; background: var(--ink); color: #ffffff; padding: 10px 15px; font-size: 13px; }
+.start:disabled { opacity: 0.65; }
+.keyboard { --key-gap: 6px; padding: 12px; background: #101010; border-radius: 12px; box-shadow: 0 4px 0 #27272a; user-select: none; touch-action: manipulation; }
+.row { display: flex; gap: var(--key-gap); }
+.row + .row { margin-top: var(--key-gap); }
+.key { width: calc((100% + var(--key-gap)) / 15 * var(--units) - var(--key-gap)); flex-shrink: 0; min-width: 0; height: 38px; padding: 0 2px; border: 0; border-radius: 5px; color: var(--key-ink); background: var(--key-fill); box-shadow: 0 2px 0 color-mix(in srgb, var(--key-fill) 50%, #000000); font-size: 12px; line-height: 1; transition: transform 90ms ease, background-color 90ms ease; -webkit-touch-callout: none; }
+.key:disabled { cursor: default; opacity: 1; }
+.key.pressed { color: var(--key-fill); background: var(--key-ink); transform: translateY(2px); box-shadow: none; transition: none; }
+.details { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; color: var(--muted); font-size: 12px; }
+.details button { color: var(--ink); border: 0; padding: 5px 0; background: transparent; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.privacy { color: var(--muted); text-align: center; font-size: 12px; margin: 24px 0 0; }
+.getAssist { display: flex; flex-direction: column; align-items: center; gap: 15px; padding: 46px 0 32px; text-align: center; }
+.getAssist p { font-size: 18px; letter-spacing: -0.02em; margin: 0; }
+.back { font-size: 13px; color: var(--muted); }
+.credits { color: var(--muted); font-size: 11px; text-align: center; margin: 0; }
+.credits a { text-decoration: underline; text-underline-offset: 3px; }
+.playground :is(button, a, select, input, textarea):focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+
+@media (max-width: 640px) {
+  .playground { padding: 92px 16px 24px; }
+  .heading { margin-bottom: 26px; }
+  .heading > p:last-child { font-size: 14px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .choice { max-width: none; }
+  .volume { width: 100%; flex-direction: row; align-items: center; gap: 12px; }
+  .volume input { min-width: 0; }
+  .soundToggle { justify-self: start; }
+  .pad { margin: 22px 0 18px; padding: 14px; }
+  .pad textarea { font-size: 18px; height: 100px; }
+  .startRow { align-items: start; }
+  .keyboard { --key-gap: 3px; padding: 6px; border-radius: 8px; }
+  .key { height: 29px; font-size: 7px; border-radius: 3px; padding: 0; }
+  .details { flex-wrap: wrap; gap: 6px 12px; }
+  .details > span:first-child { width: 100%; }
+  .getAssist { padding-top: 34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key { transition: none; }
+  .key.pressed { transform: none; }
+}

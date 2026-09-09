@@ -2,11 +2,40 @@
 
 A Next.js landing page for selling and downloading Assist for macOS.
 
+## Fun mode
+
+Open `/fun` from the desktop or mobile navigation, or the homepage's Try Fun mode
+link. Visitors can choose all 14 app sound packs and seven keyboard designs, type
+in the pad, or tap the on-screen keys. Start typing unlocks browser audio; sound
+and volume controls are independent of the design. The physical-key preview uses
+a US layout. Typed text is kept only in component memory and never stored or sent
+to a server. The regular website does not listen for keyboard feedback.
+
+The browser loads the selected pack's 12 samples in parallel, decodes them once,
+and reuses them for overlapping key presses and releases. Switching packs or
+pausing invalidates pending loads so old sounds cannot play later. Tab/window
+blur clears held keys and pauses audio; leaving the page closes its audio context.
+Playback resumes through an explicit interaction. Nothing plays automatically on
+page load. Text entry, navigation shortcuts, and IME composition remain native.
+
+`public/keyboard-sounds` contains byte-identical copies of the licensed assets
+bundled with the Mac app, including source manifests and notices. After changing
+the native catalog, update `app/fun/catalog.json`, run `npm run keyboard:sync`,
+then `npm run keyboard:check`. No network is used by the sync script. The source
+recordings and reference coverage are documented in
+`../macos/docs/keyboard-catalog.md`. Browser output may sound different with
+different speakers or browser audio processing.
+
+Validation: `npm test`, `npm run keyboard:check`, `npm run typecheck`, and
+`npm run build`. Browser checks cover activation, typing, switching packs and
+designs, muting, tap keys, and responsive navigation. Microphone, payment, and
+purchase activation are not needed to use Fun mode.
+
 ## Run Locally
 
 ```sh
 cd apps/web
-npm install
+npm ci --workspaces=false
 npm run dev
 ```
 

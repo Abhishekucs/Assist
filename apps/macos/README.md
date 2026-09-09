@@ -24,6 +24,13 @@ Open Settings → Sounds. Search or browse the 14 packs and use a pack's play
 button to preview a complete press/release. Previews work before enabling
 global keyboard sounds or granting Input Monitoring. New installs start muted.
 
+The Assist icon in the macOS menu bar also provides sound and visualizer toggles,
+all sound packs and keyboard designs, visualizer placement, and a preview of the
+selected sound. These controls edit the same saved preferences as Settings, so
+changes stay in sync. Choosing a pack or design does not turn on a disabled
+feature. If global feedback needs Input Monitoring, the menu exposes the same
+permission action as Settings. Previews pause during voice recording.
+
 Enable Keyboard sounds and allow this copy of Assist in macOS Input Monitoring
 when requested. Only transient physical key codes are used; typed text is not
 read, saved, or transmitted. Auto-repeat does not retrigger a held key. Playback
