@@ -3,6 +3,8 @@ import SwiftUI
 
 enum HugeIconKind: String {
     case settings
+    case sound = "volume-high"
+    case play
     case grid
     case image
     case trash

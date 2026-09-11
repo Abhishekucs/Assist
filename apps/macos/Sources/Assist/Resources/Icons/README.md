@@ -1,6 +1,8 @@
 # Assist Icons
 
 These icons are vendored from `@hugeicons/static` version `0.1.5`.
+The Sounds pane uses unmodified `volume-high.svg` and `play.svg` from the same
+official package, following the existing stroke icon style and license below.
 
 Source package:
 - `@hugeicons/static`

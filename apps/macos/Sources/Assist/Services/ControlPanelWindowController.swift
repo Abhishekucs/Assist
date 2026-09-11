@@ -5,11 +5,13 @@ import SwiftUI
 final class ControlPanelWindowController: NSObject, NSWindowDelegate {
     private let settings: PillSettings
     private let pillViewModel: PillViewModel
+    private let keyboardSounds: KeyboardSoundController
     private var window: NSWindow?
 
-    init(settings: PillSettings, pillViewModel: PillViewModel) {
+    init(settings: PillSettings, pillViewModel: PillViewModel, keyboardSounds: KeyboardSoundController) {
         self.settings = settings
         self.pillViewModel = pillViewModel
+        self.keyboardSounds = keyboardSounds
     }
 
     func showWindow() {
@@ -19,7 +21,7 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeWindow() -> NSWindow {
-        let contentView = ControlPanelView(settings: settings, viewModel: pillViewModel)
+        let contentView = ControlPanelView(settings: settings, viewModel: pillViewModel, keyboardSounds: keyboardSounds)
         let window = NSWindow(
             contentRect: CGRect(x: 0, y: 0, width: 980, height: 700),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],

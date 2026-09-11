@@ -49,12 +49,15 @@ final class VoiceContextTests: XCTestCase {
         let laterSession = UUID()
 
         try service.startRecording(sessionID: firstSession)
+        XCTAssertTrue(service.isRecording)
         recorder.append([0.1, 0.2, 0.3])
 
         XCTAssertNil(service.stopRecording(sessionID: laterSession))
+        XCTAssertTrue(service.isRecording)
         XCTAssertEqual(recorder.stopCount, 0)
 
         let recording = try XCTUnwrap(service.stopRecording(sessionID: firstSession))
+        XCTAssertFalse(service.isRecording)
         XCTAssertEqual(recording.sessionID, firstSession)
         XCTAssertEqual(recording.samples, [0.1, 0.2, 0.3])
         XCTAssertTrue(recorder.audioSamples.isEmpty)

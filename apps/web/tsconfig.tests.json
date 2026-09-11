@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "outDir": ".test-build",
+    "rootDir": ".",
+    "incremental": false,
+    "plugins": []
+  },
+  "include": ["tests/**/*.ts", "app/fun/KeyboardAudio.ts", "app/fun/keyboard.ts"],
+  "exclude": ["node_modules", ".test-build"]
+}

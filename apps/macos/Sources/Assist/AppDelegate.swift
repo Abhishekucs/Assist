@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var licenseActivationController: LicenseActivationWindowController?
     private var pillViewModel: PillViewModel?
     private var statusItem: NSStatusItem?
+    private var keyboardSoundController: KeyboardSoundController?
+    private var keyboardVisualizerController: KeyboardVisualizerWindowController?
+    private var keyboardFeedbackMenuController: KeyboardFeedbackMenuController?
     private var settingsCancellable: AnyCancellable?
     private let licenseActivationStore = LicenseActivationStore()
     private let licenseValidationService = LicenseValidationService()
@@ -47,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         DebugLogger.log("app.terminate")
         coordinator?.stop()
+        keyboardSoundController?.stop()
+        keyboardVisualizerController?.stop()
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -112,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let store = CaptureStore()
         let settings = PillSettings()
         let voiceContextService = VoiceContextService()
+        let keyboardSoundController = KeyboardSoundController(settings: KeyboardSoundSettings())
         let screenshotEditRenderer = ScreenshotEditRenderer()
         let screenshotEditorViewModel = ScreenshotEditorViewModel(renderer: screenshotEditRenderer)
         let pillViewModel = PillViewModel(
@@ -123,7 +129,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             screenshotEditorViewModel: screenshotEditorViewModel,
             settings: settings
         )
-        let controlPanelController = ControlPanelWindowController(settings: settings, pillViewModel: pillViewModel)
+        let controlPanelController = ControlPanelWindowController(
+            settings: settings, pillViewModel: pillViewModel, keyboardSounds: keyboardSoundController
+        )
         let coordinator = AppCoordinator(
             windowManager: windowManager,
             captureService: CaptureService(),
@@ -141,7 +149,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.pillViewModel = pillViewModel
         self.controlPanelController = controlPanelController
         self.coordinator = coordinator
+        self.keyboardSoundController = keyboardSoundController
+        self.keyboardVisualizerController = KeyboardVisualizerWindowController(controller: keyboardSoundController, settings: settings)
         configureStatusItem(settings: settings)
+        keyboardSoundController.start(voiceContext: voiceContextService)
         coordinator.start()
         controlPanelController.showWindow()
     }
@@ -184,8 +195,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.toolTip = AppIdentity.name
 
         let menu = NSMenu()
+        menu.autoenablesItems = false
         menu.addItem(menuItem(title: "Open Assist", action: #selector(openControls), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
+        if let keyboardSoundController {
+            let feedbackMenu = KeyboardFeedbackMenuController(controller: keyboardSoundController)
+            feedbackMenu.appendItems(to: menu)
+            keyboardFeedbackMenuController = feedbackMenu
+            menu.addItem(NSMenuItem.separator())
+        }
         menu.addItem(menuItem(title: "Test Screenshot", action: #selector(testScreenshot), keyEquivalent: ""))
         menu.addItem(menuItem(title: "Test Overlay", action: #selector(testOverlay), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())

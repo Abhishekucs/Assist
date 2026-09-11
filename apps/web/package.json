@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.tests.json && node --test .test-build/tests/*.test.js",
+    "keyboard:sync": "node scripts/sync-keyboard-assets.mjs",
+    "keyboard:check": "node scripts/sync-keyboard-assets.mjs --check"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

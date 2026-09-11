@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { marketingVideos } from "./marketingMedia";
 
 const siteUrl = "https://assistapp.dev";
-const homeLastModified = "2026-09-05";
+const homeLastModified = "2026-09-09";
 const legalLastModified = "2026-08-27";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -12,8 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: homeLastModified,
       images: [
         `${siteUrl}/og-image.png`,
-        `${siteUrl}/assist-icon.png`,
-        `${siteUrl}/hero-meadow.png`
+        `${siteUrl}/assist-icon.png`
       ],
       videos: [
         {
@@ -49,6 +48,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
           family_friendly: "yes"
         }
       ]
+    },
+    {
+      url: `${siteUrl}/fun`,
+      lastModified: homeLastModified
     },
     {
       url: `${siteUrl}/privacy`,
