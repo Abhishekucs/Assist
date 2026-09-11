@@ -57,6 +57,18 @@ export class KeyboardAudio {
     return bank;
   }
 
+  resumeOnGesture() {
+    const context = this.context;
+    if (this.disposed || !context || context.state === "running") return;
+    const generation = this.generation;
+    // Focus can arrive without user activation (for example, Tab navigation).
+    // Retry the browser's resume request on a real key/pointer gesture without
+    // aborting the pack load that is already waiting for audio permission.
+    return context.resume().catch(error => {
+      if (!this.disposed && generation === this.generation) throw error;
+    });
+  }
+
   play(code: string, phase: "down" | "up", variation: number, pan: number) {
     const context = this.context;
     if (!context || context.state !== "running" || !this.bank || !this.gain) return;

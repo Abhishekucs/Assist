@@ -28,6 +28,30 @@ function contextSpy() {
 
 const sampleResponse = (marker: number) => new Response(Uint8Array.from([marker]));
 
+test("a real gesture can unlock an earlier focus request without reloading samples", async () => {
+  const spy = contextSpy();
+  const context = spy.context as unknown as { state: string; resume(): Promise<void> };
+  context.state = "suspended";
+  let pendingResume: (() => void) | undefined;
+  context.resume = () => new Promise<void>(resolve => {
+    if (!pendingResume) pendingResume = resolve;
+    else { context.state = "running"; pendingResume(); resolve(); }
+  });
+  let requests = 0;
+  const audio = new KeyboardAudio(() => spy.context, (() => {
+    requests++;
+    return Promise.resolve(sampleResponse(1));
+  }) as typeof fetch);
+  const focused = audio.activate("thock");
+  await audio.resumeOnGesture();
+  assert.equal(await focused, true);
+  assert.equal(requests, 12);
+  audio.play("KeyA", "down", 0, 0);
+  assert.equal(spy.sources.length, 1);
+  await audio.dispose();
+  assert.equal(audio.resumeOnGesture(), undefined);
+});
+
 test("a late pack load cannot replace the latest selected sound", async () => {
   const spy = contextSpy();
   const pending: (() => void)[] = [];
