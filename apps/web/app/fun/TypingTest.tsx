@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { memo, useEffect, useImperativeHandle, useLayoutEffect, useReducer, useRef,
   type KeyboardEvent, type Ref } from "react";
 import type { DemoKey } from "./keyboard";
@@ -88,7 +87,7 @@ export default function TypingTest({ ref, onActivity, onKeyDown, onKeyUp, onBlur
       </div>
       <div className={styles.testFooter}>
         <button type="button" onClick={restart}>
-          <Image src="/icons/refresh.svg" width={16} height={16} alt="" aria-hidden="true" />
+          <i className={styles.restartIcon} aria-hidden="true" />
           Restart
         </button>
       </div>
