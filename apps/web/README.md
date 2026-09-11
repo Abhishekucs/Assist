@@ -6,12 +6,12 @@ A Next.js landing page for selling and downloading Assist for macOS.
 
 Open `/fun` from the desktop or mobile navigation, or the homepage's Try Fun mode
 link. Visitors can choose all 14 app sound packs and seven keyboard designs, follow
-the prewritten words, or tap the on-screen keys. Tests last 15, 30, or 60 seconds
+the prewritten words, or tap the on-screen keys. Tests last 15 seconds
 and start on the first character. Correct, incorrect, and missed letters are marked;
 Space advances to the next word, and Backspace allows corrections. Live WPM counts
 correct characters divided by five per active minute. Accuracy includes corrected
 mistakes. Losing focus pauses the test; input resumes it. Results freeze at the
-deadline, and Restart test creates a fresh passage and clears the score. Paste and
+deadline, and Restart creates a fresh passage and clears the score. Paste and
 drop are disabled in the test. Focusing the words unlocks browser audio; sound
 and volume controls are independent of the design. The physical-key preview uses
 a US layout. Typed text is kept only in component memory and never stored or sent

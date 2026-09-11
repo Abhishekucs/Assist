@@ -1,9 +1,10 @@
 "use client";
 
-import { memo, useEffect, useImperativeHandle, useLayoutEffect, useReducer, useRef, useState,
+import Image from "next/image";
+import { memo, useEffect, useImperativeHandle, useLayoutEffect, useReducer, useRef,
   type KeyboardEvent, type Ref } from "react";
 import type { DemoKey } from "./keyboard";
-import { createTypingSession, testDurations, typingMetrics, typingReducer, type TestDuration } from "./typingSession";
+import { createTypingSession, typingMetrics, typingReducer } from "./typingSession";
 import styles from "./playground.module.css";
 
 export type TypingTestHandle = { tap(key: DemoKey): void; pause(): void };
@@ -18,7 +19,6 @@ type Props = {
 
 export default function TypingTest({ ref, onActivity, onKeyDown, onKeyUp, onBlur }: Props) {
   const [session, dispatch] = useReducer(typingReducer, undefined, () => createTypingSession());
-  const [focused, setFocused] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const round = useRef(0);
   const metrics = typingMetrics(session);
@@ -46,8 +46,8 @@ export default function TypingTest({ ref, onActivity, onKeyDown, onKeyUp, onBlur
     }
   }));
 
-  function restart(duration: TestDuration = session.duration) {
-    dispatch({ type: "restart", duration, seed: ++round.current });
+  function restart() {
+    dispatch({ type: "restart", seed: ++round.current });
     input.current?.focus();
     onBlur();
   }
@@ -61,23 +61,13 @@ export default function TypingTest({ ref, onActivity, onKeyDown, onKeyUp, onBlur
     if (!event.metaKey && !event.ctrlKey) onActivity();
   }
 
-  const hint = complete ? "Test complete. Go again?"
-    : session.phase === "paused" ? "Paused. Start typing to continue."
-    : session.phase === "running" ? "Keep going. Find your rhythm."
-    : focused ? "Follow the words. The clock starts with your first letter."
-    : "Click the words and start typing, or tap the keys below.";
-
   return (
     <div className={styles.test}>
       <div className={styles.testToolbar}>
-        <div className={styles.durations} aria-label="Test duration">
-          {testDurations.map(duration => <button type="button" key={duration}
-            aria-pressed={session.duration === duration} onClick={() => restart(duration)}>{duration}s</button>)}
-        </div>
+        <span className={styles.countdown} role="timer" aria-label={`${metrics.remaining} seconds remaining`}>{metrics.remaining}s</span>
         <dl className={styles.metrics} aria-label={complete ? "Typing result" : "Live typing statistics"}>
           <div><dt>WPM</dt><dd title="Correct characters divided by five, per minute">{metrics.wpm}</dd></div>
           <div><dt>Accuracy</dt><dd>{metrics.accuracy}%</dd></div>
-          <div><dt>Time left</dt><dd>{metrics.remaining}s</dd></div>
         </dl>
       </div>
       <div className={styles.pad}>
@@ -87,18 +77,20 @@ export default function TypingTest({ ref, onActivity, onKeyDown, onKeyUp, onBlur
         </div> : <PromptWords words={session.words} value={session.value} />}
         <p id="typing-passage" className="sr-only">{session.words.join(" ")}</p>
         <textarea ref={input} className={styles.typingInput} aria-label="Typing test"
-          aria-describedby="typing-instructions typing-passage" value={session.value} readOnly={complete}
+          aria-describedby="typing-passage" value={session.value} readOnly={complete}
           maxLength={5000} spellCheck={false} autoComplete="off" autoCorrect="off" autoCapitalize="off"
           onChange={event => dispatch({ type: "input", value: event.target.value, now: performance.now() })}
           onPaste={event => event.preventDefault()} onDrop={event => event.preventDefault()}
-          onFocus={() => { setFocused(true); onActivity(); }}
+          onFocus={onActivity}
           onClick={() => input.current?.setSelectionRange(session.value.length, session.value.length)}
-          onBlur={() => { setFocused(false); dispatch({ type: "pause", now: performance.now() }); onBlur(); }}
+          onBlur={() => { dispatch({ type: "pause", now: performance.now() }); onBlur(); }}
           onKeyDown={handleKeyDown} onKeyUp={onKeyUp} />
       </div>
       <div className={styles.testFooter}>
-        <span id="typing-instructions">{hint}</span>
-        <button type="button" onClick={() => restart()}>{complete ? "Try again" : "Restart test"}</button>
+        <button type="button" onClick={restart}>
+          <Image src="/icons/refresh.svg" width={16} height={16} alt="" aria-hidden="true" />
+          Restart
+        </button>
       </div>
       <span className="sr-only" role="status">{complete ? `Test complete. ${metrics.wpm} words per minute. ${metrics.accuracy}% accuracy.` : ""}</span>
     </div>

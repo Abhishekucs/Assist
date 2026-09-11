@@ -21,14 +21,12 @@
 .volume input { height: 40px; width: 100%; margin: 0; accent-color: var(--ink); }
 .test { margin: 28px 0 22px; }
 .testToolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 12px; }
-.durations { display: flex; gap: 4px; }
-.durations button { padding: 5px 8px; background: transparent; border: 0; border-radius: 5px; font-size: 12px; color: var(--muted); }
-.durations button[aria-pressed="true"] { color: var(--ink); background: var(--surface); }
+.countdown { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .metrics { display: flex; gap: 20px; margin: 0; font-variant-numeric: tabular-nums; }
 .metrics > div { display: flex; align-items: baseline; gap: 6px; }
 .metrics dt { color: var(--muted); font-size: 12px; }
 .metrics dd { margin: 0; font-size: 15px; font-weight: 600; }
-.pad { position: relative; padding: 18px; background: var(--surface); border-radius: 10px; }
+.pad { position: relative; padding: 18px; border-radius: 10px; }
 .wordsWindow { position: relative; height: 120px; overflow: hidden; color: #737373; font-size: 23px; line-height: 40px; letter-spacing: 0.015em; overflow-wrap: anywhere; }
 .word { display: inline-block; position: relative; white-space: pre; margin-right: 0.6em; }
 .correct { color: var(--ink); }
@@ -42,8 +40,9 @@
 .result > div { display: flex; flex-direction: column; gap: 2px; }
 .result strong { font-size: 44px; font-weight: 600; line-height: 1.15; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .result span { font-size: 13px; color: var(--muted); }
-.testFooter { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 12px; color: var(--muted); }
-.testFooter button { flex-shrink: 0; padding: 0; border: 0; color: var(--ink); background: transparent; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.testFooter { display: flex; justify-content: flex-end; margin-top: 12px; }
+.testFooter button { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; color: var(--ink); background: transparent; font-size: 12px; }
+.testFooter button:hover { text-decoration: underline; text-underline-offset: 3px; }
 .keyboard { --key-gap: 6px; padding: 12px; background: #101010; border-radius: 12px; box-shadow: 0 4px 0 #27272a; user-select: none; touch-action: manipulation; }
 .row { display: flex; gap: var(--key-gap); }
 .row + .row { margin-top: var(--key-gap); }
