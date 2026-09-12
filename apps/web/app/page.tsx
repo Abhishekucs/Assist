@@ -1,12 +1,14 @@
 import Image from "next/image";
 import FeatureVideo from "./FeatureVideo";
 import HeroVideo from "./HeroVideo";
+import LocalizedPrice from "./LocalizedPrice";
 import { marketingVideos } from "./marketingMedia";
+import { basePriceQuote, priceInMajorUnits } from "./lib/pricing";
 import SiteHeader from "./SiteHeader";
 
 const checkoutHref = "/api/checkout";
 const siteUrl = "https://assistapp.dev";
-const currentPrice = 20;
+const currentPrice = priceInMajorUnits(basePriceQuote);
 const productHuntHref =
   "https://www.producthunt.com/products/assist-4?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-assist-4";
 const productHuntBadgeSrc =
@@ -71,7 +73,7 @@ const faqItems = [
   {
     question: "Is Assist a subscription?",
     answer:
-      `No. Assist is $${currentPrice} for one Mac as a one-time purchase. There is no recurring subscription.`
+      "No. Assist is a one-time purchase for one Mac. The price shown above reflects regional pricing when available. There is no recurring subscription."
   }
 ];
 
@@ -253,11 +255,9 @@ export default function Home() {
         <div className="pricing-card">
           <h3>Assist License</h3>
 
-          <div className="pricing-price" aria-label={`$${currentPrice}`}>
-            <strong>${currentPrice}</strong>
-          </div>
+          <LocalizedPrice />
 
-          <p className="pricing-license-note">1 Mac · one-time purchase</p>
+          <p className="pricing-license-note">1 Mac · one-time purchase · regional pricing</p>
 
           <ul className="pricing-features" aria-label="Included features">
             <li>Voice-powered screen annotation</li>

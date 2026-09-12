@@ -9,6 +9,11 @@
     "incremental": false,
     "plugins": []
   },
-  "include": ["tests/**/*.ts", "app/fun/KeyboardAudio.ts", "app/fun/keyboard.ts"],
+  "include": [
+    "tests/**/*.ts",
+    "app/fun/KeyboardAudio.ts",
+    "app/fun/keyboard.ts",
+    "app/lib/pricing.ts"
+  ],
   "exclude": ["node_modules", ".test-build"]
 }
