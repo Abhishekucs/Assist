@@ -12,7 +12,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const browserCacheHeader = "private, max-age=900";
+const browserCacheHeader = "private, no-store";
+const priceCacheSeconds = 300;
 
 const getBasePrice = unstable_cache(
   async (productId: string) => {
@@ -26,7 +27,7 @@ const getBasePrice = unstable_cache(
     return quote;
   },
   ["assist-base-price"],
-  { revalidate: 900 },
+  { revalidate: priceCacheSeconds },
 );
 
 const getLocalizedPrice = unstable_cache(
@@ -50,7 +51,7 @@ const getLocalizedPrice = unstable_cache(
     return quote;
   },
   ["assist-ppp-price"],
-  { revalidate: 900 },
+  { revalidate: priceCacheSeconds },
 );
 
 export async function GET(request: NextRequest) {
