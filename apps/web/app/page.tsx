@@ -164,7 +164,7 @@ export default function Home() {
               <span aria-hidden="true"></span>
               <span>Download for Mac</span>
             </a>
-            <a className="hero-fun-link" href="/fun">Try Fun mode</a>
+            <a className="hero-fun-link" href="/keyboard-sound-tester">Try Fun mode</a>
           </div>
           <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
           <a
@@ -325,7 +325,7 @@ export default function Home() {
               <a href="#voice-annotation">Voice annotation</a>
               <a href="#screenshots">Screenshots</a>
               <a href="#clipboard">Clipboard</a>
-              <a href="/fun">Fun mode</a>
+              <a href="/keyboard-sound-tester">Fun mode</a>
             </div>
             <div>
               <h3>Buy</h3>

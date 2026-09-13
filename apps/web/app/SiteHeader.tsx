@@ -14,7 +14,7 @@ export default function SiteHeader({ funMode = false }: { funMode?: boolean }) {
           <a href={`${prefix}#features`}>Features</a>
           <a href={`${prefix}#faq`}>FAQ</a>
           <a href={`${prefix}#pricing`}>Pricing</a>
-          <a href="/fun" aria-current={funMode ? "page" : undefined}>Fun mode</a>
+          <a href="/keyboard-sound-tester" aria-current={funMode ? "page" : undefined}>Fun mode</a>
         </div>
         <a className="download-button" href="/api/checkout" aria-label="Download Assist">
           <span aria-hidden="true"></span><span>Download</span>

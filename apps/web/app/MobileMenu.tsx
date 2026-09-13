@@ -37,7 +37,7 @@ export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
             {item.label}
           </a>
         ))}
-        <a href="/fun" onClick={() => setIsOpen(false)}>Fun mode</a>
+        <a href="/keyboard-sound-tester" onClick={() => setIsOpen(false)}>Fun mode</a>
         <a
           className="mobile-menu-download"
           href="/api/checkout"
