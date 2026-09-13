@@ -4,6 +4,7 @@ import { marketingVideos } from "./marketingMedia";
 const siteUrl = "https://assistapp.dev";
 const homeLastModified = "2026-09-09";
 const legalLastModified = "2026-08-27";
+const absoluteMarketingVideoUrl = (path: string) => new URL(path, siteUrl).href;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -20,7 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
           description:
             "An overview of Assist workflows in the Mac notch, including capture, annotation, and clipboard history.",
           thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: marketingVideos.hero,
+          content_loc: absoluteMarketingVideoUrl(marketingVideos.hero),
           family_friendly: "yes"
         },
         {
@@ -28,7 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
           description:
             "A demonstration of drawing over the Mac screen and saving the annotation with a local voice transcript.",
           thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: marketingVideos.annotation,
+          content_loc: absoluteMarketingVideoUrl(marketingVideos.annotation),
           family_friendly: "yes"
         },
         {
@@ -36,7 +37,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
           description:
             "A demonstration of capturing a Mac display and using the quick editor to crop, blur, or frame the screenshot.",
           thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: marketingVideos.screenshot,
+          content_loc: absoluteMarketingVideoUrl(marketingVideos.screenshot),
           family_friendly: "yes"
         },
         {
@@ -44,7 +45,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
           description:
             "A demonstration of copying an item once and reusing it from the Assist clipboard history.",
           thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: marketingVideos.clipboard,
+          content_loc: absoluteMarketingVideoUrl(marketingVideos.clipboard),
           family_friendly: "yes"
         }
       ]
