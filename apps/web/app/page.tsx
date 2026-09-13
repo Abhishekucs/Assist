@@ -3,12 +3,10 @@ import FeatureVideo from "./FeatureVideo";
 import HeroVideo from "./HeroVideo";
 import LocalizedPrice from "./LocalizedPrice";
 import { marketingVideos } from "./marketingMedia";
-import { basePriceQuote, priceInMajorUnits } from "./lib/pricing";
 import SiteHeader from "./SiteHeader";
 
 const checkoutHref = "/api/checkout";
 const siteUrl = "https://assistapp.dev";
-const currentPrice = priceInMajorUnits(basePriceQuote);
 const productHuntHref =
   "https://www.producthunt.com/products/assist-4?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-assist-4";
 const productHuntBadgeSrc =
@@ -92,13 +90,6 @@ const structuredData = {
       image: `${siteUrl}/og-image.png`,
       softwareRequirements:
         "macOS 14 or later; Apple silicon is required for local voice transcription",
-      offers: {
-        "@type": "Offer",
-        price: String(currentPrice),
-        priceCurrency: "USD",
-        category: "one-time purchase",
-        availability: "https://schema.org/InStock"
-      },
       featureList: [
         "Voice-powered screen annotation",
         "Local Whisper transcription on Apple silicon",

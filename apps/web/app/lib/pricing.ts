@@ -4,11 +4,7 @@ export type PriceQuote = {
   country: string;
 };
 
-export const basePriceQuote: PriceQuote = {
-  amount: 2_000,
-  currency: "USD",
-  country: "US",
-};
+export const basePriceCountry = "US";
 
 export function normalizeCountryCode(value: string | null) {
   const country = value?.trim().toUpperCase();
@@ -54,6 +50,28 @@ export function parsePriceQuote(value: unknown): PriceQuote | null {
     currency,
     country,
   };
+}
+
+export function parseDodoBasePrice(value: unknown): PriceQuote | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const price = value as {
+    type?: unknown;
+    price?: unknown;
+    currency?: unknown;
+  };
+
+  if (price.type !== "one_time_price") {
+    return null;
+  }
+
+  return parsePriceQuote({
+    amount: price.price,
+    currency: price.currency,
+    country: basePriceCountry,
+  });
 }
 
 export function priceInMajorUnits(quote: PriceQuote) {

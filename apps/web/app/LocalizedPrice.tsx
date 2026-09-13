@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 
 import {
-  basePriceQuote,
   formatPriceQuote,
   parsePriceQuote,
   type PriceQuote,
 } from "./lib/pricing";
 
 export default function LocalizedPrice() {
-  const [quote, setQuote] = useState<PriceQuote>(basePriceQuote);
+  const [quote, setQuote] = useState<PriceQuote | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -35,15 +35,29 @@ export default function LocalizedPrice() {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       });
 
     return () => controller.abort();
   }, []);
 
-  const displayPrice = formatPriceQuote(quote);
+  const displayPrice = quote ? formatPriceQuote(quote) : "—";
+  const accessiblePrice = quote
+    ? displayPrice
+    : isLoading
+      ? "Loading price"
+      : "Price unavailable";
 
   return (
-    <div className="pricing-price" aria-label={displayPrice} aria-live="polite">
+    <div
+      className="pricing-price"
+      aria-label={accessiblePrice}
+      aria-live="polite"
+    >
       <strong>{displayPrice}</strong>
     </div>
   );

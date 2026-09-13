@@ -2,16 +2,29 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  basePriceQuote,
   formatPriceQuote,
   normalizeCountryCode,
+  parseDodoBasePrice,
   parsePriceQuote,
-  priceInMajorUnits,
 } from "../app/lib/pricing";
 
-test("the unchanged base price renders as 20 US dollars", () => {
-  assert.equal(priceInMajorUnits(basePriceQuote), 20);
-  assert.equal(formatPriceQuote(basePriceQuote), "$20");
+test("the base price is read from a Dodo one-time product", () => {
+  assert.deepEqual(
+    parseDodoBasePrice({
+      type: "one_time_price",
+      price: 1_500,
+      currency: "USD",
+    }),
+    { amount: 1_500, currency: "USD", country: "US" },
+  );
+  assert.equal(
+    parseDodoBasePrice({
+      type: "recurring_price",
+      price: 1_500,
+      currency: "USD",
+    }),
+    null,
+  );
 });
 
 test("Dodo minor-unit prices render in the localized currency", () => {
