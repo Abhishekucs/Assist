@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { marketingVideos } from "./marketingMedia";
 
 const siteUrl = "https://assistapp.dev";
-const homeLastModified = "2026-09-09";
+const productLastModified = "2026-09-13";
 const legalLastModified = "2026-08-27";
 const absoluteMarketingVideoUrl = (path: string) => new URL(path, siteUrl).href;
 
@@ -10,7 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: `${siteUrl}/`,
-      lastModified: homeLastModified,
+      lastModified: productLastModified,
       images: [
         `${siteUrl}/og-image.png`,
         `${siteUrl}/assist-icon.png`
@@ -51,8 +51,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
       ]
     },
     {
-      url: `${siteUrl}/fun`,
-      lastModified: homeLastModified
+      url: `${siteUrl}/keyboard-sound-tester`,
+      lastModified: productLastModified
     },
     {
       url: `${siteUrl}/privacy`,

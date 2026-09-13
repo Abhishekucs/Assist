@@ -4,8 +4,9 @@ A Next.js landing page for selling and downloading Assist for macOS.
 
 ## Fun mode
 
-Open `/fun` from the desktop or mobile navigation, or the homepage's Try Fun mode
-link. Visitors can choose all 14 app sound packs and seven keyboard designs, follow
+Open `/keyboard-sound-tester` from the desktop or mobile navigation, or the
+homepage's Try Fun mode link. The former `/fun` URL redirects permanently to the
+canonical route. Visitors can choose all 14 app sound packs and seven keyboard designs, follow
 the prewritten words, or tap the on-screen keys. Tests last 15 seconds
 and start on the first character. Correct, incorrect, and missed letters are marked;
 Space advances to the next word, and Backspace allows corrections. Live WPM counts
