@@ -113,8 +113,7 @@ export default function KeyboardPlayground() {
   return (
     <section className={styles.playground} aria-labelledby="keyboard-sound-tester-title">
       <div className={styles.heading}>
-        <h1 id="keyboard-sound-tester-title">Keyboard Sound Tester for Mac</h1>
-        <p>Try 14 mechanical keyboard sounds, pick a design, and test your typing for 15 seconds.</p>
+        <h1 id="keyboard-sound-tester-title">Keystrokes that sound better.</h1>
       </div>
 
       <div className={styles.controls}>
