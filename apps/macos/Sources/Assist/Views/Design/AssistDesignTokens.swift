@@ -242,6 +242,7 @@ enum AssistDesignTokens {
         }
 
         enum Motion {
+            static var presentation: Animation { .smooth(duration: 0.42) }
             static var progressReveal: Animation { .easeOut(duration: 0.2) }
             static var canvasChange: Animation { .easeOut(duration: 0.18) }
             static var optionsChange: Animation { .spring(response: 0.3, dampingFraction: 0.86) }

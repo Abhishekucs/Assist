@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import XCTest
 @testable import Assist
 
@@ -10,6 +11,15 @@ final class ScreenshotEditorTests: XCTestCase {
         XCTAssertTrue(behavior.contains(.canJoinAllApplications))
         XCTAssertTrue(behavior.contains(.fullScreenAuxiliary))
         XCTAssertTrue(behavior.contains(.stationary))
+    }
+
+    func testScreenshotEditorMovesToTheActiveSpaceInsteadOfJoiningAllSpaces() {
+        let behavior = WindowManager.screenshotEditorCollectionBehavior
+
+        XCTAssertTrue(behavior.contains(.moveToActiveSpace))
+        XCTAssertFalse(behavior.contains(.canJoinAllSpaces))
+        XCTAssertTrue(behavior.contains(.canJoinAllApplications))
+        XCTAssertTrue(behavior.contains(.fullScreenAuxiliary))
     }
 
     func testEntryWindowDismissesOnlyBeforeTheFirstHover() {
@@ -90,7 +100,7 @@ final class ScreenshotEditorTests: XCTestCase {
         )
 
         XCTAssertGreaterThanOrEqual(expanded.minY, screen.minY + ScreenshotEditorMetrics.screenMargin)
-        XCTAssertLessThanOrEqual(expanded.maxY, island.minY - ScreenshotEditorMetrics.islandGap)
+        XCTAssertLessThanOrEqual(expanded.maxY, island.minY - ScreenshotEditorMetrics.shoulderInset)
         XCTAssertGreaterThanOrEqual(expanded.minX, screen.minX + ScreenshotEditorMetrics.screenMargin)
         XCTAssertLessThanOrEqual(expanded.maxX, screen.maxX - ScreenshotEditorMetrics.screenMargin)
         XCTAssertEqual(
@@ -101,7 +111,7 @@ final class ScreenshotEditorTests: XCTestCase {
         )
     }
 
-    func testEditorFrameIsCenteredEightPointsBelowTheIsland() {
+    func testEditorBodyLeavesRoomForCurvedShouldersBelowTheIsland() {
         let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
         let island = CGRect(x: 586, y: 870, width: 268, height: 30)
 
@@ -110,6 +120,113 @@ final class ScreenshotEditorTests: XCTestCase {
         XCTAssertEqual(frame.size, ScreenshotEditorMetrics.preferredSize)
         XCTAssertEqual(island.minY - frame.maxY, 8)
         XCTAssertEqual(frame.midX, island.midX)
+    }
+
+    func testConnectedSurfaceReachesTheIslandOnAnOffsetDisplay() {
+        let screen = CGRect(x: -1920, y: 240, width: 1920, height: 1080)
+        let island = CGRect(x: screen.midX - 134, y: screen.maxY - 30, width: 268, height: 30)
+
+        for expanded in [false, true] {
+            let body = ScreenshotEditorMetrics.frame(below: island, on: screen, expanded: expanded)
+            let surface = ScreenshotEditorMetrics.surfaceFrame(bodyFrame: body, attachedTo: island)
+
+            XCTAssertEqual(surface.maxY, island.maxY)
+            XCTAssertEqual(surface.midX, island.midX)
+            XCTAssertEqual(surface.minY, body.minY)
+            XCTAssertEqual(surface.height - body.height, ScreenshotEditorMetrics.attachmentHeight(for: island.size))
+        }
+    }
+
+    func testRevealStartsWithTheExistingIslandSilhouette() {
+        let islandSize = CGSize(width: 268, height: 30)
+        let bounds = CGRect(x: 0, y: 0, width: 740, height: 618)
+        let surface = ScreenshotEditorSurfaceShape(collapsedSize: islandSize, progress: 0).path(in: bounds)
+        let island = BoringNotchShape(topCornerRadius: 6, bottomCornerRadius: 14).path(
+            in: CGRect(x: bounds.midX - 134, y: 0, width: 268, height: 30)
+        )
+
+        XCTAssertEqual(surface.boundingRect, island.boundingRect)
+        for x in stride(from: 220.5, through: 520.5, by: 2) {
+            for y in stride(from: 0.5, through: 40.5, by: 2) {
+                let point = CGPoint(x: x, y: y)
+                XCTAssertEqual(surface.contains(point), island.contains(point))
+            }
+        }
+    }
+
+    func testConnectedSurfaceHasClearShouldersAndRoundedBodyCorners() {
+        let bounds = CGRect(x: 0, y: 0, width: 740, height: 618)
+        let surface = ScreenshotEditorSurfaceShape(
+            collapsedSize: CGSize(width: 268, height: 30), progress: 1
+        ).path(in: bounds)
+
+        XCTAssertTrue(surface.contains(CGPoint(x: 370, y: 1)))
+        XCTAssertTrue(surface.contains(CGPoint(x: 370, y: 37)))
+        XCTAssertFalse(surface.contains(CGPoint(x: 100, y: 20)))
+        XCTAssertFalse(surface.contains(CGPoint(x: 1, y: 39)))
+        XCTAssertTrue(surface.contains(CGPoint(x: 20, y: 40)))
+        XCTAssertTrue(surface.contains(CGPoint(x: 1, y: 300)))
+        XCTAssertFalse(surface.contains(CGPoint(x: 1, y: 617)))
+        XCTAssertTrue(surface.contains(CGPoint(x: 370, y: 617)))
+    }
+
+    func testRevealRemainsAnchoredAndGrowsAtIntermediateFrames() {
+        let bounds = CGRect(x: 0, y: 0, width: 740, height: 618)
+        var previousBounds = CGRect.zero
+        for progress in stride(from: 0.0, through: 1.0, by: 0.1) {
+            let path = ScreenshotEditorSurfaceShape(
+                collapsedSize: CGSize(width: 268, height: 30), progress: progress
+            ).path(in: bounds)
+            XCTAssertEqual(path.boundingRect.minY, 0)
+            XCTAssertEqual(path.boundingRect.midX, bounds.midX, accuracy: 0.001)
+            XCTAssertGreaterThanOrEqual(path.boundingRect.width, previousBounds.width)
+            XCTAssertGreaterThanOrEqual(path.boundingRect.height, previousBounds.height)
+            XCTAssertTrue(path.contains(CGPoint(x: bounds.midX, y: 1)))
+            previousBounds = path.boundingRect
+        }
+    }
+
+    @MainActor
+    func testHoverResynchronizesAfterIgnoredAnimationEvents() throws {
+        let hostingView = ScreenshotEditorHostingView(rootView: Color.clear)
+        hostingView.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+        hostingView.visibleSurfaceContains = { $0.x >= 25 }
+        var isAnimating = true
+        var received: [Bool] = []
+        hostingView.onHoverChanged = { inside in
+            if !isAnimating { received.append(inside) }
+        }
+        let outsideEvent = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .mouseMoved, location: CGPoint(x: 10, y: 50), modifierFlags: [],
+            timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 0, pressure: 0
+        ))
+
+        hostingView.mouseMoved(with: outsideEvent)
+        isAnimating = false
+        hostingView.synchronizeHover(at: CGPoint(x: 50, y: 50))
+        hostingView.mouseMoved(with: outsideEvent)
+        hostingView.mouseMoved(with: outsideEvent)
+
+        // The first exit must arrive, and further movement outside must not restart its grace period.
+        XCTAssertEqual(received, [true, false])
+    }
+
+    @MainActor
+    func testSpaceChangeEndsHoverEvenWhenThePointerHasNotMoved() {
+        let hostingView = ScreenshotEditorHostingView(rootView: Color.clear)
+        hostingView.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+        var isOnActiveSpace = true
+        hostingView.visibleSurfaceContains = { _ in isOnActiveSpace }
+        var received: [Bool] = []
+        hostingView.onHoverChanged = { received.append($0) }
+        let pointer = CGPoint(x: 50, y: 50)
+
+        hostingView.synchronizeHover(at: pointer)
+        isOnActiveSpace = false
+        hostingView.synchronizeHover(at: pointer)
+
+        XCTAssertEqual(received, [true, false])
+        XCTAssertNil(hostingView.hitTest(pointer))
     }
 
     func testCompactEditorKeepsItsLandscapeOrientation() {

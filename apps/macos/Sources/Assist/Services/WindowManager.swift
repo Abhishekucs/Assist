@@ -16,6 +16,15 @@ final class WindowManager {
         .stationary
     ]
 
+    /// The editor is summoned in the current Space. It must move there when shown again,
+    /// whereas the persistent island is shared across Spaces. These two policies are exclusive.
+    nonisolated static let screenshotEditorCollectionBehavior: NSWindow.CollectionBehavior = [
+        .moveToActiveSpace,
+        .canJoinAllApplications,
+        .fullScreenAuxiliary,
+        .stationary
+    ]
+
     private enum Metrics {
         static let islandAnimation = Animation.interactiveSpring(
             response: 0.38,
@@ -43,9 +52,12 @@ final class WindowManager {
     private var currentPillScreenID: CGDirectDisplayID?
     private var screenshotEditorReturnScreenID: CGDirectDisplayID?
     private var isResizingScreenshotEditor = false
+    private var screenshotEditorPresentationID: UUID?
+    private var isRevealingScreenshotEditor = false
     private var isPointerHoveringPillChrome = false
     private var isDraggingFromPill = false
     private var settingsCancellable: AnyCancellable?
+    private var activeSpaceCancellable: AnyCancellable?
 
     init(
         pillViewModel: PillViewModel,
@@ -82,6 +94,7 @@ final class WindowManager {
         configureOverlayPanel()
         configureScreenshotEditorPanel()
         observeSettings()
+        observeActiveSpace()
         startPointerScreenTracking()
     }
 
@@ -133,26 +146,28 @@ final class WindowManager {
         setPillFrame(display: true)
         pillPanel.orderFrontRegardless()
         positionScreenshotEditor()
+        let presentationID = UUID()
+        screenshotEditorPresentationID = presentationID
+        isRevealingScreenshotEditor = true
+        installScreenshotEditorSurface(presentationID: presentationID)
         screenshotEditorPanel.orderFrontRegardless()
         screenshotEditorPanel.contentView?.layoutSubtreeIfNeeded()
         screenshotEditorPanel.displayIfNeeded()
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            // The system shadow follows the card's alpha, so refresh it once the content is drawn.
-            self.screenshotEditorPanel.invalidateShadow()
-            self.syncScreenshotEditorHover()
-            DebugLogger.log("screenshot-editor.window-presented", [
-                "frame": DebugLogger.describe(self.screenshotEditorPanel.frame),
-                "isVisible": "\(self.screenshotEditorPanel.isVisible)",
-                "screenID": self.screenForCurrentPill().map { "\($0.displayID)" } ?? "unknown"
-            ])
-        }
+        DebugLogger.log("screenshot-editor.window-presented", [
+            "frame": DebugLogger.describe(screenshotEditorPanel.frame),
+            "isVisible": "\(screenshotEditorPanel.isVisible)",
+            "isOnActiveSpace": "\(screenshotEditorPanel.isOnActiveSpace)",
+            "screenID": screenForCurrentPill().map { "\($0.displayID)" } ?? "unknown"
+        ])
     }
 
     func hideScreenshotEditor() {
+        screenshotEditorPresentationID = nil
+        isRevealingScreenshotEditor = false
         isResizingScreenshotEditor = false
         screenshotEditorPanel.orderOut(nil)
+        screenshotEditorPanel.contentView = nil
 
         if !settings.followPointerDisplay, let screenshotEditorReturnScreenID {
             currentPillScreenID = screenshotEditorReturnScreenID
@@ -253,16 +268,42 @@ final class WindowManager {
         screenshotEditorPanel.isMovable = false
         screenshotEditorPanel.becomesKeyOnlyIfNeeded = false
         screenshotEditorPanel.acceptsMouseMovedEvents = true
-        screenshotEditorPanel.collectionBehavior = Self.floatingPanelCollectionBehavior
+        screenshotEditorPanel.collectionBehavior = Self.screenshotEditorCollectionBehavior
         screenshotEditorPanel.hidesOnDeactivate = false
         screenshotEditorPanel.isReleasedWhenClosed = false
+    }
 
+    private func installScreenshotEditorSurface(presentationID: UUID) {
         let hostingView = ScreenshotEditorHostingView(
-            rootView: ScreenshotQuickEditorView(viewModel: screenshotEditorViewModel)
+            rootView: ScreenshotEditorSurface(
+                viewModel: screenshotEditorViewModel,
+                settings: settings,
+                onRevealCompleted: { [weak self] in
+                    guard let self, self.screenshotEditorPresentationID == presentationID else { return }
+                    self.isRevealingScreenshotEditor = false
+                    self.screenshotEditorPanel.invalidateShadow()
+                    self.syncScreenshotEditorHover()
+                    DebugLogger.log("screenshot-editor.reveal-completed", [
+                        "frame": DebugLogger.describe(self.screenshotEditorPanel.frame),
+                        "isOnActiveSpace": "\(self.screenshotEditorPanel.isOnActiveSpace)"
+                    ])
+                }
+            )
         )
         hostingView.onHoverChanged = { [weak self, weak screenshotEditorViewModel] hovering in
-            guard self?.isResizingScreenshotEditor != true else { return }
+            guard let self,
+                  self.screenshotEditorPresentationID == presentationID,
+                  !self.isRevealingScreenshotEditor,
+                  !self.isResizingScreenshotEditor else { return }
             screenshotEditorViewModel?.pointerChanged(isInside: hovering)
+        }
+        hostingView.visibleSurfaceContains = { [weak self, weak hostingView] point in
+            guard let self, let hostingView,
+                  self.screenshotEditorPanel.isOnActiveSpace else { return false }
+            return ScreenshotEditorSurfaceShape(
+                collapsedSize: PillChromeMetrics.collapsedSize(settings: self.settings),
+                progress: 1
+            ).path(in: CGRect(origin: .zero, size: hostingView.bounds.size)).contains(point)
         }
         screenshotEditorPanel.contentView = hostingView
     }
@@ -426,6 +467,19 @@ final class WindowManager {
         }
     }
 
+    private func observeActiveSpace() {
+        activeSpaceCancellable = NSWorkspace.shared.notificationCenter
+            .publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                // A Space switch need not generate a mouse event. Re-evaluate presence so
+                // screen coordinates over a hidden editor cannot keep that session alive.
+                MainActor.assumeIsolated {
+                    self?.syncScreenshotEditorHover()
+                }
+            }
+    }
+
     private func applyPillSettings() {
         setPillFrame(display: true)
         if screenshotEditorPanel.isVisible {
@@ -490,27 +544,30 @@ final class WindowManager {
             width: collapsedSize.width,
             height: collapsedSize.height
         )
-        let frame = ScreenshotEditorMetrics.frame(
+        let bodyFrame = ScreenshotEditorMetrics.frame(
             below: pillChromeFrame,
             on: screen.frame,
             expanded: screenshotEditorViewModel.isExpanded
         )
+        let frame = ScreenshotEditorMetrics.surfaceFrame(bodyFrame: bodyFrame, attachedTo: pillChromeFrame)
 
         guard animated else {
             screenshotEditorPanel.setFrame(frame, display: true, animate: false)
             return
         }
 
+        let presentationID = screenshotEditorPresentationID
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = Metrics.editorResizeDuration
+            context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                ? 0 : Metrics.editorResizeDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             screenshotEditorPanel.animator().setFrame(frame, display: true)
         } completionHandler: { [weak self, weak screenshotEditorPanel] in
             // AppKit runs this on the main thread once the resize settles.
             MainActor.assumeIsolated {
                 // The system shadow keeps the pre-resize outline until it is invalidated.
+                guard let self, self.screenshotEditorPresentationID == presentationID else { return }
                 screenshotEditorPanel?.invalidateShadow()
-                guard let self else { return }
                 self.isResizingScreenshotEditor = false
                 self.syncScreenshotEditorHover()
             }
@@ -519,12 +576,15 @@ final class WindowManager {
 
     private func syncScreenshotEditorHover() {
         guard screenshotEditorPanel.isVisible,
-              let contentView = screenshotEditorPanel.contentView else { return }
+              !isRevealingScreenshotEditor,
+              !isResizingScreenshotEditor,
+              let contentView = screenshotEditorPanel.contentView as? ScreenshotEditorHostingView<ScreenshotEditorSurface>
+        else { return }
         let point = contentView.convert(
             screenshotEditorPanel.mouseLocationOutsideOfEventStream,
             from: nil
         )
-        screenshotEditorViewModel.pointerChanged(isInside: contentView.bounds.contains(point))
+        contentView.synchronizeHover(at: point)
     }
 
     private static func topCenterFrame(windowSize: CGSize, on screen: NSScreen?) -> CGRect {
