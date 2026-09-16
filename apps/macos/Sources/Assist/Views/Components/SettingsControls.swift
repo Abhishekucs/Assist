@@ -14,28 +14,28 @@ struct SettingsDetailPage<Content: View>: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
-                        .font(.title3.weight(.semibold))
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(theme.foreground)
 
                     if let subtitle {
                         Text(subtitle)
-                            .font(.subheadline.weight(.medium))
+                            .font(AssistFont.caption())
                             .foregroundStyle(theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.top, 28)
+                .padding(.top, 7)
 
                 content
             }
-            .padding(.trailing, 18)
+            .padding(.trailing, 10)
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .background(theme.card)
+        .background(theme.background)
     }
 }
 
@@ -52,11 +52,19 @@ struct SettingsSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.caption.weight(.medium))
+                .font(.system(size: 12))
                 .foregroundStyle(theme.muted)
+                .padding(.horizontal, 16)
 
             VStack(spacing: 0) {
                 content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
+            .background(theme.card, in: RoundedRectangle(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(theme.border.opacity(0.8), lineWidth: 1)
             }
         }
     }
@@ -79,7 +87,7 @@ struct SettingToggleRow: View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.footnote.weight(.semibold))
+                    .font(.system(size: 13))
                     .foregroundStyle(theme.foreground)
 
                 if let detail {
@@ -96,11 +104,11 @@ struct SettingToggleRow: View {
                 .labelsHidden()
                 .accessibilityLabel(title)
                 .toggleStyle(.switch)
-                .tint(Color(hex: 0x30D158))
+                .tint(theme.accent)
                 .controlSize(.small)
                 .pointingHandCursor()
         }
-        .padding(.horizontal, 14)
-        .frame(minHeight: detail == nil ? 42 : 56)
+        .padding(.horizontal, 16)
+        .frame(minHeight: detail == nil ? 46 : 60)
     }
 }

@@ -27,6 +27,6 @@ struct HugeIconButton: View {
     }
 
     private var iconColor: Color {
-        isSelected ? theme.foreground : theme.muted
+        isSelected ? theme.accent : theme.muted
     }
 }

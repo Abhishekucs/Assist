@@ -1,5 +1,4 @@
 import AppKit
-import Combine
 import SwiftUI
 
 private typealias LibraryTokens = AssistDesignTokens.CaptureLibrary
@@ -10,94 +9,64 @@ struct ControlPanelView: View {
     @ObservedObject var keyboardSounds: KeyboardSoundController
     @State private var selectedPage: SettingsPage = .capture
     @State private var isSettingsDialogPresented = false
-    @State private var resolvedSystemColorScheme = SystemAppearanceResolver.currentColorScheme()
-
-    private var activeScheme: ColorScheme {
-        switch settings.appAppearance {
-        case .light:
-            .light
-        case .dark:
-            .dark
-        case .system:
-            resolvedSystemColorScheme
-        }
-    }
+    @State private var selectedFilter: ClipboardHistoryFilter = .all
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let theme = AssistTheme(colorScheme: activeScheme)
-
-        ZStack {
-            VStack(spacing: 0) {
-                AppTopBar(isSettingsDialogPresented: $isSettingsDialogPresented)
-                    .frame(height: 58)
-
-                Rectangle()
-                    .fill(theme.border)
-                    .frame(height: 1)
-
-                CaptureLibraryView(viewModel: viewModel)
-            }
-
-            if isSettingsDialogPresented {
-                Color.black
-                    .opacity(theme.isDark ? 0.34 : 0.16)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .onTapGesture {
-                        isSettingsDialogPresented = false
-                    }
-
-                SettingsDialog {
-                    isSettingsDialogPresented = false
-                } content: {
-                    settingsView(theme: theme)
-                }
-                .frame(width: 720, height: 452)
-                .transition(
-                    .asymmetric(
-                        insertion: .scale(scale: 0.96, anchor: .center).combined(with: .opacity),
-                        removal: .scale(scale: 0.985, anchor: .center).combined(with: .opacity)
+        AssistAppSurface { theme in
+            ZStack {
+                HStack(spacing: 0) {
+                    LibrarySidebar(
+                        selectedFilter: $selectedFilter,
+                        items: viewModel.historyItems,
+                        openSettings: { isSettingsDialogPresented = true }
                     )
-                )
-            }
-        }
-        .frame(width: 980, height: 700)
-        .background(theme.background)
-        .foregroundStyle(theme.foreground)
-        .font(.body)
-        .environment(\.assistTheme, theme)
-        .preferredColorScheme(settings.appAppearance.preferredColorScheme)
-        .animation(.spring(response: 0.24, dampingFraction: 0.92), value: isSettingsDialogPresented)
-        .onAppear {
-            viewModel.willShowHistory()
-            refreshSystemColorScheme()
-        }
-        .onChange(of: settings.appAppearance) { _, appearance in
-            guard appearance == .system else { return }
-            refreshSystemColorScheme()
-            DispatchQueue.main.async {
-                refreshSystemColorScheme()
-            }
-        }
-        .onReceive(DistributedNotificationCenter.default().publisher(for: SystemAppearanceResolver.changeNotification)) { _ in
-            refreshSystemColorScheme()
-        }
-    }
+                    .frame(width: 196)
 
-    private func refreshSystemColorScheme() {
-        resolvedSystemColorScheme = SystemAppearanceResolver.currentColorScheme()
+                    CaptureLibraryView(viewModel: viewModel, selectedFilter: $selectedFilter)
+                        .background(theme.background)
+                        .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.window))
+                        .padding(.vertical, 8)
+                        .padding(.trailing, 8)
+                }
+                .disabled(isSettingsDialogPresented)
+                .accessibilityHidden(isSettingsDialogPresented)
+
+                if isSettingsDialogPresented {
+                    Color.black
+                        .opacity(theme.isDark ? 0.42 : 0.32)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .onTapGesture { isSettingsDialogPresented = false }
+
+                    SettingsDialog {
+                        isSettingsDialogPresented = false
+                    } content: {
+                        settingsView(theme: theme)
+                    }
+                    .frame(width: 820, height: 560)
+                    .transition(.opacity)
+                    .onExitCommand { isSettingsDialogPresented = false }
+                }
+            }
+            .frame(minWidth: 920, minHeight: 660)
+            .background(theme.sidebar)
+            .ignoresSafeArea(.container, edges: .top)
+            .animation(reduceMotion ? nil : AssistDesignTokens.Motion.quick, value: isSettingsDialogPresented)
+        }
+        .onAppear { viewModel.willShowHistory() }
     }
 
     private func settingsView(theme: AssistTheme) -> some View {
-        HStack(alignment: .top, spacing: 22) {
+        HStack(alignment: .top, spacing: 28) {
             SettingsSidebar(selectedPage: $selectedPage)
-                .frame(width: 188)
+                .frame(width: 196)
 
             detailView
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(10)
-        .background(theme.card)
+        .padding(22)
+        .background(theme.background)
     }
 
     @ViewBuilder
@@ -165,17 +134,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
 }
 
 private extension AppAppearance {
-    var preferredColorScheme: ColorScheme? {
-        switch self {
-        case .light:
-            .light
-        case .dark:
-            .dark
-        case .system:
-            nil
-        }
-    }
-
     var title: String {
         switch self {
         case .light:
@@ -210,35 +168,10 @@ private extension AppAppearance {
     }
 }
 
-private struct AppTopBar: View {
-    @Binding var isSettingsDialogPresented: Bool
-    @Environment(\.assistTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("Assist")
-                .font(AssistFont.title())
-                .foregroundStyle(theme.foreground)
-
-            Spacer()
-
-            HugeIconButton(
-                kind: .settings,
-                tooltip: "Open settings",
-                isSelected: isSettingsDialogPresented
-            ) {
-                isSettingsDialogPresented = true
-            }
-        }
-        .padding(.leading, 26)
-        .padding(.trailing, 20)
-    }
-}
-
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
     @Environment(\.assistTheme) private var theme
-    @State private var selectedFilter: ClipboardHistoryFilter = .all
+    @Binding var selectedFilter: ClipboardHistoryFilter
 
     private var columns: [GridItem] {
         [
@@ -258,56 +191,58 @@ private struct CaptureLibraryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            LibraryWelcomeHeader()
+                .padding(.horizontal, LibraryTokens.contentInset)
+                .padding(.top, 32)
+                .padding(.bottom, 24)
+
             if let issue = viewModel.captureIssue {
                 CapturePermissionBanner(issue: issue, viewModel: viewModel)
-
-                Rectangle()
-                    .fill(theme.border.opacity(0.72))
-                    .frame(height: 1)
+                    .padding(.horizontal, LibraryTokens.contentInset)
+                    .padding(.bottom, 18)
             }
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(selectedFilter == .all ? "History" : selectedFilter.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(theme.foreground)
+                Spacer()
+                Text("\(filteredItems.count.formatted()) items")
+                    .font(AssistFont.caption())
+                    .foregroundStyle(theme.muted)
+                Text("Most recent")
+                    .font(AssistFont.caption())
+                    .foregroundStyle(theme.muted)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(theme.control, in: Capsule())
+            }
+            .padding(.horizontal, LibraryTokens.contentInset)
+            .padding(.bottom, 4)
 
             if viewModel.historyItems.isEmpty {
                 EmptyCaptureLibraryView()
+            } else if filteredItems.isEmpty {
+                EmptyFilteredLibraryView(filter: selectedFilter)
             } else {
-                VStack(spacing: 0) {
-                    LibraryFilterBar(
-                        selectedFilter: $selectedFilter,
-                        shownCount: filteredItems.count,
-                        totalCount: viewModel.historyItems.count
-                    )
-
-                    Rectangle()
-                        .fill(theme.border.opacity(0.72))
-                        .frame(height: 1)
-
-                    if filteredItems.isEmpty {
-                        EmptyFilteredLibraryView(filter: selectedFilter)
-                    } else {
-                        ScrollView {
-                            LazyVGrid(
-                                columns: columns,
-                                alignment: .leading,
-                                spacing: LibraryTokens.gridSpacing
-                            ) {
-                                ForEach(filteredItems) { item in
-                                    CaptureLibraryCard(
-                                        item: item,
-                                        isSelected: item.id == viewModel.selectedItem?.id,
-                                        thumbnail: thumbnail(for: item),
-                                        selectAction: { select(item) },
-                                        deleteAction: { viewModel.delete(item) }
-                                    )
-                                }
-                            }
-                            .padding(LibraryTokens.contentInset)
+                ScrollView {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: LibraryTokens.gridSpacing) {
+                        ForEach(filteredItems) { item in
+                            CaptureLibraryCard(
+                                item: item,
+                                isSelected: item.id == viewModel.selectedItem?.id,
+                                thumbnail: thumbnail(for: item),
+                                selectAction: { select(item) },
+                                deleteAction: { viewModel.delete(item) }
+                            )
                         }
-                        .background(theme.background)
                     }
+                    .padding(LibraryTokens.contentInset)
                 }
-                .background(theme.background)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func thumbnail(for item: ClipboardHistoryItem) -> NSImage? {
@@ -333,8 +268,7 @@ private struct CapturePermissionBanner: View {
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
             HugeIcon(.desktop, size: 18, color: theme.foreground)
-                .frame(width: 34, height: 34)
-                .background(theme.selected, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(issue.title)
@@ -353,80 +287,18 @@ private struct CapturePermissionBanner: View {
             Button(issue.primaryActionTitle) {
                 viewModel.perform(issue.primaryAction)
             }
-            .buttonStyle(.plain)
-            .font(AssistFont.roundedFootnote(.semibold))
-            .foregroundStyle(theme.card)
-            .padding(.horizontal, 13)
-            .frame(height: 32)
-            .background(theme.foreground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .buttonStyle(AssistButtonStyle(emphasis: .primary, height: 32))
 
             if let secondaryActionTitle = issue.secondaryActionTitle,
                let secondaryAction = issue.secondaryAction {
                 Button(secondaryActionTitle) {
                     viewModel.perform(secondaryAction)
                 }
-                .buttonStyle(.plain)
-                .font(AssistFont.roundedFootnote(.semibold))
-                .foregroundStyle(theme.foreground)
-                .padding(.horizontal, 12)
-                .frame(height: 32)
-                .background(theme.selected, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .buttonStyle(AssistButtonStyle(height: 32))
             }
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 12)
-        .background(theme.card)
-    }
-}
-
-private struct LibraryFilterBar: View {
-    @Binding var selectedFilter: ClipboardHistoryFilter
-    let shownCount: Int
-    let totalCount: Int
-    @Environment(\.assistTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: 20) {
-            HStack(spacing: 24) {
-                ForEach(ClipboardHistoryFilter.allCases) { filter in
-                    Button {
-                        selectedFilter = filter
-                    } label: {
-                        VStack(spacing: 7) {
-                            Text(filter.title)
-                                .font(AssistFont.roundedFootnote(filter == selectedFilter ? .semibold : .medium))
-                                .foregroundStyle(filter == selectedFilter ? theme.foreground : theme.muted)
-                                .lineLimit(1)
-
-                            Capsule()
-                                .fill(filter == selectedFilter ? theme.foreground : .clear)
-                                .frame(width: 28, height: 2)
-                        }
-                        .frame(minWidth: 46)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Show \(filter.title.lowercased())")
-                }
-            }
-
-            Spacer()
-
-            Text("\(shownCount) of \(totalCount)")
-                .font(AssistFont.roundedFootnote(.medium))
-                .foregroundStyle(theme.subtle)
-
-            Text("Most recent")
-                .font(AssistFont.roundedFootnote(.medium))
-                .foregroundStyle(theme.foreground.opacity(0.82))
-                .padding(.horizontal, 12)
-                .frame(height: 28)
-                .background(theme.selected.opacity(theme.isDark ? 0.72 : 1), in: Capsule())
-        }
-        .padding(.horizontal, 26)
-        .padding(.top, 11)
-        .padding(.bottom, 8)
-        .background(theme.card)
+        .padding(16)
+        .background(theme.accentSurface, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -441,7 +313,7 @@ private struct EmptyFilteredLibraryView: View {
                 .foregroundStyle(theme.foreground)
 
             Text("Switch to All to see every saved item.")
-                .font(.subheadline)
+                .font(AssistFont.caption())
                 .foregroundStyle(theme.muted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -462,7 +334,7 @@ private struct EmptyCaptureLibraryView: View {
                 .foregroundStyle(theme.foreground)
 
             Text("Hold Option to annotate a screenshot, or press Control + Option for a clean capture.")
-                .font(.subheadline)
+                .font(AssistFont.caption())
                 .foregroundStyle(theme.muted)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
@@ -499,14 +371,14 @@ private struct CaptureLibraryCard: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
                         .stroke(
-                            isSelected ? theme.foreground.opacity(0.42) : .clear,
+                            isSelected ? theme.accent : theme.border,
                             lineWidth: LibraryTokens.selectionStroke
                         )
                 }
                 .clipShape(
                     RoundedRectangle(cornerRadius: LibraryTokens.cardRadius, style: .continuous)
                 )
-                .shadow(color: .black.opacity(theme.isDark ? 0.16 : 0.08), radius: 9, y: 5)
+                .shadow(color: .black.opacity(theme.isDark ? 0.08 : 0.025), radius: 4, y: 2)
             }
             .frame(maxWidth: .infinity)
             .buttonStyle(.plain)
@@ -571,19 +443,20 @@ private struct CaptureLibraryCard: View {
                     HugeIcon(.document, size: 18)
                         .foregroundStyle(theme.muted)
                     Text(textClip.preview)
-                        .font(.caption.weight(.medium))
+                        .font(.system(size: 13))
+                        .lineSpacing(3)
                         .foregroundStyle(theme.foreground)
                         .lineLimit(4)
                         .multilineTextAlignment(.leading)
                 }
-                .padding(10)
+                .padding(14)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
     }
 
     private var cardBackground: Color {
-        if isSelected { return theme.selected }
+        if isSelected { return theme.accentSurface }
         if isHovered { return theme.card.opacity(theme.isDark ? 0.9 : 1) }
         return theme.card
     }
@@ -629,7 +502,7 @@ private struct DeleteIconButton: View {
             )
         }
 
-        return theme.card
+        return .clear
     }
 }
 
@@ -638,67 +511,31 @@ private struct SettingsSidebar: View {
     @Environment(\.assistTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("Settings")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(theme.subtle)
-                .padding(.horizontal, 13)
-                .padding(.top, 12)
-                .padding(.bottom, 10)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(theme.foreground)
+                .padding(.horizontal, 11)
+                .padding(.top, 7)
+                .padding(.bottom, 20)
 
-            VStack(spacing: 2) {
-                ForEach(SettingsPage.allCases) { page in
-                    SidebarButton(page: page, isSelected: page == selectedPage) {
-                        selectedPage = page
-                    }
+            ForEach(SettingsPage.allCases) { page in
+                AssistNavigationRow(title: page.title, icon: page.icon, isSelected: page == selectedPage) {
+                    selectedPage = page
                 }
             }
-            .padding(.horizontal, 8)
 
             Spacer()
-        }
-        .padding(.bottom, 10)
-        .background(theme.card, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(theme.border.opacity(theme.isDark ? 0.82 : 1), lineWidth: 1)
+
+            HStack(spacing: 8) {
+                AssistLogo(size: 20)
+                Text("Assist")
+                    .font(AssistFont.small())
+                    .foregroundStyle(theme.muted)
+            }
+            .padding(11)
         }
         .frame(maxHeight: .infinity, alignment: .top)
-    }
-}
-
-private struct SidebarButton: View {
-    let page: SettingsPage
-    let isSelected: Bool
-    let action: () -> Void
-    @Environment(\.assistTheme) private var theme
-    @State private var isHovered = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                HugeIcon(page.icon, size: 12, color: isSelected ? theme.foreground : theme.muted)
-                    .frame(width: 14)
-                Text(page.title)
-                    .font(.caption.weight(isSelected ? .semibold : .medium))
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(isSelected ? theme.foreground : theme.muted)
-            .padding(.horizontal, 9)
-            .frame(height: 24)
-            .background(rowBackground, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .help(page.title)
-        .pointingHandCursor()
-        .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovered)
-    }
-
-    private var rowBackground: Color {
-        if isSelected { return theme.selected }
-        if isHovered { return theme.selected.opacity(theme.isDark ? 0.54 : 0.74) }
-        return Color.clear
     }
 }
 
@@ -709,7 +546,7 @@ private struct RowDivider: View {
         Rectangle()
             .fill(theme.border)
             .frame(height: 1)
-            .padding(.leading, 14)
+            .padding(.horizontal, 16)
     }
 }
 
@@ -729,11 +566,11 @@ private struct SettingValueRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.body.weight(.medium))
+                    .font(.system(size: 13))
                     .foregroundStyle(theme.foreground)
                 if let detail {
                     Text(detail)
-                        .font(.subheadline)
+                        .font(AssistFont.caption())
                         .foregroundStyle(theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -757,31 +594,16 @@ private struct SettingsActionButton: View {
     let title: String
     let icon: HugeIconKind
     let action: () -> Void
-    @Environment(\.assistTheme) private var theme
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                HugeIcon(icon, size: 12, color: actionForeground)
+                HugeIcon(icon, size: 14)
                 Text(title)
-                    .font(.footnote.weight(.semibold))
             }
-            .foregroundStyle(actionForeground)
-            .padding(.horizontal, 13)
-            .frame(height: 28)
-            .background(actionBackground, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AssistButtonStyle())
         .help(title)
-        .pointingHandCursor()
-    }
-
-    private var actionBackground: Color {
-        theme.isDark ? Color.white : Color.black
-    }
-
-    private var actionForeground: Color {
-        theme.isDark ? Color.black.opacity(0.86) : Color.white
     }
 }
 
@@ -791,7 +613,7 @@ private struct AppearanceSettingsPane: View {
     var body: some View {
         SettingsDetailPage(
             title: "Appearance",
-            subtitle: "Choose how the settings app follows your Mac."
+            subtitle: "Choose how Assist looks, from launch to your library."
         ) {
             SettingsSection("Theme") {
                 ThemePicker(settings: settings)
@@ -812,19 +634,20 @@ private struct ThemePicker: View {
                     settings.appAppearance = appearance
                 } label: {
                     VStack(spacing: 8) {
-                        HugeIcon(appearance.icon, size: 22)
+                        HugeIcon(appearance.icon, size: 22, color: settings.appAppearance == appearance ? theme.accent : theme.foreground)
                         Text(appearance.title)
-                            .font(.footnote.weight(.semibold))
+                            .font(.system(size: 13))
                     }
                     .foregroundStyle(theme.foreground)
                     .frame(width: 92, height: 76)
-                    .background(settings.appAppearance == appearance ? theme.selected : theme.background, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .background(settings.appAppearance == appearance ? theme.accentSurface : theme.control, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(settings.appAppearance == appearance ? theme.foreground.opacity(0.42) : .clear, lineWidth: 1)
+                            .stroke(settings.appAppearance == appearance ? theme.accent.opacity(0.5) : .clear, lineWidth: 1)
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(settings.appAppearance == appearance ? .isSelected : [])
                 .help("Use \(appearance.title.lowercased()) appearance")
                 .pointingHandCursor()
             }
@@ -891,7 +714,7 @@ private struct VoiceContextSettings: View {
                     HStack(alignment: .center, spacing: 14) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(modelStatusTitle)
-                                .font(.footnote.weight(.semibold))
+                                .font(.system(size: 13))
                                 .foregroundStyle(theme.foreground)
                             Text(modelStatusDetail)
                                 .font(.caption)
@@ -922,7 +745,7 @@ private struct VoiceContextSettings: View {
                     .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Every new capture stores a Markdown context beside its screenshot. Copy Context sends that exact Markdown and the original image to macOS. Each destination decides whether it accepts multiple pasteboard items; Copy Screenshot remains the manual fallback.")
+                Text("Copy Context includes your screenshot and notes. Use Copy Screenshot when you only need the image.")
                     .font(.caption)
                     .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -972,11 +795,11 @@ private struct VoiceContextSettings: View {
         case .unsupported:
             "This first release supports Apple Silicon Macs only."
         case .notInstalled:
-            "Downloads Hugging Face openai_whisper-small.en to Assist's Application Support folder before enabling the feature."
+            "Download the English voice model once to transcribe on your Mac."
         case .downloading:
-            "The pinned model is stored locally under Application Support/Assist/Models."
+            "The voice model is downloading to your Mac."
         case .preparing:
-            "Core ML is loading the downloaded model locally."
+            "Preparing local transcription."
         case .ready:
             service.audioInputError
                 ?? "The model is installed. Allow microphone access to finish setup."
@@ -996,10 +819,10 @@ private struct ShortcutRow: View {
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.body.weight(.medium))
+                    .font(.system(size: 13))
                     .foregroundStyle(theme.foreground)
                 Text(detail)
-                    .font(.subheadline)
+                    .font(AssistFont.caption())
                     .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1008,16 +831,7 @@ private struct ShortcutRow: View {
 
             HStack(spacing: 5) {
                 ForEach(keys, id: \.self) { key in
-                    Text(key)
-                        .font(.system(.caption, design: .monospaced).weight(.medium))
-                        .foregroundStyle(theme.foreground)
-                        .padding(.horizontal, 8)
-                        .frame(height: 24)
-                        .background(theme.background, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .stroke(theme.border, lineWidth: 1)
-                        }
+                    AssistKeycap(title: key)
                 }
             }
         }
@@ -1109,7 +923,7 @@ private struct UpdatesSettingsPane: View {
             title: "Updates",
             subtitle: "Check for a new macOS release and install it immediately when one is available."
         ) {
-            VStack(alignment: .leading, spacing: 0) {
+            SettingsSection("Software updates") {
                 SettingToggleRow(
                     title: "Download updates automatically",
                     isOn: $settings.downloadUpdatesAutomatically
@@ -1140,9 +954,9 @@ private struct UpdatesSettingsPane: View {
                         .transition(.opacity)
                     }
                 }
-                .padding(.top, 14)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -1155,13 +969,13 @@ private struct AboutInfoRow: View {
     var body: some View {
         HStack(spacing: 16) {
             Text(title)
-                .font(.footnote.weight(.semibold))
+                .font(.system(size: 13))
                 .foregroundStyle(theme.muted)
 
             Spacer(minLength: 16)
 
             Text(value)
-                .font(.footnote.weight(.semibold))
+                .font(.system(size: 13))
                 .foregroundStyle(theme.foreground.opacity(0.82))
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -1180,14 +994,14 @@ private struct AboutActionRow: View {
     var body: some View {
         HStack(spacing: 16) {
             Text(title)
-                .font(.footnote.weight(.semibold))
+                .font(.system(size: 13))
                 .foregroundStyle(theme.muted)
 
             Spacer(minLength: 16)
 
             Button(action: action) {
                 Text(actionTitle)
-                    .font(.footnote.weight(.semibold))
+                    .font(.system(size: 13))
                     .foregroundStyle(theme.foreground.opacity(0.82))
             }
             .buttonStyle(.plain)
@@ -1204,14 +1018,16 @@ private struct AboutSettingsPane: View {
             title: "About",
             subtitle: nil
         ) {
-            VStack(alignment: .leading, spacing: 6) {
-                AboutInfoRow(title: "Version", value: appVersion)
-                AboutActionRow(title: "Privacy", actionTitle: "View policy") {
-                    NSWorkspace.shared.open(AppIdentity.privacyPolicyURL)
+            SettingsSection("Assist for macOS") {
+                VStack(alignment: .leading, spacing: 12) {
+                    AboutInfoRow(title: "Version", value: appVersion)
+                    AboutActionRow(title: "Privacy", actionTitle: "View policy") {
+                        NSWorkspace.shared.open(AppIdentity.privacyPolicyURL)
+                    }
+                    AboutInfoRow(title: "Support", value: AppIdentity.supportEmail)
                 }
-                AboutInfoRow(title: "Support", value: AppIdentity.supportEmail)
+                .padding(16)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

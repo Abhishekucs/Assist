@@ -15,7 +15,7 @@ struct KeyboardVisualizerSettingsSection: View {
             SettingToggleRow(title: "Show keyboard while typing", detail: "Appears as you type and hides after one second of inactivity.",
                              isOn: $settings.configuration.visualizerEnabled)
             HStack {
-                Text("Keyboard design").font(.footnote.weight(.semibold))
+                Text("Keyboard design").font(.system(size: 13))
                 Spacer()
                 Picker("Keyboard design", selection: $settings.configuration.visualizerStyle) {
                     ForEach(KeyboardVisualizerStyle.allCases) { style in
@@ -35,7 +35,7 @@ struct KeyboardVisualizerSettingsSection: View {
 
             if settings.configuration.visualizerEnabled {
                 HStack {
-                    Text("Position").font(.footnote.weight(.semibold))
+                    Text("Position").font(.system(size: 13))
                     Spacer()
                     Picker("Visualizer position", selection: $settings.configuration.visualizerPosition) {
                         ForEach(KeyboardVisualizerPosition.allCases) { position in

@@ -19,6 +19,16 @@ enum AssistDesignTokens {
         static let zinc = Color(hex: 0x71717A)
         static let softZinc = Color(hex: 0xA1A1AA)
 
+        // Sampled visual roles from the supplied Willow references. Keep the
+        // notch's black silhouette separate from the window surface palette.
+        static let window = Color(hex: 0xF4F4F6)
+        static let text = Color(hex: 0x3D3D42)
+        static let secondaryText = Color(hex: 0x85858C)
+        static let separator = Color(hex: 0xEEEEF1)
+        static let purple = Color(hex: 0x5142B8)
+        static let lavender = Color(hex: 0xEEEBFA)
+        static let darkPurple = Color(hex: 0xB6A9FF)
+
         static let warning = Color(hex: 0xFF751F)
         static let danger = Color(hex: 0xFF453A)
         static let folder = Color(hex: 0x118AF3)
@@ -55,6 +65,7 @@ enum AssistDesignTokens {
         static let control: CGFloat = 7
         static let medium: CGFloat = 10
         static let large: CGFloat = 14
+        static let window: CGFloat = 18
     }
 
     enum Control {
@@ -72,7 +83,7 @@ enum AssistDesignTokens {
 
     enum Typography {
         static var title: Font {
-            .system(.title3, design: .default).weight(.semibold)
+            .system(size: 20, weight: .medium)
         }
 
         static var section: Font {
@@ -92,11 +103,11 @@ enum AssistDesignTokens {
         }
 
         static var roundedHeadline: Font {
-            .system(.headline, design: .rounded)
+            .system(.headline, design: .default)
         }
 
         static func roundedFootnote(_ weight: Font.Weight = .regular) -> Font {
-            .system(.footnote, design: .rounded).weight(weight)
+            .system(.footnote, design: .default).weight(weight)
         }
 
         static var mono: Font {
@@ -127,12 +138,12 @@ enum AssistDesignTokens {
     }
 
     enum CaptureLibrary {
-        static let minimumCardWidth: CGFloat = 210
-        static let maximumCardWidth: CGFloat = 240
-        static let cardHeight: CGFloat = 122
+        static let minimumCardWidth: CGFloat = 190
+        static let maximumCardWidth: CGFloat = 280
+        static let cardHeight: CGFloat = 136
         static let gridSpacing = Spacing.xLarge
-        static let contentInset = Spacing.xxLarge
-        static let cardRadius = Radius.control
+        static let contentInset = Spacing.xxxLarge
+        static let cardRadius = Radius.medium
         static let selectionStroke: CGFloat = 1
         static let actionInset = Spacing.xSmall
     }
@@ -168,23 +179,23 @@ enum AssistDesignTokens {
 
         enum Typography {
             static var header: Font {
-                .system(size: 10.5, weight: .semibold, design: .rounded)
+                .system(size: 10.5, weight: .semibold, design: .default)
             }
 
             static var tool: Font {
-                .system(size: 12, weight: .semibold, design: .rounded)
+                .system(size: 12, weight: .semibold, design: .default)
             }
 
             static var label: Font {
-                .system(size: 10.5, weight: .medium, design: .rounded)
+                .system(size: 10.5, weight: .medium, design: .default)
             }
 
             static var chip: Font {
-                .system(size: 11, weight: .semibold, design: .rounded)
+                .system(size: 11, weight: .semibold, design: .default)
             }
 
             static var action: Font {
-                .system(size: 12, weight: .semibold, design: .rounded)
+                .system(size: 12, weight: .semibold, design: .default)
             }
         }
 
@@ -261,17 +272,20 @@ struct AssistTheme {
     let colorScheme: ColorScheme
 
     var isDark: Bool { colorScheme == .dark }
-    var background: Color { isDark ? AssistDesignTokens.Palette.ink : AssistDesignTokens.Palette.paper }
-    var sidebar: Color { isDark ? Color(hex: 0x0C0C0F) : AssistDesignTokens.Palette.softPaper }
-    var card: Color { isDark ? AssistDesignTokens.Palette.elevatedInk : .white }
-    var selected: Color { isDark ? Color(hex: 0x27272A) : Color(hex: 0xEDEDEF) }
-    var foreground: Color { isDark ? AssistDesignTokens.Palette.paper : AssistDesignTokens.Palette.ink }
-    var muted: Color { isDark ? AssistDesignTokens.Palette.softZinc : AssistDesignTokens.Palette.zinc }
+    var background: Color { isDark ? Color(hex: 0x202024) : .white }
+    var sidebar: Color { isDark ? Color(hex: 0x19191D) : AssistDesignTokens.Palette.window }
+    var card: Color { isDark ? Color(hex: 0x25252B) : .white }
+    var selected: Color { isDark ? Color(hex: 0x333239) : Color(hex: 0xEAE9ED) }
+    var foreground: Color { isDark ? Color(hex: 0xEEEEF2) : AssistDesignTokens.Palette.text }
+    var muted: Color { isDark ? Color(hex: 0xABAAB3) : AssistDesignTokens.Palette.secondaryText }
     var subtle: Color { isDark ? AssistDesignTokens.Palette.zinc : AssistDesignTokens.Palette.softZinc }
-    var border: Color { isDark ? Color(hex: 0x27272A) : Color(hex: 0xE4E4E7) }
-    var accent: Color { foreground }
+    var border: Color { isDark ? Color(hex: 0x38373E) : AssistDesignTokens.Palette.separator }
+    var accent: Color { isDark ? AssistDesignTokens.Palette.darkPurple : AssistDesignTokens.Palette.purple }
+    var accentSurface: Color { isDark ? Color(hex: 0x353047) : AssistDesignTokens.Palette.lavender }
+    var primaryButton: Color { AssistDesignTokens.Palette.purple }
+    var control: Color { isDark ? Color(hex: 0x2D2D33) : Color(hex: 0xF5F5F6) }
     var cardColorComponents: RGBColorComponents {
-        isDark ? AssistDesignTokens.Palette.elevatedInkComponents : .white
+        isDark ? RGBColorComponents(hex: 0x25252B) : .white
     }
 }
 

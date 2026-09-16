@@ -20,34 +20,41 @@ struct KeyboardSoundSettingsPane: View {
 
     var body: some View {
         SettingsDetailPage(title: "Sounds", subtitle: "Give your everyday typing a different feel.") {
-            SettingToggleRow(title: "Keyboard sounds", detail: "Play sounds as you press and release keys.",
-                             isOn: $settings.configuration.enabled)
+            SettingsSection("Keyboard feedback") {
+                SettingToggleRow(title: "Keyboard sounds", detail: "Play sounds as you press and release keys.",
+                                 isOn: $settings.configuration.enabled)
+            }
 
             KeyboardVisualizerSettingsSection(controller: controller)
 
             statusMessage
 
             SettingsSection("Sound pack") {
-                TextField("Find a sound or switch", text: $search)
-                    .textFieldStyle(.roundedBorder)
-                    .controlSize(.small)
-                    .accessibilityLabel("Find a sound or switch")
-                    .padding(.bottom, 8)
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(matchingPacks) { pack in
-                        soundPack(pack)
+                VStack(spacing: 12) {
+                    TextField("Find a sound or switch", text: $search)
+                        .textFieldStyle(.plain)
+                        .padding(10)
+                        .background(theme.control, in: RoundedRectangle(cornerRadius: 8))
+                        .controlSize(.small)
+                        .accessibilityLabel("Find a sound or switch")
+                        .padding(.bottom, 8)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        ForEach(matchingPacks) { pack in
+                            soundPack(pack)
+                        }
+                    }
+                    if matchingPacks.isEmpty {
+                        Text("No sounds match your search.")
+                            .font(.caption).foregroundStyle(theme.muted)
+                            .padding(.vertical, 12)
                     }
                 }
-                if matchingPacks.isEmpty {
-                    Text("No sounds match your search.")
-                        .font(.caption).foregroundStyle(theme.muted)
-                        .padding(.vertical, 12)
-                }
+                .padding(12)
             }
 
             SettingsSection("Playback") {
                 HStack(spacing: 12) {
-                    Text("Volume").font(.footnote.weight(.semibold))
+                    Text("Volume").font(.system(size: 13))
                     Slider(value: $settings.configuration.volume, in: 0...1)
                         .controlSize(.small)
                         .accessibilityLabel("Keyboard sound volume")
@@ -79,8 +86,8 @@ struct KeyboardSoundSettingsPane: View {
             } label: {
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {
-                        Text(pack.title).font(.footnote.weight(.semibold))
-                        if selected { HugeIcon(.check, size: 12) }
+                        Text(pack.title).font(.system(size: 13))
+                        if selected { HugeIcon(.check, size: 12, color: theme.accent) }
                     }
                     Text(pack.detail)
                         .font(.caption)
@@ -105,7 +112,7 @@ struct KeyboardSoundSettingsPane: View {
         .padding(.leading, 12)
         .padding(.trailing, 6)
         .padding(.vertical, 8)
-        .background(selected ? theme.selected : theme.background,
+        .background(selected ? theme.accentSurface : theme.control,
                     in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.control))
     }
 
@@ -122,7 +129,7 @@ struct KeyboardSoundSettingsPane: View {
                     .font(.caption).foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Allow Input Monitoring") { controller.requestPermission() }
-                    .controlSize(.small)
+                    .buttonStyle(AssistButtonStyle())
             }
         case .recording:
             Text("Paused while Assist records voice context.")
@@ -131,7 +138,7 @@ struct KeyboardSoundSettingsPane: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(message).font(.caption).foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Retry") { controller.refresh() }.controlSize(.small)
+                Button("Retry") { controller.refresh() }.buttonStyle(AssistButtonStyle())
             }
         case .suspended:
             Text("Paused while this Mac is inactive.")

@@ -560,7 +560,7 @@ private struct EditorToolChip: View {
 
     private var foregroundColor: Color {
         if isSelected {
-            return EditorTokens.inverseForeground.opacity(AssistDesignTokens.Opacity.primary)
+            return AssistDesignTokens.Palette.darkPurple
         }
         return EditorTokens.foreground.opacity(
             isHovered
@@ -571,7 +571,7 @@ private struct EditorToolChip: View {
 
     private var backgroundColor: Color {
         if isSelected {
-            return EditorTokens.foreground
+            return AssistDesignTokens.Palette.purple.opacity(0.28)
         }
         return isHovered
             ? EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.hoverSurface)
@@ -1086,17 +1086,17 @@ private struct SaveButton: View {
                 HugeIcon(
                     .check,
                     size: AssistDesignTokens.Icon.small,
-                    color: EditorTokens.inverseForeground
+                    color: Color.white
                 )
                 Text(isSaving ? "Saving" : "Save")
                     .font(EditorTokens.Typography.action)
-                    .foregroundStyle(EditorTokens.inverseForeground)
+                    .foregroundStyle(Color.white)
                     .lineLimit(1)
             }
             .padding(.horizontal, EditorTokens.Layout.saveHorizontalInset)
             .frame(height: EditorTokens.Layout.saveHeight)
             .background(
-                EditorTokens.foreground.opacity(
+                AssistDesignTokens.Palette.purple.opacity(
                     isSaving ? AssistDesignTokens.Opacity.secondary : 1
                 ),
                 in: Capsule()
@@ -1105,7 +1105,7 @@ private struct SaveButton: View {
                 isHovered && !isSaving ? EditorTokens.Scale.saveHover : 1
             )
             .shadow(
-                color: EditorTokens.foreground.opacity(
+                color: AssistDesignTokens.Palette.purple.opacity(
                     isHovered && !isSaving ? EditorTokens.Opacity.saveGlow : 0
                 ),
                 radius: AssistDesignTokens.Spacing.small

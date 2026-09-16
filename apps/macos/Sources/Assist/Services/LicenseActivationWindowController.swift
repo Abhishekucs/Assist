@@ -23,13 +23,16 @@ final class LicenseActivationWindowController: NSWindowController, NSWindowDeleg
             rootView: LicenseActivationView(viewModel: viewModel)
         )
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 360),
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 420),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "\(AppIdentity.name) Activation"
+        window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.contentViewController = hostingController

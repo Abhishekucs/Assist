@@ -441,14 +441,14 @@ private struct IslandHistoryFilterChip: View {
                 .font(AssistFont.roundedFootnote(isSelected ? .semibold : .medium))
                 .foregroundStyle(
                     isSelected
-                        ? AssistDesignTokens.Palette.ink
+                        ? AssistDesignTokens.Palette.darkPurple
                         : AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.secondary)
                 )
                 .lineLimit(1)
                 .padding(.horizontal, AssistDesignTokens.Spacing.medium)
                 .frame(height: AssistDesignTokens.Control.compactHeight)
                 .background(
-                    isSelected ? AssistDesignTokens.Palette.paper : .clear,
+                    isSelected ? AssistDesignTokens.Palette.purple.opacity(0.28) : .clear,
                     in: Capsule()
                 )
                 .contentShape(Capsule())
@@ -598,12 +598,12 @@ private struct CaptureIssueActionButton: View {
         Button(action: action) {
             Text(title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(isPrimary ? Color.black : Color.white.opacity(0.9))
+                .foregroundStyle(isPrimary ? Color.white : Color.white.opacity(0.9))
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
                 .background(
-                    isPrimary ? Color.white : Color.white.opacity(0.12),
+                    isPrimary ? AssistDesignTokens.Palette.purple : Color.white.opacity(0.12),
                     in: Capsule()
                 )
         }
