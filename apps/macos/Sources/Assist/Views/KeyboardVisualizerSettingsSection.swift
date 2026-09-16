@@ -26,7 +26,7 @@ struct KeyboardVisualizerSettingsSection: View {
                 .frame(width: 166)
                 .controlSize(.small)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
             .frame(height: 36)
 
             KeyboardVisualizerView(state: controller.visualizer, style: settings.configuration.visualizerStyle)
@@ -46,14 +46,14 @@ struct KeyboardVisualizerSettingsSection: View {
                     .frame(width: 166)
                     .controlSize(.small)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
                 .frame(height: 36)
             }
             Text("US keyboard layout. Works with sounds off. Clicks pass through to the app underneath.")
                 .font(.caption)
                 .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
                 .padding(.bottom, 8)
         }
     }

@@ -14,7 +14,9 @@ struct SettingsDialog<Content: View>: View {
         ZStack(alignment: .topTrailing) {
             content
 
+            // A shortcut, unlike onExitCommand, fires without focus inside the dialog.
             HugeIconButton(kind: .close, tooltip: "Close settings", action: onClose)
+                .keyboardShortcut(.cancelAction)
                 .padding(.top, 10)
                 .padding(.trailing, 10)
         }

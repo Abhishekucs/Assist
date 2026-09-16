@@ -560,7 +560,7 @@ private struct EditorToolChip: View {
 
     private var foregroundColor: Color {
         if isSelected {
-            return AssistDesignTokens.Palette.darkPurple
+            return AssistDesignTokens.DarkSelection.foreground
         }
         return EditorTokens.foreground.opacity(
             isHovered
@@ -571,7 +571,7 @@ private struct EditorToolChip: View {
 
     private var backgroundColor: Color {
         if isSelected {
-            return AssistDesignTokens.Palette.purple.opacity(0.28)
+            return AssistDesignTokens.DarkSelection.fill
         }
         return isHovered
             ? EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.hoverSurface)
@@ -732,7 +732,7 @@ private struct EditorChip: View {
                 .font(EditorTokens.Typography.chip)
                 .foregroundStyle(
                     isSelected
-                        ? EditorTokens.inverseForeground
+                        ? AssistDesignTokens.DarkSelection.foreground
                         : EditorTokens.foreground.opacity(
                             isHovered
                                 ? AssistDesignTokens.Opacity.primary
@@ -744,7 +744,7 @@ private struct EditorChip: View {
                 .frame(height: EditorTokens.Layout.chipHeight)
                 .background(
                     isSelected
-                        ? EditorTokens.foreground
+                        ? AssistDesignTokens.DarkSelection.fill
                         : (isHovered
                             ? EditorTokens.foreground.opacity(
                                 AssistDesignTokens.Opacity.hoverSurface

@@ -2,8 +2,12 @@ import AppKit
 import SwiftUI
 
 private typealias LibraryTokens = AssistDesignTokens.CaptureLibrary
+private let settingsRowInset = AssistDesignTokens.Settings.rowInset
 
 struct ControlPanelView: View {
+    /// Also the window's minimum size; the hosting view derives it from this frame.
+    static let minimumSize = CGSize(width: 920, height: 660)
+
     @ObservedObject var settings: PillSettings
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var keyboardSounds: KeyboardSoundController
@@ -14,16 +18,17 @@ struct ControlPanelView: View {
 
     var body: some View {
         AssistAppSurface { theme in
+            let historyItems = viewModel.historyItems
             ZStack {
                 HStack(spacing: 0) {
                     LibrarySidebar(
                         selectedFilter: $selectedFilter,
-                        items: viewModel.historyItems,
+                        items: historyItems,
                         openSettings: { isSettingsDialogPresented = true }
                     )
                     .frame(width: 196)
 
-                    CaptureLibraryView(viewModel: viewModel, selectedFilter: $selectedFilter)
+                    CaptureLibraryView(viewModel: viewModel, historyItems: historyItems, selectedFilter: $selectedFilter)
                         .background(theme.background)
                         .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.window))
                         .padding(.vertical, 8)
@@ -46,12 +51,10 @@ struct ControlPanelView: View {
                     }
                     .frame(width: 820, height: 560)
                     .transition(.opacity)
-                    .onExitCommand { isSettingsDialogPresented = false }
                 }
             }
-            .frame(minWidth: 920, minHeight: 660)
+            .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
             .background(theme.sidebar)
-            .ignoresSafeArea(.container, edges: .top)
             .animation(reduceMotion ? nil : AssistDesignTokens.Motion.quick, value: isSettingsDialogPresented)
         }
         .onAppear { viewModel.willShowHistory() }
@@ -170,8 +173,9 @@ private extension AppAppearance {
 
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
-    @Environment(\.assistTheme) private var theme
+    let historyItems: [ClipboardHistoryItem]
     @Binding var selectedFilter: ClipboardHistoryFilter
+    @Environment(\.assistTheme) private var theme
 
     private var columns: [GridItem] {
         [
@@ -186,11 +190,9 @@ private struct CaptureLibraryView: View {
         ]
     }
 
-    private var filteredItems: [ClipboardHistoryItem] {
-        viewModel.historyItems.filter(selectedFilter.includes)
-    }
-
     var body: some View {
+        let filteredItems = historyItems.filter(selectedFilter.includes)
+        let selectedID = viewModel.selectedItem(in: historyItems)?.id
         VStack(alignment: .leading, spacing: 0) {
             LibraryWelcomeHeader()
                 .padding(.horizontal, LibraryTokens.contentInset)
@@ -203,46 +205,52 @@ private struct CaptureLibraryView: View {
                     .padding(.bottom, 18)
             }
 
-            HStack(alignment: .firstTextBaseline) {
-                Text(selectedFilter == .all ? "History" : selectedFilter.title)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(theme.foreground)
-                Spacer()
-                Text("\(filteredItems.count.formatted()) items")
-                    .font(AssistFont.caption())
-                    .foregroundStyle(theme.muted)
-                Text("Most recent")
-                    .font(AssistFont.caption())
-                    .foregroundStyle(theme.muted)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(theme.control, in: Capsule())
-            }
-            .padding(.horizontal, LibraryTokens.contentInset)
-            .padding(.bottom, 4)
-
-            if viewModel.historyItems.isEmpty {
+            if historyItems.isEmpty {
                 EmptyCaptureLibraryView()
-            } else if filteredItems.isEmpty {
-                EmptyFilteredLibraryView(filter: selectedFilter)
             } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: LibraryTokens.gridSpacing) {
-                        ForEach(filteredItems) { item in
-                            CaptureLibraryCard(
-                                item: item,
-                                isSelected: item.id == viewModel.selectedItem?.id,
-                                thumbnail: thumbnail(for: item),
-                                selectAction: { select(item) },
-                                deleteAction: { viewModel.delete(item) }
-                            )
+                historyHeader(count: filteredItems.count)
+
+                if filteredItems.isEmpty {
+                    EmptyFilteredLibraryView(filter: selectedFilter)
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: LibraryTokens.gridSpacing) {
+                            ForEach(filteredItems) { item in
+                                CaptureLibraryCard(
+                                    item: item,
+                                    isSelected: item.id == selectedID,
+                                    thumbnail: thumbnail(for: item),
+                                    selectAction: { select(item) },
+                                    deleteAction: { viewModel.delete(item) }
+                                )
+                            }
                         }
+                        .padding(LibraryTokens.contentInset)
                     }
-                    .padding(LibraryTokens.contentInset)
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func historyHeader(count: Int) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(selectedFilter == .all ? "History" : selectedFilter.title)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(theme.foreground)
+            Spacer()
+            Text(count == 1 ? "1 item" : "\(count.formatted()) items")
+                .font(AssistFont.caption())
+                .foregroundStyle(theme.muted)
+            Text("Most recent")
+                .font(AssistFont.caption())
+                .foregroundStyle(theme.muted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(theme.control, in: Capsule())
+        }
+        .padding(.horizontal, LibraryTokens.contentInset)
+        .padding(.bottom, 4)
     }
 
     private func thumbnail(for item: ClipboardHistoryItem) -> NSImage? {
@@ -276,7 +284,7 @@ private struct CapturePermissionBanner: View {
                     .foregroundStyle(theme.foreground)
 
                 Text(issue.detail ?? issue.message)
-                    .font(AssistFont.roundedFootnote(.medium))
+                    .font(AssistFont.footnote(.medium))
                     .foregroundStyle(theme.muted)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -486,7 +494,13 @@ private struct DeleteIconButton: View {
                 )
             )
                 .frame(width: 34, height: 34)
-                .background(backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background {
+                    let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    shape
+                        .fill(theme.card)
+                        .overlay { shape.fill(hoverTint) }
+                        .shadow(color: .black.opacity(theme.isDark ? 0.24 : 0.1), radius: 3, y: 1)
+                }
         }
         .buttonStyle(.plain)
         .help("Delete item")
@@ -495,14 +509,10 @@ private struct DeleteIconButton: View {
         .animation(.easeOut(duration: 0.12), value: isHovered)
     }
 
-    private var backgroundColor: Color {
-        if isHovered {
-            return AssistDesignTokens.Palette.danger.opacity(
-                AssistDesignTokens.Opacity.destructiveHoverSurface
-            )
-        }
-
-        return .clear
+    private var hoverTint: Color {
+        isHovered
+            ? AssistDesignTokens.Palette.danger.opacity(AssistDesignTokens.Opacity.destructiveHoverSurface)
+            : .clear
     }
 }
 
@@ -546,7 +556,7 @@ private struct RowDivider: View {
         Rectangle()
             .fill(theme.border)
             .frame(height: 1)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, settingsRowInset)
     }
 }
 
@@ -585,7 +595,7 @@ private struct SettingValueRow: View {
                 .truncationMode(.middle)
                 .multilineTextAlignment(.trailing)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, settingsRowInset)
         .frame(minHeight: detail == nil ? 42 : 56)
     }
 }
@@ -593,6 +603,7 @@ private struct SettingValueRow: View {
 private struct SettingsActionButton: View {
     let title: String
     let icon: HugeIconKind
+    var isBusy = false
     let action: () -> Void
 
     var body: some View {
@@ -602,7 +613,8 @@ private struct SettingsActionButton: View {
                 Text(title)
             }
         }
-        .buttonStyle(AssistButtonStyle())
+        .buttonStyle(AssistButtonStyle(isBusy: isBusy))
+        .disabled(isBusy)
         .help(title)
     }
 }
@@ -703,14 +715,14 @@ private struct VoiceContextSettings: View {
 
     var body: some View {
         SettingsSection("Voice context") {
-            VStack(alignment: .leading, spacing: 12) {
-                if service.canRecord {
-                    SettingToggleRow(
-                        title: "Dictate while annotating",
-                        detail: "Records only while Option is held, transcribes locally in English, and never saves audio.",
-                        isOn: $settings.voiceContextEnabled
-                    )
-                } else {
+            if service.canRecord {
+                SettingToggleRow(
+                    title: "Dictate while annotating",
+                    detail: "Records only while Option is held, transcribes locally in English, and never saves audio.",
+                    isOn: $settings.voiceContextEnabled
+                )
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .center, spacing: 14) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(modelStatusTitle)
@@ -739,7 +751,13 @@ private struct VoiceContextSettings: View {
                             .controlSize(.small)
                     }
                 }
+                .padding(.horizontal, settingsRowInset)
+                .padding(.vertical, 12)
+            }
 
+            RowDivider()
+
+            VStack(alignment: .leading, spacing: 12) {
                 Text("Assist does not inspect, summarize, redact, or upload screenshot contents. Copying is always an explicit action.")
                     .font(.caption)
                     .foregroundStyle(theme.muted)
@@ -750,7 +768,9 @@ private struct VoiceContextSettings: View {
                     .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, settingsRowInset)
+            .padding(.vertical, 12)
         }
     }
 
@@ -835,7 +855,7 @@ private struct ShortcutRow: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, settingsRowInset)
         .frame(minHeight: 60)
     }
 }
@@ -932,11 +952,13 @@ private struct UpdatesSettingsPane: View {
                 RowDivider()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    SettingsActionButton(title: viewModel.isCheckingForUpdates ? "Checking..." : "Check for updates", icon: .refresh) {
+                    SettingsActionButton(
+                        title: viewModel.isCheckingForUpdates ? "Checking..." : "Check for updates",
+                        icon: .refresh,
+                        isBusy: viewModel.isCheckingForUpdates
+                    ) {
                         viewModel.checkForUpdates()
                     }
-                    .disabled(viewModel.isCheckingForUpdates)
-                    .opacity(viewModel.isCheckingForUpdates ? 0.62 : 1)
 
                     if let updateStatusText = viewModel.updateStatusText {
                         HStack(alignment: .top, spacing: 8) {
@@ -954,7 +976,8 @@ private struct UpdatesSettingsPane: View {
                         .transition(.opacity)
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, settingsRowInset)
+                .padding(.vertical, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -1026,7 +1049,8 @@ private struct AboutSettingsPane: View {
                     }
                     AboutInfoRow(title: "Support", value: AppIdentity.supportEmail)
                 }
-                .padding(16)
+                .padding(.horizontal, settingsRowInset)
+                .padding(.vertical, 16)
             }
         }
     }

@@ -4,6 +4,8 @@ struct AssistButtonStyle: ButtonStyle {
     enum Emphasis { case primary, secondary }
     var emphasis: Emphasis = .secondary
     var height: CGFloat = 30
+    /// Keeps a button that is disabled while it shows progress fully legible.
+    var isBusy = false
     @Environment(\.assistTheme) private var theme
     @Environment(\.isEnabled) private var isEnabled
 
@@ -23,9 +25,42 @@ struct AssistButtonStyle: ButtonStyle {
                         .strokeBorder(theme.border, lineWidth: 1)
                 }
             }
-            .opacity(isEnabled ? (configuration.isPressed ? 0.76 : 1) : 0.42)
+            .opacity(opacity(isPressed: configuration.isPressed))
             .contentShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.control))
             .pointingHandCursor(isEnabled: isEnabled)
+    }
+
+    private func opacity(isPressed: Bool) -> Double {
+        if isBusy { return 1 }
+        if !isEnabled { return 0.42 }
+        return isPressed ? 0.76 : 1
+    }
+}
+
+/// Plain text field chrome with a visible focus ring for keyboard users.
+private struct AssistTextFieldChrome: ViewModifier {
+    let height: CGFloat
+    @Environment(\.assistTheme) private var theme
+    @FocusState private var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.control)
+        content
+            .textFieldStyle(.plain)
+            .focused($isFocused)
+            .padding(.horizontal, AssistDesignTokens.Spacing.large)
+            .frame(height: height)
+            .background(theme.control, in: shape)
+            .overlay {
+                shape.strokeBorder(isFocused ? theme.accent : .clear, lineWidth: 2)
+            }
+            .animation(AssistDesignTokens.Motion.quick, value: isFocused)
+    }
+}
+
+extension View {
+    func assistTextField(height: CGFloat = AssistDesignTokens.Control.fieldHeight) -> some View {
+        modifier(AssistTextFieldChrome(height: height))
     }
 }
 

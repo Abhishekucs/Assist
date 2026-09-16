@@ -66,24 +66,11 @@ private struct KeyboardVisualizerKeycap: View {
 
 struct KeyboardVisualizerOverlay: View {
     @ObservedObject var state: KeyboardVisualizerState
-    @ObservedObject var settings: PillSettings
     @ObservedObject var soundSettings: KeyboardSoundSettings
-    @State private var systemScheme = SystemAppearanceResolver.currentColorScheme()
-
-    private var colorScheme: ColorScheme {
-        switch settings.appAppearance {
-        case .light: .light
-        case .dark: .dark
-        case .system: systemScheme
-        }
-    }
 
     var body: some View {
-        KeyboardVisualizerView(state: state, style: soundSettings.configuration.visualizerStyle)
-            .environment(\.assistTheme, AssistTheme(colorScheme: colorScheme))
-            .preferredColorScheme(colorScheme)
-            .onReceive(DistributedNotificationCenter.default().publisher(for: SystemAppearanceResolver.changeNotification)) { _ in
-                systemScheme = SystemAppearanceResolver.currentColorScheme()
-            }
+        AssistAppSurface { _ in
+            KeyboardVisualizerView(state: state, style: soundSettings.configuration.visualizerStyle)
+        }
     }
 }

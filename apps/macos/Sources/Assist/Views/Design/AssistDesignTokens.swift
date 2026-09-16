@@ -9,21 +9,20 @@ import SwiftUI
 enum AssistDesignTokens {
     enum Palette {
         static let inkComponents = RGBColorComponents(hex: 0x09090B)
-        static let elevatedInkComponents = RGBColorComponents(hex: 0x111113)
-        static let paperComponents = RGBColorComponents(hex: 0xFAFAFA)
 
         static let ink = Color(hex: 0x09090B)
         static let elevatedInk = Color(hex: 0x111113)
         static let paper = Color(hex: 0xFAFAFA)
         static let softPaper = Color(hex: 0xF4F4F5)
         static let zinc = Color(hex: 0x71717A)
-        static let softZinc = Color(hex: 0xA1A1AA)
 
         // Sampled visual roles from the supplied Willow references. Keep the
         // notch's black silhouette separate from the window surface palette.
         static let window = Color(hex: 0xF4F4F6)
         static let text = Color(hex: 0x3D3D42)
-        static let secondaryText = Color(hex: 0x85858C)
+        // Darker than the reference sample so captions stay at or above 4.5:1
+        // on every light surface they sit on, including selection and lavender.
+        static let secondaryText = Color(hex: 0x66666D)
         static let separator = Color(hex: 0xEEEEF1)
         static let purple = Color(hex: 0x5142B8)
         static let lavender = Color(hex: 0xEEEBFA)
@@ -31,6 +30,8 @@ enum AssistDesignTokens {
 
         static let warning = Color(hex: 0xFF751F)
         static let danger = Color(hex: 0xFF453A)
+        static let lightDangerText = Color(hex: 0xD70015)
+        static let darkDangerText = Color(hex: 0xFF6961)
         static let folder = Color(hex: 0x118AF3)
     }
 
@@ -68,9 +69,21 @@ enum AssistDesignTokens {
         static let window: CGFloat = 18
     }
 
+    /// Selected chips and tools on the island and editor's dark surfaces.
+    enum DarkSelection {
+        static let fill = Palette.purple.opacity(0.28)
+        static let foreground = Palette.darkPurple
+    }
+
+    enum Settings {
+        /// Shared leading and trailing inset for every row inside a settings group.
+        static let rowInset: CGFloat = 16
+    }
+
     enum Control {
         static let compactHeight: CGFloat = 24
         static let regularHeight: CGFloat = 30
+        static let fieldHeight: CGFloat = 36
         static let iconButton: CGFloat = 30
         static let tooltipHeight: CGFloat = 22
     }
@@ -102,12 +115,12 @@ enum AssistDesignTokens {
             .caption.weight(weight)
         }
 
-        static var roundedHeadline: Font {
-            .system(.headline, design: .default)
+        static var headline: Font {
+            .headline
         }
 
-        static func roundedFootnote(_ weight: Font.Weight = .regular) -> Font {
-            .system(.footnote, design: .default).weight(weight)
+        static func footnote(_ weight: Font.Weight = .regular) -> Font {
+            .footnote.weight(weight)
         }
 
         static var mono: Font {
@@ -152,7 +165,6 @@ enum AssistDesignTokens {
     /// Capture geometry and crop math remain with the feature models.
     enum ScreenshotEditor {
         static let foreground = Palette.paper
-        static let inverseForeground = Palette.ink
         static let surface = Color(hex: 0x0B0B0D)
         static let canvas = Palette.ink
 
@@ -274,11 +286,13 @@ struct AssistTheme {
     var isDark: Bool { colorScheme == .dark }
     var background: Color { isDark ? Color(hex: 0x202024) : .white }
     var sidebar: Color { isDark ? Color(hex: 0x19191D) : AssistDesignTokens.Palette.window }
-    var card: Color { isDark ? Color(hex: 0x25252B) : .white }
+    var card: Color { Color(rgb: cardColorComponents) }
     var selected: Color { isDark ? Color(hex: 0x333239) : Color(hex: 0xEAE9ED) }
     var foreground: Color { isDark ? Color(hex: 0xEEEEF2) : AssistDesignTokens.Palette.text }
     var muted: Color { isDark ? Color(hex: 0xABAAB3) : AssistDesignTokens.Palette.secondaryText }
-    var subtle: Color { isDark ? AssistDesignTokens.Palette.zinc : AssistDesignTokens.Palette.softZinc }
+    var dangerText: Color {
+        isDark ? AssistDesignTokens.Palette.darkDangerText : AssistDesignTokens.Palette.lightDangerText
+    }
     var border: Color { isDark ? Color(hex: 0x38373E) : AssistDesignTokens.Palette.separator }
     var accent: Color { isDark ? AssistDesignTokens.Palette.darkPurple : AssistDesignTokens.Palette.purple }
     var accentSurface: Color { isDark ? Color(hex: 0x353047) : AssistDesignTokens.Palette.lavender }
@@ -308,10 +322,8 @@ enum AssistFont {
     static func body(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.body(weight) }
     static func small(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.small(weight) }
     static func caption(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.caption(weight) }
-    static func roundedHeadline() -> Font { AssistDesignTokens.Typography.roundedHeadline }
-    static func roundedFootnote(_ weight: Font.Weight = .regular) -> Font {
-        AssistDesignTokens.Typography.roundedFootnote(weight)
-    }
+    static func headline() -> Font { AssistDesignTokens.Typography.headline }
+    static func footnote(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.footnote(weight) }
     static func mono() -> Font { AssistDesignTokens.Typography.mono }
 }
 
@@ -322,6 +334,10 @@ extension Color {
             green: Double((hex >> 8) & 0xff) / 255.0,
             blue: Double(hex & 0xff) / 255.0
         )
+    }
+
+    init(rgb components: RGBColorComponents) {
+        self.init(red: components.red, green: components.green, blue: components.blue)
     }
 
     init(clipboardColor: ClipboardColorCode) {

@@ -7,6 +7,7 @@ struct LibrarySidebar: View {
     @Environment(\.assistTheme) private var theme
 
     var body: some View {
+        let counts = Self.counts(for: items)
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 9) {
                 AssistLogo(size: 26)
@@ -29,7 +30,7 @@ struct LibrarySidebar: View {
                         title: filter == .all ? "All history" : filter.title,
                         icon: icon(for: filter),
                         isSelected: selectedFilter == filter,
-                        count: items.filter(filter.includes).count
+                        count: counts[filter, default: 0]
                     ) {
                         selectedFilter = filter
                     }
@@ -59,6 +60,17 @@ struct LibrarySidebar: View {
         .padding(.horizontal, 12)
     }
 
+    /// Counts every filter in a single pass over the history.
+    nonisolated static func counts(for items: [ClipboardHistoryItem]) -> [ClipboardHistoryFilter: Int] {
+        var counts: [ClipboardHistoryFilter: Int] = [:]
+        for item in items {
+            for filter in ClipboardHistoryFilter.allCases where filter.includes(item) {
+                counts[filter, default: 0] += 1
+            }
+        }
+        return counts
+    }
+
     private func icon(for filter: ClipboardHistoryFilter) -> HugeIconKind {
         switch filter {
         case .all: .grid
@@ -76,13 +88,13 @@ struct LibraryWelcomeHeader: View {
             HStack(spacing: 9) {
                 Text("Hold")
                 AssistKeycap(title: "Option")
-                Text("to capture a thought")
+                Text("to draw on your screen")
             }
             .font(.system(size: 20, weight: .regular))
             .foregroundStyle(theme.foreground)
 
             HStack(spacing: 0) {
-                shortcut(icon: .pen, title: "Annotate a screenshot", detail: "Hold Option and draw on your screen.", keys: ["⌥"])
+                shortcut(icon: .pen, title: "Annotate a screenshot", detail: "Release Option to save what you drew.", keys: ["⌥"])
                 Rectangle().fill(theme.border).frame(width: 1, height: 44)
                 shortcut(icon: .camera, title: "Take a clean screenshot", detail: "Capture your screen, ready to edit.", keys: ["⌃", "⌥"])
             }

@@ -133,7 +133,7 @@ private struct CollapsedIslandHeader: View {
         HStack(spacing: 0) {
             if let feedback = viewModel.copyFeedback {
                 Text(feedback.badge)
-                    .font(AssistFont.roundedFootnote(.semibold))
+                    .font(AssistFont.footnote(.semibold))
                     .foregroundStyle(feedbackForeground(for: feedback.kind))
                     .lineLimit(1)
                     .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
@@ -388,7 +388,7 @@ private struct ExpandedIslandHeader: View {
                 }
             } else {
                 Text("Needs attention")
-                    .font(AssistFont.roundedHeadline())
+                    .font(AssistFont.headline())
                     .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
             }
 
@@ -438,17 +438,17 @@ private struct IslandHistoryFilterChip: View {
             selectedFilter = filter
         } label: {
             Text(filter.title)
-                .font(AssistFont.roundedFootnote(isSelected ? .semibold : .medium))
+                .font(AssistFont.footnote(isSelected ? .semibold : .medium))
                 .foregroundStyle(
                     isSelected
-                        ? AssistDesignTokens.Palette.darkPurple
+                        ? AssistDesignTokens.DarkSelection.foreground
                         : AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.secondary)
                 )
                 .lineLimit(1)
                 .padding(.horizontal, AssistDesignTokens.Spacing.medium)
                 .frame(height: AssistDesignTokens.Control.compactHeight)
                 .background(
-                    isSelected ? AssistDesignTokens.Palette.purple.opacity(0.28) : .clear,
+                    isSelected ? AssistDesignTokens.DarkSelection.fill : .clear,
                     in: Capsule()
                 )
                 .contentShape(Capsule())
@@ -509,11 +509,11 @@ private struct IslandHistoryEmptyState: View {
             .padding(.bottom, AssistDesignTokens.Spacing.xxxSmall)
 
             Text(title)
-                .font(AssistFont.roundedHeadline())
+                .font(AssistFont.headline())
                 .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.primary))
 
             Text(message)
-                .font(AssistFont.roundedFootnote(.medium))
+                .font(AssistFont.footnote(.medium))
                 .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.muted))
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -543,7 +543,7 @@ private struct CaptureIssuePanel: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(issue.title)
-                    .font(AssistFont.roundedHeadline())
+                    .font(AssistFont.headline())
                     .foregroundStyle(.white.opacity(0.94))
                     .lineLimit(1)
 
@@ -706,7 +706,7 @@ private struct DebugActionButton: View {
             HStack(spacing: 5) {
                 HugeIcon(icon, size: 12, color: .white.opacity(0.88))
                 Text(title)
-                    .font(AssistFont.roundedFootnote(.medium))
+                    .font(AssistFont.footnote(.medium))
             }
             .foregroundStyle(.white.opacity(0.9))
             .padding(.horizontal, 8)
@@ -1043,7 +1043,7 @@ private struct TextClipGalleryCard: View {
         } else {
             VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xSmall) {
                 Text(item.preview)
-                    .font(AssistFont.roundedFootnote(.medium))
+                    .font(AssistFont.footnote(.medium))
                     .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
                     .lineLimit(7)
             }

@@ -32,12 +32,8 @@ struct KeyboardSoundSettingsPane: View {
             SettingsSection("Sound pack") {
                 VStack(spacing: 12) {
                     TextField("Find a sound or switch", text: $search)
-                        .textFieldStyle(.plain)
-                        .padding(10)
-                        .background(theme.control, in: RoundedRectangle(cornerRadius: 8))
-                        .controlSize(.small)
+                        .assistTextField()
                         .accessibilityLabel("Find a sound or switch")
-                        .padding(.bottom, 8)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         ForEach(matchingPacks) { pack in
                             soundPack(pack)
@@ -63,7 +59,7 @@ struct KeyboardSoundSettingsPane: View {
                         .foregroundStyle(theme.muted)
                         .frame(width: 34, alignment: .trailing)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
                 .frame(height: 40)
 
                 SettingToggleRow(title: "Stereo positioning", detail: "Follow each key from left to right.",

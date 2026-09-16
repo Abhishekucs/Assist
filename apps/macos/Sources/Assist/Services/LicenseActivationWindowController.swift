@@ -1,14 +1,17 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class LicenseActivationWindowController: NSWindowController, NSWindowDelegate {
     private let viewModel: LicenseActivationViewModel
     private var allowsCloseAfterActivation = false
+    private var appearanceSubscription: AnyCancellable?
 
     init(
         validationService: LicenseValidationService,
         activationStore: LicenseActivationStore,
+        settings: PillSettings,
         initialErrorMessage: String? = nil,
         onActivated: @escaping (LicenseActivation) -> Void
     ) {
@@ -22,8 +25,11 @@ final class LicenseActivationWindowController: NSWindowController, NSWindowDeleg
         let hostingController = NSHostingController(
             rootView: LicenseActivationView(viewModel: viewModel)
         )
+        // Content runs under the transparent title bar. Without a safe area, the
+        // window is sized to exactly the view's frame, with no title-bar inset.
+        hostingController.safeAreaRegions = []
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 700, height: 420),
+            contentRect: NSRect(origin: .zero, size: LicenseActivationView.size),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -31,8 +37,7 @@ final class LicenseActivationWindowController: NSWindowController, NSWindowDeleg
         window.title = "\(AppIdentity.name) Activation"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = .clear
-        window.isOpaque = false
+        window.backgroundColor = .assistWindowSurface
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.contentViewController = hostingController
@@ -40,6 +45,7 @@ final class LicenseActivationWindowController: NSWindowController, NSWindowDeleg
         super.init(window: window)
 
         window.delegate = self
+        appearanceSubscription = window.followAppearance(of: settings)
     }
 
     @available(*, unavailable)

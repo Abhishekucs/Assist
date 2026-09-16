@@ -54,7 +54,7 @@ struct SettingsSection<Content: View>: View {
             Text(title)
                 .font(.system(size: 12))
                 .foregroundStyle(theme.muted)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
 
             VStack(spacing: 0) {
                 content
@@ -108,7 +108,7 @@ struct SettingToggleRow: View {
                 .controlSize(.small)
                 .pointingHandCursor()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
         .frame(minHeight: detail == nil ? 46 : 60)
     }
 }

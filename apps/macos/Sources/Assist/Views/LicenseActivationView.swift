@@ -45,6 +45,8 @@ final class LicenseActivationViewModel: ObservableObject {
 }
 
 struct LicenseActivationView: View {
+    static let size = CGSize(width: 700, height: 420)
+
     @ObservedObject var viewModel: LicenseActivationViewModel
 
     var body: some View {
@@ -99,11 +101,7 @@ struct LicenseActivationView: View {
                         Text("License key")
                             .font(AssistFont.small(.medium))
                         TextField("Paste your license key", text: $viewModel.licenseKey)
-                            .textFieldStyle(.plain)
-                            .font(AssistFont.body())
-                            .padding(.horizontal, 14)
-                            .frame(height: 42)
-                            .background(theme.control, in: RoundedRectangle(cornerRadius: 7))
+                            .assistTextField(height: 42)
                             .accessibilityLabel("License key")
                             .disabled(viewModel.isActivating)
                             .onSubmit { viewModel.activate() }
@@ -111,7 +109,7 @@ struct LicenseActivationView: View {
                         if let errorMessage = viewModel.errorMessage {
                             Text(errorMessage)
                                 .font(AssistFont.caption())
-                                .foregroundStyle(AssistDesignTokens.Palette.danger)
+                                .foregroundStyle(theme.dangerText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -134,7 +132,7 @@ struct LicenseActivationView: View {
                                 Text(viewModel.isActivating ? "Activating…" : "Activate Assist")
                             }
                         }
-                        .buttonStyle(AssistButtonStyle(emphasis: .primary, height: 36))
+                        .buttonStyle(AssistButtonStyle(emphasis: .primary, height: 36, isBusy: viewModel.isActivating))
                         .disabled(!viewModel.canActivate)
                         .keyboardShortcut(.defaultAction)
                     }
@@ -145,9 +143,8 @@ struct LicenseActivationView: View {
                 .padding(.vertical, 8)
                 .padding(.trailing, 8)
             }
-            .frame(width: 700, height: 420)
+            .frame(width: Self.size.width, height: Self.size.height)
             .background(theme.sidebar)
-            .ignoresSafeArea(.container, edges: .top)
         }
     }
 }

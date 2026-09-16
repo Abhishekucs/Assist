@@ -263,6 +263,12 @@ final class PillViewModel: ObservableObject {
     }
 
     var selectedItem: ClipboardHistoryItem? {
+        selectedItem(in: historyItems)
+    }
+
+    /// Resolves the selection against an already-built `historyItems` snapshot,
+    /// so views that hold one don't rebuild and re-sort the history again.
+    func selectedItem(in historyItems: [ClipboardHistoryItem]) -> ClipboardHistoryItem? {
         if let selectedHistoryItem,
            historyItems.contains(selectedHistoryItem) {
             return selectedHistoryItem

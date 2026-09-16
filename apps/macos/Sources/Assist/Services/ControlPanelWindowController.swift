@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -7,6 +8,7 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
     private let pillViewModel: PillViewModel
     private let keyboardSounds: KeyboardSoundController
     private var window: NSWindow?
+    private var appearanceSubscription: AnyCancellable?
 
     init(settings: PillSettings, pillViewModel: PillViewModel, keyboardSounds: KeyboardSoundController) {
         self.settings = settings
@@ -21,7 +23,13 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeWindow() -> NSWindow {
-        let contentView = ControlPanelView(settings: settings, viewModel: pillViewModel, keyboardSounds: keyboardSounds)
+        let hostingView = NSHostingView(
+            rootView: ControlPanelView(settings: settings, viewModel: pillViewModel, keyboardSounds: keyboardSounds)
+        )
+        // Content runs under the transparent title bar. Without a safe area, the
+        // hosting view turns ControlPanelView's minimum frame into the window's
+        // minimum size as-is, with no title-bar inset added.
+        hostingView.safeAreaRegions = []
         let window = NSWindow(
             contentRect: CGRect(x: 0, y: 0, width: 1040, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -31,14 +39,13 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
         window.title = "Assist"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.minSize = NSSize(width: 920, height: 660)
-        window.backgroundColor = .clear
-        window.isOpaque = false
+        window.backgroundColor = .assistWindowSurface
         window.isMovableByWindowBackground = true
-        window.contentView = NSHostingView(rootView: contentView)
+        window.contentView = hostingView
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.center()
+        appearanceSubscription = window.followAppearance(of: settings)
         self.window = window
         return window
     }
