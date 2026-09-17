@@ -50,7 +50,6 @@ struct KeyboardSoundSettingsPane: View {
                     }
                     // The slider takes the row's free width.
                     .frame(maxWidth: .infinity)
-                    .layoutPriority(1)
                 }
 
                 SettingToggleRow(title: "Stereo positioning", detail: "Follow each key from left to right.",
@@ -89,7 +88,6 @@ struct KeyboardSoundSettingsPane: View {
 
     private func soundPack(_ pack: KeyboardSoundPack) -> some View {
         let selected = settings.configuration.pack == pack
-        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.control)
         return HStack(spacing: Tokens.Spacing.xxSmall) {
             Button {
                 settings.configuration.pack = pack
@@ -122,10 +120,7 @@ struct KeyboardSoundSettingsPane: View {
         .padding(.leading, Tokens.Spacing.large)
         .padding(.trailing, Tokens.Spacing.xSmall)
         .padding(.vertical, Tokens.Spacing.small)
-        .background(selected ? theme.accentSurface : theme.control, in: shape)
-        .overlay {
-            shape.strokeBorder(selected ? theme.accent : theme.controlBorder, lineWidth: Tokens.Control.borderWidth)
-        }
+        .assistOptionTile(isSelected: selected)
     }
 
     @ViewBuilder

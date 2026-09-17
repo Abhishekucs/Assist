@@ -322,7 +322,7 @@ private struct EmptyCaptureLibraryView: View {
 
     var body: some View {
         VStack(spacing: Tokens.Spacing.xLarge) {
-            HugeIcon(ClipboardHistoryFilter.all.icon, size: Tokens.Icon.emptyState, color: theme.muted)
+            HugeIcon(ClipboardHistoryFilter.all.emptyIcon, size: Tokens.Icon.emptyState, color: theme.muted)
 
             Text(ClipboardHistoryFilter.all.emptyTitle)
                 .font(Tokens.Typography.pageTitle)
@@ -601,8 +601,7 @@ private struct ThemePicker: View {
     }
 
     private func tile(for appearance: AppAppearance, isSelected: Bool) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
-        return Button {
+        Button {
             settings.appAppearance = appearance
         } label: {
             VStack(spacing: Tokens.Spacing.small) {
@@ -612,13 +611,7 @@ private struct ThemePicker: View {
             }
             .foregroundStyle(theme.foreground)
             .frame(width: 92, height: 76)
-            .background(isSelected ? theme.accentSurface : theme.control, in: shape)
-            .overlay {
-                shape.strokeBorder(
-                    isSelected ? theme.accent : theme.controlBorder,
-                    lineWidth: Tokens.Control.borderWidth
-                )
-            }
+            .assistOptionTile(isSelected: isSelected)
             // A check mark marks the selection without relying on color.
             .overlay(alignment: .topTrailing) {
                 if isSelected {
@@ -626,7 +619,7 @@ private struct ThemePicker: View {
                         .padding(Tokens.Spacing.xSmall)
                 }
             }
-            .contentShape(shape)
+            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -645,11 +638,11 @@ private struct CaptureSettingsPane: View {
         ) {
             SettingsSection("Shortcuts") {
                 SettingsRow("Annotate screenshot", detail: "Hold and move the pointer to draw.") {
-                    shortcutKeys(["Option"])
+                    AssistKeycapRow(keys: ["Option"])
                 }
                 RowDivider()
                 SettingsRow("Clean screenshot", detail: "Capture the active display without annotation.") {
-                    shortcutKeys(["Control", "Option"])
+                    AssistKeycapRow(keys: ["Control", "Option"])
                 }
             }
 
@@ -675,14 +668,6 @@ private struct CaptureSettingsPane: View {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    private func shortcutKeys(_ keys: [String]) -> some View {
-        HStack(spacing: Tokens.Spacing.xSmall) {
-            ForEach(keys, id: \.self) { key in
-                AssistKeycap(title: key)
             }
         }
     }

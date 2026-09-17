@@ -481,7 +481,7 @@ private struct IslandHistoryEmptyState: View {
     var body: some View {
         VStack(alignment: .center, spacing: AssistDesignTokens.Spacing.small) {
             HugeIcon(
-                filter.icon,
+                filter.emptyIcon,
                 size: 20,
                 color: .white.opacity(AssistDesignTokens.Opacity.subtle)
             )

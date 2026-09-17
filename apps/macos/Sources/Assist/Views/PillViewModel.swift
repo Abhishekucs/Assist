@@ -7,12 +7,10 @@ final class PillViewModel: ObservableObject {
     let voiceContextService: VoiceContextService
 
     @Published var latestItem: CaptureItem?
-    @Published var items: [CaptureItem] = [] {
-        didSet { historySourceDidChange() }
-    }
-    @Published var textItems: [TextClipItem] = [] {
-        didSet { historySourceDidChange() }
-    }
+    // Changed only through the history methods below, which rebuild the
+    // newest-first cache once per change.
+    @Published private(set) var items: [CaptureItem] = []
+    @Published private(set) var textItems: [TextClipItem] = []
     @Published var selectedHistoryItem: ClipboardHistoryItem?
     @Published private(set) var thumbnailImages: [UUID: NSImage] = [:]
     @Published private(set) var captureContextMarkdown: [UUID: String] = [:]
@@ -33,6 +31,7 @@ final class PillViewModel: ObservableObject {
     private let updateService = AppUpdateService()
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
+    private static let previewCacheLimit = 40
     private static let copyFeedbackDisplayDuration: TimeInterval = 1.6
 
     var onTestScreenshot: (() -> Void)?
@@ -261,14 +260,19 @@ final class PillViewModel: ObservableObject {
             && captureContextMarkdown[item.id] != nil
     }
 
-    /// Screenshots and text clips, newest first. Rebuilt only when `items` or
+    /// Screenshots and text clips, newest first, rebuilt whenever `items` or
     /// `textItems` change, so views can read it on every render.
     private(set) var historyItems: [ClipboardHistoryItem] = []
-    private var historyItemsByFilter: [ClipboardHistoryFilter: [ClipboardHistoryItem]] = [:]
+    private var textHistoryItems: [ClipboardHistoryItem] = []
+    private var imageHistoryItems: [ClipboardHistoryItem] = []
 
     /// The cached `historyItems` that a filter includes, in the same order.
     func historyItems(matching filter: ClipboardHistoryFilter) -> [ClipboardHistoryItem] {
-        historyItemsByFilter[filter, default: []]
+        switch filter {
+        case .all: historyItems
+        case .text: textHistoryItems
+        case .images: imageHistoryItems
+        }
     }
 
     var selectedItem: ClipboardHistoryItem? {
@@ -280,39 +284,11 @@ final class PillViewModel: ObservableObject {
         return historyItems.first
     }
 
-    private var isBatchingHistoryChanges = false
-
-    private func historySourceDidChange() {
-        guard !isBatchingHistoryChanges else { return }
-        rebuildHistory()
-    }
-
-    /// Applies changes to `items` and `textItems` without rebuilding the cache;
-    /// the caller then rebuilds or patches it once.
-    private func withoutHistoryRebuild(_ changes: () -> Void) {
-        isBatchingHistoryChanges = true
-        defer { isBatchingHistoryChanges = false }
-        changes()
-    }
-
-    /// Swaps in an item whose position in the newest-first order is unchanged.
-    private func replaceCachedHistoryItem(_ item: ClipboardHistoryItem) {
-        if let index = historyItems.firstIndex(where: { $0.id == item.id }) {
-            historyItems[index] = item
-        }
-        for filter in ClipboardHistoryFilter.allCases where filter.includes(item) {
-            if let index = historyItemsByFilter[filter]?.firstIndex(where: { $0.id == item.id }) {
-                historyItemsByFilter[filter]?[index] = item
-            }
-        }
-    }
-
     private func rebuildHistory() {
         historyItems = (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
             .sorted { $0.createdAt > $1.createdAt }
-        historyItemsByFilter = Dictionary(uniqueKeysWithValues: ClipboardHistoryFilter.allCases.map { filter in
-            (filter, historyItems.filter(filter.includes))
-        })
+        textHistoryItems = historyItems.filter(ClipboardHistoryFilter.text.includes)
+        imageHistoryItems = historyItems.filter(ClipboardHistoryFilter.images.includes)
     }
 
     var canCopySelectedImage: Bool {
@@ -477,6 +453,7 @@ final class PillViewModel: ObservableObject {
         case let .text(textClip):
             textItems.removeAll { $0.id == textClip.id }
         }
+        rebuildHistory()
 
         if selectedHistoryItem?.id == item.id {
             selectedHistoryItem = historyItems.first
@@ -489,34 +466,37 @@ final class PillViewModel: ObservableObject {
         }
     }
 
+    /// Called on every history sync (each island expansion and library open).
+    /// Syncs usually find nothing new, so every property is assigned only when
+    /// its value changes, and an unchanged sync publishes nothing.
     func replaceHistory(screenshots: [CaptureItem], textClips: [TextClipItem]) {
-        // Syncs usually find nothing new; unchanged arrays keep their cache and
-        // publish nothing.
         let screenshotsChanged = items != screenshots
         let textClipsChanged = textItems != textClips
+        if screenshotsChanged {
+            items = screenshots
+        }
+        if textClipsChanged {
+            textItems = textClips
+        }
         if screenshotsChanged || textClipsChanged {
-            withoutHistoryRebuild {
-                if screenshotsChanged { items = screenshots }
-                if textClipsChanged { textItems = textClips }
-            }
             rebuildHistory()
         }
 
-        if let selectedHistoryItem,
-           !historyItems.contains(selectedHistoryItem) {
-            self.selectedHistoryItem = historyItems.first
-        } else if selectedHistoryItem == nil {
+        let keepsSelection = selectedHistoryItem.map(historyItems.contains) ?? false
+        if !keepsSelection, selectedHistoryItem != historyItems.first {
             selectedHistoryItem = historyItems.first
         }
 
-        if let latestItem,
-           !screenshots.contains(where: { $0.id == latestItem.id }) {
-            self.latestItem = screenshots.first
-        } else if latestItem == nil {
+        let keepsLatest = latestItem.map { latest in screenshots.contains { $0.id == latest.id } } ?? false
+        if !keepsLatest, latestItem != screenshots.first {
             latestItem = screenshots.first
         }
 
+        // Retries thumbnails that weren't on disk yet; publishes only on change.
         cacheThumbnails(for: screenshots)
+        if screenshotsChanged {
+            cacheContextMarkdown(for: screenshots)
+        }
     }
 
     func replaceScreenshot(_ item: CaptureItem) {
@@ -524,19 +504,17 @@ final class PillViewModel: ObservableObject {
         var nextItems = items.filter { $0.id != item.id }
         nextItems.insert(item, at: 0)
         items = nextItems
+        rebuildHistory()
         latestItem = item
         selectedHistoryItem = .screenshot(item)
         cacheThumbnails(for: nextItems)
+        cacheContextMarkdown(for: nextItems)
     }
 
     func updateScreenshot(_ item: CaptureItem) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        if items[index].createdAt == item.createdAt {
-            withoutHistoryRebuild { items[index] = item }
-            replaceCachedHistoryItem(.screenshot(item))
-        } else {
-            items[index] = item
-        }
+        items[index] = item
+        rebuildHistory()
 
         if latestItem?.id == item.id {
             latestItem = item
@@ -622,28 +600,41 @@ final class PillViewModel: ObservableObject {
         var nextItems = textItems.filter { $0.id != item.id }
         nextItems.insert(item, at: 0)
         textItems = Array(nextItems.prefix(80))
+        rebuildHistory()
         selectedHistoryItem = .text(item)
     }
 
-    func cacheThumbnails(for items: [CaptureItem]) {
+    /// Loads thumbnails not cached yet for the newest captures and drops ones
+    /// for removed captures, publishing only when the cache changes.
+    private func cacheThumbnails(for items: [CaptureItem]) {
         let validIDs = Set(items.map(\.id))
         var nextImages = thumbnailImages.filter { validIDs.contains($0.key) }
-        var nextMarkdown: [UUID: String] = [:]
+        var didChange = nextImages.count != thumbnailImages.count
 
-        for item in items.prefix(40) where nextImages[item.id] == nil {
+        for item in items.prefix(Self.previewCacheLimit) where nextImages[item.id] == nil {
             if let image = warmedImage(at: item.thumbnailPath) {
                 nextImages[item.id] = image
+                didChange = true
             }
         }
 
-        for item in items.prefix(40) {
+        if didChange {
+            thumbnailImages = nextImages
+        }
+    }
+
+    /// Reads context.md for the newest captures, publishing only on change.
+    private func cacheContextMarkdown(for items: [CaptureItem]) {
+        var nextMarkdown: [UUID: String] = [:]
+        for item in items.prefix(Self.previewCacheLimit) {
             if let markdown = readContextMarkdown(for: item) {
                 nextMarkdown[item.id] = markdown
             }
         }
 
-        thumbnailImages = nextImages
-        captureContextMarkdown = nextMarkdown
+        if nextMarkdown != captureContextMarkdown {
+            captureContextMarkdown = nextMarkdown
+        }
     }
 
     func thumbnail(for item: CaptureItem) -> NSImage? {

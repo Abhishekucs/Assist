@@ -109,9 +109,11 @@ extension NSColor {
     /// The activation window, which is a single content surface.
     static let assistContentSurface = assistThemeColor(\.background)
 
-    private static func assistThemeColor(_ role: KeyPath<AssistTheme, Color> & Sendable) -> NSColor {
-        NSColor(name: nil) { appearance in
-            NSColor(AssistTheme(colorScheme: appearance.isDark ? .dark : .light)[keyPath: role])
+    private static func assistThemeColor(_ role: KeyPath<AssistTheme, Color>) -> NSColor {
+        let light = NSColor(AssistTheme(colorScheme: .light)[keyPath: role])
+        let dark = NSColor(AssistTheme(colorScheme: .dark)[keyPath: role])
+        return NSColor(name: nil) { appearance in
+            appearance.isDark ? dark : light
         }
     }
 }

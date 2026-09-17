@@ -119,6 +119,7 @@ struct SettingsRow<Trailing: View>: View {
                 Text(title)
                     .font(Tokens.Typography.label())
                     .foregroundStyle(theme.foreground)
+                    .fixedSize(horizontal: true, vertical: false)
 
                 if let detail {
                     Text(detail)
@@ -127,6 +128,9 @@ struct SettingsRow<Trailing: View>: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            // The title never shrinks below one line, and the text is sized
+            // before a trailing control that fills the rest of the row.
+            .layoutPriority(1)
 
             Spacer(minLength: 0)
 

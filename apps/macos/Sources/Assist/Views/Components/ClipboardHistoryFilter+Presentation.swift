@@ -15,6 +15,12 @@ extension ClipboardHistoryFilter {
         }
     }
 
+    /// The glyph above an empty state: a capture for all history, otherwise
+    /// the filter's own icon.
+    var emptyIcon: HugeIconKind {
+        self == .all ? .camera : icon
+    }
+
     /// The heading shown when nothing matches this filter.
     var emptyTitle: String {
         switch self {

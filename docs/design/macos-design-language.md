@@ -15,7 +15,7 @@ separated by fine rules.
 | Card | `#F8F8FA` | Settings groups and history cards on the content surface |
 | Separator | `#E0E0E5` | Hairlines around groups and cards, and between rows |
 | Primary text | `#3D3D42` | Titles, row labels, icons |
-| Secondary text | `#66666D` | Descriptions and section labels |
+| Secondary text | `#5F5F66` | Descriptions and section labels |
 | Accent | `#5142B8` | Primary actions and active controls |
 | Dark primary action | `#B6A9FF` with `#17122E` label | Primary actions on dark surfaces |
 | Accent surface | `#EEEBFA` | Keycaps and selected content |
@@ -23,7 +23,8 @@ separated by fine rules.
 
 These are reference-derived approximations, not a source design-token export.
 Secondary text is darker than the sampled `#85858C` so captions keep at least
-4.5:1 contrast on every light surface, including selection and lavender. Error
+4.5:1 contrast on every light surface, including hovered and selected rows and
+lavender; `AssistDesignTokenTests` checks this in both appearances. Error
 text uses `AssistTheme.dangerText` rather than the brighter destructive icon red.
 Control outlines keep at least 3:1 against every surface they sit on (`#807F88`
 in dark appearance), so inputs and buttons read as controls. The `#5142B8`
@@ -94,19 +95,21 @@ rather than by a fixed number. Window backgrounds match the surface they host:
 - `AssistAppSurface`: theme, type, and tint for a window's SwiftUI content.
 - `NSWindow.applyAssistChrome(background:appearanceFrom:)`: the shared title bar,
   background, and appearance setup for Assist windows.
-- `AssistButtonStyle`, `assistTextField()`, `AssistKeycap`, `AssistNavigationRow`:
-  common controls.
+- `AssistButtonStyle`, `assistTextField()`, `assistOptionTile(isSelected:)`,
+  `AssistKeycap`, `AssistKeycapRow`, `AssistNavigationRow`: common controls.
 - `HugeIcon`: bundled icons; without an explicit color they take the
   surrounding foreground style.
 - `SettingsDetailPage`, `SettingsSection`, `SettingsRow` (with
   `SettingToggleRow` and `SettingsValueText`), `SettingsControlGroup`,
   `SettingsDialog`: grouped settings. Every row with a title and a trailing
-  control or value is a `SettingsRow`. The dialog paints the only settings
+  control or value is a `SettingsRow`, whose title keeps at least one line of
+  width however the trailing side is laid out. The dialog paints the only settings
   background and is modal for VoiceOver.
 - `LibrarySidebar` and `LibraryWelcomeHeader`: library chrome and guidance. The
   header carries the capture shortcuts, so empty states don't repeat them.
-- `ClipboardHistoryFilter` presentation (`navigationTitle`, `icon`,
-  `emptyTitle`): one source for the library and the island.
+- `ClipboardHistoryFilter` presentation (`navigationTitle`, `icon`, `emptyIcon`,
+  `emptyTitle`): one source for the library and the island. Empty states use a
+  camera for all history and the filter's own icon otherwise.
 
 The notch retains its black silhouette to meet the display edge. Its selected
 filters, the editor's selected tools and chips, and primary actions use the same

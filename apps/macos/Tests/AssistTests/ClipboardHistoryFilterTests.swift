@@ -48,36 +48,51 @@ final class PillViewModelHistoryTests: XCTestCase {
         XCTAssertEqual(viewModel.historyItems.map(\.id), [screenshot.id, older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .images).map(\.id), [screenshot.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .all), viewModel.historyItems)
 
         let newer = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 30), text: "newer")
-        viewModel.textItems.insert(newer, at: 0)
+        viewModel.insertTextItem(newer)
 
         XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, screenshot.id, older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [newer.id, older.id])
-        XCTAssertEqual(viewModel.historyItems(matching: .all).count, 3)
+
+        viewModel.remove(.screenshot(screenshot))
+
+        XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, older.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .images), [])
     }
 
     @MainActor
-    func testReplacingHistoryWithTheSameItemsPublishesNothing() throws {
+    func testSyncingOnlyNewTextClipsUpdatesTheHistory() throws {
+        let viewModel = try makeViewModel()
+        let screenshot = makeScreenshot(createdAt: 20)
+        viewModel.replaceHistory(screenshots: [screenshot], textClips: [])
+
+        let text = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 30), text: "text")
+        viewModel.replaceHistory(screenshots: [screenshot], textClips: [text])
+
+        XCTAssertEqual(viewModel.historyItems.map(\.id), [text.id, screenshot.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [text.id])
+    }
+
+    @MainActor
+    func testSyncingUnchangedHistoryPublishesNothing() throws {
         let viewModel = try makeViewModel()
         let screenshot = makeScreenshot(createdAt: 20)
         let text = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 10), text: "text")
         viewModel.replaceHistory(screenshots: [screenshot], textClips: [text])
 
         var changes = 0
-        let subscriptions = [
-            viewModel.$items.dropFirst().sink { _ in changes += 1 },
-            viewModel.$textItems.dropFirst().sink { _ in changes += 1 },
-        ]
+        let subscription = viewModel.objectWillChange.sink { changes += 1 }
         viewModel.replaceHistory(screenshots: [screenshot], textClips: [text])
 
         XCTAssertEqual(changes, 0)
         XCTAssertEqual(viewModel.historyItems.map(\.id), [screenshot.id, text.id])
-        withExtendedLifetime(subscriptions) {}
+        withExtendedLifetime(subscription) {}
     }
 
     @MainActor
-    func testUpdatingAScreenshotRefreshesTheCacheInPlace() throws {
+    func testUpdatingAScreenshotRefreshesTheCache() throws {
         let viewModel = try makeViewModel()
         let newer = makeScreenshot(createdAt: 30)
         let older = makeScreenshot(createdAt: 10)
@@ -95,7 +110,6 @@ final class PillViewModelHistoryTests: XCTestCase {
 
         XCTAssertEqual(viewModel.historyItems, [.screenshot(newer), .text(text), .screenshot(edited)])
         XCTAssertEqual(viewModel.historyItems(matching: .images), [.screenshot(newer), .screenshot(edited)])
-        XCTAssertEqual(viewModel.historyItems(matching: .all), viewModel.historyItems)
     }
 
     @MainActor
@@ -109,11 +123,12 @@ final class PillViewModelHistoryTests: XCTestCase {
     }
 
     private func makeScreenshot(createdAt seconds: TimeInterval) -> CaptureItem {
-        CaptureItem(
-            id: UUID(),
+        let id = UUID()
+        return CaptureItem(
+            id: id,
             createdAt: Date(timeIntervalSince1970: seconds),
-            imagePath: "/tmp/screenshot.png",
-            thumbnailPath: "/tmp/thumbnail.png",
+            imagePath: "/tmp/\(id.uuidString)-missing.png",
+            thumbnailPath: "/tmp/\(id.uuidString)-missing-thumbnail.png",
             context: .saved
         )
     }

@@ -80,6 +80,45 @@ extension View {
     }
 }
 
+/// Option tile chrome: a filled, outlined box that turns lavender with an
+/// accent outline when selected. Callers add a non-color selection cue, such
+/// as a check mark.
+private struct AssistOptionTile: ViewModifier {
+    let isSelected: Bool
+    @Environment(\.assistTheme) private var theme
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
+        content
+            .background(isSelected ? theme.accentSurface : theme.control, in: shape)
+            .overlay {
+                shape.strokeBorder(
+                    isSelected ? theme.accent : theme.controlBorder,
+                    lineWidth: Tokens.Control.borderWidth
+                )
+            }
+    }
+}
+
+extension View {
+    func assistOptionTile(isSelected: Bool) -> some View {
+        modifier(AssistOptionTile(isSelected: isSelected))
+    }
+}
+
+/// The keys of a shortcut, as keycaps.
+struct AssistKeycapRow: View {
+    let keys: [String]
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.xSmall) {
+            ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
+                AssistKeycap(title: key)
+            }
+        }
+    }
+}
+
 struct AssistKeycap: View {
     let title: String
     @Environment(\.assistTheme) private var theme

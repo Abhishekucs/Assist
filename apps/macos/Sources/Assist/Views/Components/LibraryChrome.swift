@@ -104,7 +104,7 @@ struct LibraryWelcomeHeader: View {
             HStack(spacing: Tokens.Spacing.xSmall) {
                 HugeIcon(icon, size: Tokens.Icon.feedback, color: theme.muted)
                 Spacer(minLength: Tokens.Spacing.xxSmall)
-                ForEach(keys, id: \.self) { AssistKeycap(title: $0) }
+                AssistKeycapRow(keys: keys)
             }
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
                 Text(title).font(Tokens.Typography.body())

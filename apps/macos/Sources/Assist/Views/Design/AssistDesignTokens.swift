@@ -21,8 +21,8 @@ enum AssistDesignTokens {
         static let window = Color(hex: 0xF4F4F6)
         static let text = Color(hex: 0x3D3D42)
         // Darker than the reference sample so captions stay at or above 4.5:1
-        // on every light surface they sit on, including selection and lavender.
-        static let secondaryText = Color(hex: 0x66666D)
+        // on every light surface they sit on, including selected rows and lavender.
+        static let secondaryText = Color(hex: 0x5F5F66)
         static let separator = Color(hex: 0xE0E0E5)
         /// A faint tint so white groups and cards read on the white content surface.
         static let cardComponents = RGBColorComponents(hex: 0xF8F8FA)
