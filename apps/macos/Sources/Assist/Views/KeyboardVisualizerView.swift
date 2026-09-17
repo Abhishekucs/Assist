@@ -39,7 +39,7 @@ private struct KeyboardVisualizerKeycap: View {
 
     var body: some View {
         let palette = KeyboardVisualizerPalette(style: style)
-        let fill = style == .assist ? theme.selected : Color(hex: palette.fill(for: key.code))
+        let fill = style == .assist ? theme.keyFill : Color(hex: palette.fill(for: key.code))
         let text = style == .assist ? theme.muted : Color(hex: palette.text(for: key.code))
         let pressedFill = style == .assist ? theme.foreground : text
         let pressedText = style == .assist ? theme.background : fill
@@ -65,25 +65,13 @@ private struct KeyboardVisualizerKeycap: View {
 }
 
 struct KeyboardVisualizerOverlay: View {
-    @ObservedObject var state: KeyboardVisualizerState
-    @ObservedObject var settings: PillSettings
+    /// Observed by `KeyboardVisualizerView`; key presses don't rebuild this wrapper.
+    let state: KeyboardVisualizerState
     @ObservedObject var soundSettings: KeyboardSoundSettings
-    @State private var systemScheme = SystemAppearanceResolver.currentColorScheme()
-
-    private var colorScheme: ColorScheme {
-        switch settings.appAppearance {
-        case .light: .light
-        case .dark: .dark
-        case .system: systemScheme
-        }
-    }
 
     var body: some View {
-        KeyboardVisualizerView(state: state, style: soundSettings.configuration.visualizerStyle)
-            .environment(\.assistTheme, AssistTheme(colorScheme: colorScheme))
-            .preferredColorScheme(colorScheme)
-            .onReceive(DistributedNotificationCenter.default().publisher(for: SystemAppearanceResolver.changeNotification)) { _ in
-                systemScheme = SystemAppearanceResolver.currentColorScheme()
-            }
+        AssistAppSurface { _ in
+            KeyboardVisualizerView(state: state, style: soundSettings.configuration.visualizerStyle)
+        }
     }
 }

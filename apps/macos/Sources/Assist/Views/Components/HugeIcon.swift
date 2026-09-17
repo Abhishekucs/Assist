@@ -33,13 +33,14 @@ enum HugeIconKind: String {
     var assetName: String { rawValue }
 }
 
+/// A bundled template icon. With no `color`, it takes the surrounding
+/// foreground style, so `.foregroundStyle` on the icon or a parent applies.
 struct HugeIcon: View {
     let kind: HugeIconKind
     let size: CGFloat
     let color: Color?
-    @Environment(\.assistTheme) private var theme
 
-    init(_ kind: HugeIconKind, size: CGFloat = 18, color: Color? = nil) {
+    init(_ kind: HugeIconKind, size: CGFloat = AssistDesignTokens.Icon.feedback, color: Color? = nil) {
         self.kind = kind
         self.size = size
         self.color = color
@@ -48,17 +49,27 @@ struct HugeIcon: View {
     var body: some View {
         Group {
             if let image = HugeIconImageStore.image(named: kind.assetName) {
-                Image(nsImage: image)
-                    .resizable()
-                    .renderingMode(.template)
-                    .foregroundStyle(color ?? theme.foreground)
-                    .aspectRatio(contentMode: .fit)
+                tinted(
+                    Image(nsImage: image)
+                        .resizable()
+                        .renderingMode(.template)
+                )
+                .aspectRatio(contentMode: .fit)
             } else {
                 Color.clear
             }
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func tinted(_ image: Image) -> some View {
+        if let color {
+            image.foregroundStyle(color)
+        } else {
+            image
+        }
     }
 }
 

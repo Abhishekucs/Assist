@@ -1,5 +1,8 @@
 import SwiftUI
 
+/// Short name for `AssistDesignTokens` at call sites.
+typealias Tokens = AssistDesignTokens
+
 /// Shared visual language for every Assist surface.
 ///
 /// Feature-specific geometry (for example screenshot crop metrics) stays with the
@@ -9,19 +12,38 @@ import SwiftUI
 enum AssistDesignTokens {
     enum Palette {
         static let inkComponents = RGBColorComponents(hex: 0x09090B)
-        static let elevatedInkComponents = RGBColorComponents(hex: 0x111113)
-        static let paperComponents = RGBColorComponents(hex: 0xFAFAFA)
 
         static let ink = Color(hex: 0x09090B)
         static let elevatedInk = Color(hex: 0x111113)
         static let paper = Color(hex: 0xFAFAFA)
         static let softPaper = Color(hex: 0xF4F4F5)
         static let zinc = Color(hex: 0x71717A)
-        static let softZinc = Color(hex: 0xA1A1AA)
+
+        // Sampled visual roles from the supplied Willow references. Keep the
+        // notch's black silhouette separate from the window surface palette.
+        static let window = Color(hex: 0xF4F4F6)
+        static let text = Color(hex: 0x3D3D42)
+        // Darker than the reference sample so captions stay at or above 4.5:1
+        // on every light surface they sit on, including selected rows and lavender.
+        static let secondaryText = Color(hex: 0x5F5F66)
+        static let separator = Color(hex: 0xE0E0E5)
+        /// A faint tint so white groups and cards read on the white content surface.
+        static let cardComponents = RGBColorComponents(hex: 0xF8F8FA)
+        static let purple = Color(hex: 0x5142B8)
+        static let lavenderComponents = RGBColorComponents(hex: 0xEEEBFA)
+        static let darkPurple = Color(hex: 0xB6A9FF)
+        /// Label on a `darkPurple` fill; dark surfaces use that lighter fill so
+        /// primary actions keep 3:1 against them.
+        static let onDarkPurple = Color(hex: 0x17122E)
+        // Outlines for inputs, buttons, and option tiles keep at least 3:1
+        // against every surface they sit on (WCAG non-text contrast).
+        static let lightControlBorder = Color(hex: 0x84848C)
+        static let darkControlBorder = Color(hex: 0x807F88)
 
         static let warning = Color(hex: 0xFF751F)
         static let danger = Color(hex: 0xFF453A)
-        static let folder = Color(hex: 0x118AF3)
+        static let lightDangerText = Color(hex: 0xD70015)
+        static let darkDangerText = Color(hex: 0xFF6961)
     }
 
     enum Opacity {
@@ -30,11 +52,18 @@ enum AssistDesignTokens {
         static let secondary: Double = 0.70
         static let muted: Double = 0.52
         static let subtle: Double = 0.36
+        /// Disabled glyphs on the island and editor's dark surfaces.
         static let disabled: Double = 0.34
-        static let selectedStroke: Double = 0.72
         static let quietSurface: Double = 0.08
         static let hoverSurface: Double = 0.14
         static let destructiveHoverSurface: Double = 0.12
+        /// Foreground tints for hovered and selected rows and icon buttons, so
+        /// both read on whichever surface they sit on.
+        static let hoverFill: Double = 0.06
+        static let selectedFill: Double = 0.11
+        /// Pressed and disabled buttons, fields, and icon buttons in app windows.
+        static let pressedControl: Double = 0.76
+        static let disabledControl: Double = 0.42
     }
 
     enum Spacing {
@@ -52,31 +81,114 @@ enum AssistDesignTokens {
 
     enum Radius {
         static let small: CGFloat = 5
+        static let keycap: CGFloat = 6
         static let control: CGFloat = 7
+        static let iconButton: CGFloat = 8
         static let medium: CGFloat = 10
         static let large: CGFloat = 14
+        static let window: CGFloat = 18
+    }
+
+    /// Selections and primary actions on the island and editor's dark surfaces.
+    enum DarkSurface {
+        static let selectionFill = Palette.purple.opacity(0.28)
+        static let selectionForeground = Palette.darkPurple
+        static let primaryFill = Palette.darkPurple
+        static let primaryForeground = Palette.onDarkPurple
+    }
+
+    /// Library window layout.
+    enum AppLayout {
+        static let sidebarWidth: CGFloat = 196
+        /// Inset of sidebar content, which also insets navigation row contents.
+        static let sidebarInset: CGFloat = 12
+        /// Space between the title bar and the sidebar wordmark.
+        static let sidebarTopInset: CGFloat = 10
+        static let navigationRowHeight: CGFloat = 36
+        /// Gap between the window edge and the inset content pane.
+        static let paneInset: CGFloat = 8
+    }
+
+    enum Settings {
+        /// Shared leading and trailing inset for every row inside a settings group.
+        static let rowInset: CGFloat = 16
+        static let rowHeight: CGFloat = 46
+        static let detailedRowHeight: CGFloat = 60
+        static let dialogSize = CGSize(width: 820, height: 560)
+        static let dialogInset: CGFloat = 22
+        static let columnSpacing: CGFloat = 28
+        /// Aligns the sidebar title with the page title beside it.
+        static let headerTopInset: CGFloat = 7
+        static let pickerWidth: CGFloat = 166
+        /// The close button's inset from the dialog's top-right corner.
+        static let closeButtonInset = Spacing.medium
+        /// Keeps a page header clear of the close button, which overlays the
+        /// dialog's top-right corner.
+        static let closeButtonClearance = Control.largeIconButton + closeButtonInset + Spacing.small - dialogInset
     }
 
     enum Control {
         static let compactHeight: CGFloat = 24
         static let regularHeight: CGFloat = 30
+        static let mediumHeight: CGFloat = 32
+        static let largeHeight: CGFloat = 36
+        static let heroHeight: CGFloat = 42
         static let iconButton: CGFloat = 30
+        static let largeIconButton: CGFloat = 34
         static let tooltipHeight: CGFloat = 22
+        static let borderWidth: CGFloat = 1
+        static let focusRingWidth: CGFloat = 2
     }
 
     enum Icon {
         static let small: CGFloat = 12
         static let regular: CGFloat = 14
+        static let medium: CGFloat = 15
+        static let navigation: CGFloat = 17
         static let feedback: CGFloat = 18
+        static let tile: CGFloat = 22
+        static let placeholder: CGFloat = 30
+        static let emptyState: CGFloat = 32
     }
 
     enum Typography {
-        static var title: Font {
-            .system(.title3, design: .default).weight(.semibold)
+        /// Window headings.
+        static var largeTitle: Font {
+            .system(size: 24, weight: .medium)
         }
 
+        /// The Assist wordmark.
+        static var title: Font {
+            .system(size: 20, weight: .medium)
+        }
+
+        /// Prominent regular-weight guidance, such as the library welcome line.
+        static var display: Font {
+            .system(size: 20)
+        }
+
+        /// Settings page and empty-state headings.
+        static var pageTitle: Font {
+            .system(size: 17, weight: .medium)
+        }
+
+        /// Headings above a list, such as History.
+        static var sectionTitle: Font {
+            .system(size: 15, weight: .medium)
+        }
+
+        /// Navigation, row, and tile labels.
+        static func label(_ weight: Font.Weight = .regular) -> Font {
+            .system(size: 13, weight: weight)
+        }
+
+        /// Labels above a settings group or navigation list.
         static var section: Font {
-            .caption.weight(.medium)
+            .system(size: 12)
+        }
+
+        static var keycap: Font {
+            .system(size: 12, weight: .medium)
         }
 
         static func body(_ weight: Font.Weight = .regular) -> Font {
@@ -91,12 +203,17 @@ enum AssistDesignTokens {
             .caption.weight(weight)
         }
 
-        static var roundedHeadline: Font {
-            .system(.headline, design: .rounded)
+        static var headline: Font {
+            .headline
         }
 
-        static func roundedFootnote(_ weight: Font.Weight = .regular) -> Font {
-            .system(.footnote, design: .rounded).weight(weight)
+        static func footnote(_ weight: Font.Weight = .regular) -> Font {
+            .footnote.weight(weight)
+        }
+
+        /// The smallest island labels, such as a capture's context.md preview.
+        static func micro(_ weight: Font.Weight = .regular) -> Font {
+            .system(size: 8.5, weight: weight)
         }
 
         static var mono: Font {
@@ -121,19 +238,64 @@ enum AssistDesignTokens {
     enum HistoryShelf {
         static let cardSize: CGFloat = 142
         static let cardSpacing = Spacing.large
-        static let selectionStroke: CGFloat = 1
+        /// The selected card's rings: a light outer ring and a dark inner one,
+        /// so at least one contrasts with any thumbnail, tint, or color clip.
+        static let selectionRingWidth: CGFloat = 1.5
+        static let selectionRingOuter = Palette.paper.opacity(Opacity.primary)
+        static let selectionRingInnerWidth: CGFloat = 1
+        static let selectionRingInner = Palette.ink.opacity(Opacity.strong)
         static let actionHitArea: CGFloat = 32
         static let actionControl: CGFloat = 24
     }
 
+    /// Muted, grainy tints for history cards on the island's black surface,
+    /// sampled from the design reference. Text on a tint uses its dark `ink`.
+    enum IslandCard {
+        struct Tint: Equatable, Sendable {
+            let fillHex: UInt32
+            let inkHex: UInt32
+
+            var fill: Color { Color(hex: fillHex) }
+            var ink: Color { Color(hex: inkHex) }
+            /// Smaller labels on the tint; still at least 4.5:1.
+            var secondaryInk: Color { ink.opacity(IslandCard.secondaryInkOpacity) }
+        }
+
+        // Fills are the sampled reference colors; the grain averages to zero,
+        // so cards keep them on screen. Inks are near-black with a trace of
+        // the tint's hue, for crisp text.
+        static let sage = Tint(fillHex: 0x98B3A3, inkHex: 0x050F08)
+        static let lavender = Tint(fillHex: 0xA7A1BD, inkHex: 0x0B0914)
+        static let mustard = Tint(fillHex: 0xB2AC75, inkHex: 0x0F0B02)
+        static let dustyBlue = Tint(fillHex: 0x96AEBF, inkHex: 0x040C12)
+
+        /// Text clips rotate through these; voice-context captures keep the
+        /// blue that marks them as a folder.
+        static let textTints = [sage, lavender, mustard]
+        static let contextTint = dustyBlue
+
+        static let secondaryInkOpacity: Double = 0.9
+        /// The largest brightness change the grain makes to a pixel, up or down.
+        static let grainAmplitude: Double = 0.04
+
+        /// A clip's tint, derived from its id so it stays the same across launches.
+        static func textTint(for id: UUID) -> Tint {
+            textTints[Int(id.uuid.0) % textTints.count]
+        }
+    }
+
     enum CaptureLibrary {
-        static let minimumCardWidth: CGFloat = 210
-        static let maximumCardWidth: CGFloat = 240
-        static let cardHeight: CGFloat = 122
+        static let minimumCardWidth: CGFloat = 190
+        static let maximumCardWidth: CGFloat = 280
+        static let cardHeight: CGFloat = 136
         static let gridSpacing = Spacing.xLarge
-        static let contentInset = Spacing.xxLarge
-        static let cardRadius = Radius.control
-        static let selectionStroke: CGFloat = 1
+        static let contentInset = Spacing.xxxLarge
+        /// Space between the title bar and the library header.
+        static let headerTopInset = Spacing.small
+        static let cardRadius = Radius.medium
+        static let borderStroke = Control.borderWidth
+        /// Thicker than the border, so selection is not signalled by color alone.
+        static let selectionStroke: CGFloat = 2
         static let actionInset = Spacing.xSmall
     }
 
@@ -141,7 +303,6 @@ enum AssistDesignTokens {
     /// Capture geometry and crop math remain with the feature models.
     enum ScreenshotEditor {
         static let foreground = Palette.paper
-        static let inverseForeground = Palette.ink
         static let surface = Color(hex: 0x0B0B0D)
         static let canvas = Palette.ink
 
@@ -168,23 +329,23 @@ enum AssistDesignTokens {
 
         enum Typography {
             static var header: Font {
-                .system(size: 10.5, weight: .semibold, design: .rounded)
+                .system(size: 10.5, weight: .semibold, design: .default)
             }
 
             static var tool: Font {
-                .system(size: 12, weight: .semibold, design: .rounded)
+                .system(size: 12, weight: .semibold, design: .default)
             }
 
             static var label: Font {
-                .system(size: 10.5, weight: .medium, design: .rounded)
+                .system(size: 10.5, weight: .medium, design: .default)
             }
 
             static var chip: Font {
-                .system(size: 11, weight: .semibold, design: .rounded)
+                .system(size: 11, weight: .semibold, design: .default)
             }
 
             static var action: Font {
-                .system(size: 12, weight: .semibold, design: .rounded)
+                .system(size: 12, weight: .semibold, design: .default)
             }
         }
 
@@ -261,17 +422,45 @@ struct AssistTheme {
     let colorScheme: ColorScheme
 
     var isDark: Bool { colorScheme == .dark }
-    var background: Color { isDark ? AssistDesignTokens.Palette.ink : AssistDesignTokens.Palette.paper }
-    var sidebar: Color { isDark ? Color(hex: 0x0C0C0F) : AssistDesignTokens.Palette.softPaper }
-    var card: Color { isDark ? AssistDesignTokens.Palette.elevatedInk : .white }
-    var selected: Color { isDark ? Color(hex: 0x27272A) : Color(hex: 0xEDEDEF) }
-    var foreground: Color { isDark ? AssistDesignTokens.Palette.paper : AssistDesignTokens.Palette.ink }
-    var muted: Color { isDark ? AssistDesignTokens.Palette.softZinc : AssistDesignTokens.Palette.zinc }
-    var subtle: Color { isDark ? AssistDesignTokens.Palette.zinc : AssistDesignTokens.Palette.softZinc }
-    var border: Color { isDark ? Color(hex: 0x27272A) : Color(hex: 0xE4E4E7) }
-    var accent: Color { foreground }
-    var cardColorComponents: RGBColorComponents {
-        isDark ? AssistDesignTokens.Palette.elevatedInkComponents : .white
+    var background: Color { isDark ? Color(hex: 0x202024) : .white }
+    var sidebar: Color { isDark ? Color(hex: 0x19191D) : AssistDesignTokens.Palette.window }
+    var card: Color { Color(rgb: cardComponents) }
+    /// Resting keys in the Assist keyboard visualizer.
+    var keyFill: Color { isDark ? Color(hex: 0x333239) : Color(hex: 0xEAE9ED) }
+    var foreground: Color { isDark ? Color(hex: 0xEEEEF2) : AssistDesignTokens.Palette.text }
+    var muted: Color { isDark ? Color(hex: 0xABAAB3) : AssistDesignTokens.Palette.secondaryText }
+    var dangerText: Color {
+        isDark ? AssistDesignTokens.Palette.darkDangerText : AssistDesignTokens.Palette.lightDangerText
+    }
+    var border: Color { isDark ? Color(hex: 0x38373E) : AssistDesignTokens.Palette.separator }
+    var accent: Color { isDark ? AssistDesignTokens.Palette.darkPurple : AssistDesignTokens.Palette.purple }
+    var accentSurface: Color { Color(rgb: accentSurfaceComponents) }
+    var primaryButton: Color {
+        isDark ? AssistDesignTokens.DarkSurface.primaryFill : AssistDesignTokens.Palette.purple
+    }
+    var primaryButtonForeground: Color {
+        isDark ? AssistDesignTokens.DarkSurface.primaryForeground : .white
+    }
+    /// The scheme for controls drawn on a primary fill (such as a progress
+    /// spinner): a dark purple in light appearance, a light one in dark.
+    var primaryButtonContentScheme: ColorScheme { isDark ? .light : .dark }
+    var control: Color { Color(rgb: controlComponents) }
+    var hoverFill: Color { foreground.opacity(AssistDesignTokens.Opacity.hoverFill) }
+    var selectedFill: Color { foreground.opacity(AssistDesignTokens.Opacity.selectedFill) }
+    var controlBorder: Color {
+        isDark ? AssistDesignTokens.Palette.darkControlBorder : AssistDesignTokens.Palette.lightControlBorder
+    }
+
+    // Opaque surfaces as components, so text over translucent content (such as
+    // a clipboard color) can be judged against the surface actually behind it.
+    var cardComponents: RGBColorComponents {
+        isDark ? RGBColorComponents(hex: 0x25252B) : AssistDesignTokens.Palette.cardComponents
+    }
+    var controlComponents: RGBColorComponents {
+        isDark ? RGBColorComponents(hex: 0x2D2D33) : RGBColorComponents(hex: 0xF5F5F6)
+    }
+    var accentSurfaceComponents: RGBColorComponents {
+        isDark ? RGBColorComponents(hex: 0x353047) : AssistDesignTokens.Palette.lavenderComponents
     }
 }
 
@@ -286,21 +475,6 @@ extension EnvironmentValues {
     }
 }
 
-/// Compatibility gateway for existing views. New design values should be added
-/// to `AssistDesignTokens.Typography`, keeping this API intentionally thin.
-enum AssistFont {
-    static func title() -> Font { AssistDesignTokens.Typography.title }
-    static func section() -> Font { AssistDesignTokens.Typography.section }
-    static func body(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.body(weight) }
-    static func small(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.small(weight) }
-    static func caption(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.caption(weight) }
-    static func roundedHeadline() -> Font { AssistDesignTokens.Typography.roundedHeadline }
-    static func roundedFootnote(_ weight: Font.Weight = .regular) -> Font {
-        AssistDesignTokens.Typography.roundedFootnote(weight)
-    }
-    static func mono() -> Font { AssistDesignTokens.Typography.mono }
-}
-
 extension Color {
     init(hex: UInt32) {
         self.init(
@@ -308,6 +482,10 @@ extension Color {
             green: Double((hex >> 8) & 0xff) / 255.0,
             blue: Double(hex & 0xff) / 255.0
         )
+    }
+
+    init(rgb components: RGBColorComponents) {
+        self.init(red: components.red, green: components.green, blue: components.blue)
     }
 
     init(clipboardColor: ClipboardColorCode) {

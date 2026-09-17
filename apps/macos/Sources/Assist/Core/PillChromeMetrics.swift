@@ -10,10 +10,12 @@ enum PillChromeMetrics {
     static let compactExpandedHeight: CGFloat = 210
 
     // The collapsed island keeps one width; short feedback labels fit without growing the chrome.
+    @MainActor
     static func collapsedSize(settings: PillSettings) -> CGSize {
         settings.collapsedSize
     }
 
+    @MainActor
     static func expandedSize(settings: PillSettings) -> CGSize {
         var size = settings.expandedSize
         // Preserve the existing capture-only gallery height, including old size preferences.

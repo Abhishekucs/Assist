@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyboardVisualizerController: KeyboardVisualizerWindowController?
     private var keyboardFeedbackMenuController: KeyboardFeedbackMenuController?
     private var settingsCancellable: AnyCancellable?
+    private let settings = PillSettings()
     private let licenseActivationStore = LicenseActivationStore()
     private let licenseValidationService = LicenseValidationService()
 
@@ -94,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let activationController = LicenseActivationWindowController(
             validationService: licenseValidationService,
             activationStore: licenseActivationStore,
+            settings: settings,
             initialErrorMessage: initialErrorMessage
         ) { [weak self] _ in
             DebugLogger.log("license.activation.completed")
@@ -115,7 +117,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugLogger.log("app.start-main")
 
         let store = CaptureStore()
-        let settings = PillSettings()
         let voiceContextService = VoiceContextService()
         let keyboardSoundController = KeyboardSoundController(settings: KeyboardSoundSettings())
         let screenshotEditRenderer = ScreenshotEditRenderer()

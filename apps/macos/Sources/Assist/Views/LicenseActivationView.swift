@@ -44,134 +44,95 @@ final class LicenseActivationViewModel: ObservableObject {
     }
 }
 
+/// A single focused form: heading, license key, and the two actions.
 struct LicenseActivationView: View {
+    /// The window's size until an error message needs more height.
+    static let minimumSize = CGSize(width: 480, height: 340)
+    static let errorLineLimit = 4
+
     @ObservedObject var viewModel: LicenseActivationViewModel
-    private let theme = AssistTheme(colorScheme: .dark)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.white)
+        AssistAppSurface { theme in
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Welcome to Assist")
+                    .font(Tokens.Typography.largeTitle)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.bottom, Tokens.Spacing.medium)
 
-                    Text("A")
-                        .font(.system(size: 19, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.black)
-                }
-                .frame(width: 42, height: 42)
+                Text("Enter the license key from your purchase receipt to get started.")
+                    .font(Tokens.Typography.body())
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(3)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(AppIdentity.name)
-                        .font(AssistFont.title())
-                        .foregroundStyle(theme.foreground)
+                VStack(alignment: .leading, spacing: 9) {
+                    Text("License key")
+                        .font(Tokens.Typography.small(.medium))
+                    TextField("Paste your license key", text: $viewModel.licenseKey)
+                        .assistTextField(height: Tokens.Control.heroHeight)
+                        .accessibilityLabel("License key")
+                        .disabled(viewModel.isActivating)
+                        // A focused field keeps Return for itself, so the Activate
+                        // button's default-action shortcut only fires when the
+                        // field isn't focused; each path covers one case.
+                        .onSubmit { viewModel.activate() }
 
-                    Text("License required")
-                        .font(AssistFont.caption(.medium))
-                        .foregroundStyle(theme.muted)
-                }
-            }
-
-            Spacer(minLength: 24)
-
-            Text("Activate Assist")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(theme.foreground)
-
-            Text("Enter the license key from your purchase receipt to open the production app.")
-                .font(AssistFont.small())
-                .foregroundStyle(theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 8)
-
-            VStack(alignment: .leading, spacing: 10) {
-                TextField("License key", text: $viewModel.licenseKey)
-                    .textFieldStyle(.plain)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(theme.foreground)
-                    .padding(.horizontal, 14)
-                    .frame(height: 46)
-                    .background(theme.selected, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(theme.border, lineWidth: 1)
+                    if let errorMessage = viewModel.errorMessage {
+                        // Server errors can be long; the window grows by at most
+                        // a few lines, and the full text stays available.
+                        Text(errorMessage)
+                            .font(Tokens.Typography.caption())
+                            .foregroundStyle(theme.dangerText)
+                            .lineLimit(Self.errorLineLimit)
+                            .truncationMode(.tail)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .help(errorMessage)
+                            .accessibilityLabel(errorMessage)
+                            .textSelection(.enabled)
                     }
-                    .disabled(viewModel.isActivating)
-                    .onSubmit {
-                        viewModel.activate()
-                    }
-
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                        .font(AssistFont.caption(.medium))
-                        .foregroundStyle(Color(hex: 0xFF6B6B))
-                        .fixedSize(horizontal: false, vertical: true)
                 }
-            }
-            .padding(.top, 24)
+                .padding(.top, 30)
 
-            Spacer(minLength: 28)
+                Spacer(minLength: Tokens.Spacing.xxxLarge)
 
-            HStack(spacing: 10) {
-                Button {
-                    NSApp.terminate(nil)
-                } label: {
-                    Text("Quit")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(SecondaryActivationButtonStyle(theme: theme))
-                .disabled(viewModel.isActivating)
+                HStack(spacing: Tokens.Spacing.medium) {
+                    Button("Quit") { NSApp.terminate(nil) }
+                        .buttonStyle(AssistButtonStyle(height: Tokens.Control.largeHeight))
+                        .disabled(viewModel.isActivating)
 
-                Button {
-                    viewModel.activate()
-                } label: {
-                    HStack(spacing: 8) {
-                        if viewModel.isActivating {
-                            ProgressView()
-                                .controlSize(.small)
-                                .scaleEffect(0.76)
+                    Spacer()
+
+                    Button { viewModel.activate() } label: {
+                        HStack(spacing: Tokens.Spacing.small) {
+                            if viewModel.isActivating {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Text(viewModel.isActivating ? "Activating…" : "Activate Assist")
                         }
-
-                        Text(viewModel.isActivating ? "Activating" : "Activate")
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(
+                        AssistButtonStyle(
+                            emphasis: .primary,
+                            height: Tokens.Control.largeHeight,
+                            isBusy: viewModel.isActivating
+                        )
+                    )
+                    .disabled(!viewModel.canActivate)
+                    .keyboardShortcut(.defaultAction)
                 }
-                .buttonStyle(PrimaryActivationButtonStyle(theme: theme))
-                .disabled(!viewModel.canActivate)
             }
+            .padding(.horizontal, 32)
+            .padding(.top, Tokens.Spacing.large)
+            .padding(.bottom, 32)
+            .titleBarSafeArea()
+            // Fixed width; the height grows past the minimum only when the
+            // content (such as a long server error) needs it.
+            .frame(width: Self.minimumSize.width)
+            .frame(minHeight: Self.minimumSize.height, alignment: .top)
+            .fixedSize(horizontal: false, vertical: true)
+            .background(theme.background)
         }
-        .padding(28)
-        .frame(width: 460, height: 360)
-        .background(theme.background)
-        .foregroundStyle(theme.foreground)
-        .environment(\.assistTheme, theme)
-    }
-}
-
-private struct PrimaryActivationButtonStyle: ButtonStyle {
-    let theme: AssistTheme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(AssistFont.small(.semibold))
-            .foregroundStyle(Color.black)
-            .frame(height: 42)
-            .background(Color.white.opacity(configuration.isPressed ? 0.82 : 1), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-    }
-}
-
-private struct SecondaryActivationButtonStyle: ButtonStyle {
-    let theme: AssistTheme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(AssistFont.small(.semibold))
-            .foregroundStyle(theme.foreground)
-            .frame(height: 42)
-            .background(theme.selected.opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(theme.border, lineWidth: 1)
-            }
     }
 }

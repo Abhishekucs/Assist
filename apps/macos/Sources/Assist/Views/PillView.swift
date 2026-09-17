@@ -133,7 +133,7 @@ private struct CollapsedIslandHeader: View {
         HStack(spacing: 0) {
             if let feedback = viewModel.copyFeedback {
                 Text(feedback.badge)
-                    .font(AssistFont.roundedFootnote(.semibold))
+                    .font(AssistDesignTokens.Typography.footnote(.semibold))
                     .foregroundStyle(feedbackForeground(for: feedback.kind))
                     .lineLimit(1)
                     .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
@@ -269,9 +269,10 @@ struct ExpandedIslandView: View {
     @State private var selectedFilter: ClipboardHistoryFilter = .all
 
     var body: some View {
-        let filteredItems = viewModel.historyItems.filter(selectedFilter.includes)
+        let filteredItems = viewModel.historyItems(matching: selectedFilter)
         let historyItems = Array(filteredItems.prefix(24))
-        let visibleSelectedItem = historyItems.first { $0.id == viewModel.selectedItem?.id }
+        let selectedHistoryID = viewModel.selectedItem?.id
+        let visibleSelectedItem = historyItems.first { $0.id == selectedHistoryID }
             ?? historyItems.first
         let selectedID = visibleSelectedItem?.id
 
@@ -388,7 +389,7 @@ private struct ExpandedIslandHeader: View {
                 }
             } else {
                 Text("Needs attention")
-                    .font(AssistFont.roundedHeadline())
+                    .font(AssistDesignTokens.Typography.headline)
                     .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
             }
 
@@ -438,17 +439,17 @@ private struct IslandHistoryFilterChip: View {
             selectedFilter = filter
         } label: {
             Text(filter.title)
-                .font(AssistFont.roundedFootnote(isSelected ? .semibold : .medium))
+                .font(AssistDesignTokens.Typography.footnote(isSelected ? .semibold : .medium))
                 .foregroundStyle(
                     isSelected
-                        ? AssistDesignTokens.Palette.ink
+                        ? AssistDesignTokens.DarkSurface.selectionForeground
                         : AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.secondary)
                 )
                 .lineLimit(1)
                 .padding(.horizontal, AssistDesignTokens.Spacing.medium)
                 .frame(height: AssistDesignTokens.Control.compactHeight)
                 .background(
-                    isSelected ? AssistDesignTokens.Palette.paper : .clear,
+                    isSelected ? AssistDesignTokens.DarkSurface.selectionFill : .clear,
                     in: Capsule()
                 )
                 .contentShape(Capsule())
@@ -466,32 +467,10 @@ private struct IslandHistoryEmptyState: View {
     let showsDebugActions: Bool
     @ObservedObject var viewModel: PillViewModel
 
-    private var icon: HugeIconKind {
-        switch filter {
-        case .all:
-            .camera
-        case .images:
-            .image
-        case .text:
-            .document
-        }
-    }
-
-    private var title: String {
-        switch filter {
-        case .all:
-            "No captures yet"
-        case .text:
-            "No text yet"
-        case .images:
-            "No images yet"
-        }
-    }
-
     private var message: String {
         switch filter {
         case .all:
-            "Hold ⌥ to annotate  ·  ⌃⌥ for a clean screenshot"
+            CaptureShortcut.emptyHistoryHint
         case .text:
             "Copied text will appear here"
         case .images:
@@ -502,18 +481,18 @@ private struct IslandHistoryEmptyState: View {
     var body: some View {
         VStack(alignment: .center, spacing: AssistDesignTokens.Spacing.small) {
             HugeIcon(
-                icon,
+                filter.emptyIcon,
                 size: 20,
                 color: .white.opacity(AssistDesignTokens.Opacity.subtle)
             )
             .padding(.bottom, AssistDesignTokens.Spacing.xxxSmall)
 
-            Text(title)
-                .font(AssistFont.roundedHeadline())
+            Text(filter.emptyTitle)
+                .font(AssistDesignTokens.Typography.headline)
                 .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.primary))
 
             Text(message)
-                .font(AssistFont.roundedFootnote(.medium))
+                .font(AssistDesignTokens.Typography.footnote(.medium))
                 .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.muted))
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -543,7 +522,7 @@ private struct CaptureIssuePanel: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(issue.title)
-                    .font(AssistFont.roundedHeadline())
+                    .font(AssistDesignTokens.Typography.headline)
                     .foregroundStyle(.white.opacity(0.94))
                     .lineLimit(1)
 
@@ -598,12 +577,14 @@ private struct CaptureIssueActionButton: View {
         Button(action: action) {
             Text(title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(isPrimary ? Color.black : Color.white.opacity(0.9))
+                .foregroundStyle(
+                    isPrimary ? AssistDesignTokens.DarkSurface.primaryForeground : Color.white.opacity(0.9)
+                )
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
                 .background(
-                    isPrimary ? Color.white : Color.white.opacity(0.12),
+                    isPrimary ? AssistDesignTokens.DarkSurface.primaryFill : Color.white.opacity(0.12),
                     in: Capsule()
                 )
         }
@@ -706,7 +687,7 @@ private struct DebugActionButton: View {
             HStack(spacing: 5) {
                 HugeIcon(icon, size: 12, color: .white.opacity(0.88))
                 Text(title)
-                    .font(AssistFont.roundedFootnote(.medium))
+                    .font(AssistDesignTokens.Typography.footnote(.medium))
             }
             .foregroundStyle(.white.opacity(0.9))
             .padding(.horizontal, 8)
@@ -813,10 +794,11 @@ private struct CaptureGalleryCard: View {
     @ViewBuilder
     private var cardPreview: some View {
         if item.hasVoiceContext {
+            let tint = AssistDesignTokens.IslandCard.contextTint
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.small, style: .continuous)
-                    .fill(AssistDesignTokens.Palette.folder)
+                IslandCardSurface(tint: tint)
                     .frame(width: 58, height: 18)
+                    .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.small, style: .continuous))
 
                 VStack(spacing: 0) {
                     screenshotThumbnail(height: 84)
@@ -825,18 +807,18 @@ private struct CaptureGalleryCard: View {
                         HugeIcon(
                             .document,
                             size: 11,
-                            color: .white.opacity(AssistDesignTokens.Opacity.muted)
+                            color: tint.secondaryInk
                         )
                         .padding(.top, 1)
 
                         VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xxxSmall) {
                             Text("context.md")
-                                .font(.system(size: 8.5, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.muted))
+                                .font(AssistDesignTokens.Typography.micro(.semibold))
+                                .foregroundStyle(tint.secondaryInk)
 
                             Text(contextPreview)
-                                .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
+                                .font(AssistDesignTokens.Typography.micro(.medium))
+                                .foregroundStyle(tint.ink)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
                         }
@@ -850,16 +832,15 @@ private struct CaptureGalleryCard: View {
                         height: 50,
                         alignment: .topLeading
                     )
-                    .background(AssistDesignTokens.Palette.ink.opacity(0.26))
                 }
                 .frame(
                     width: HistoryShelfTokens.cardSize,
                     height: HistoryShelfTokens.cardSize - AssistDesignTokens.Spacing.small,
                     alignment: .top
                 )
-                .background(AssistDesignTokens.Palette.folder)
+                .background(IslandCardSurface(tint: tint))
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
-                .overlay { selectionStroke }
+                .overlay { IslandSelectionRing(isSelected: isSelected) }
                 .offset(y: AssistDesignTokens.Spacing.small)
             }
             .frame(
@@ -870,7 +851,7 @@ private struct CaptureGalleryCard: View {
         } else {
             screenshotThumbnail(height: HistoryShelfTokens.cardSize)
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
-                .overlay { selectionStroke }
+                .overlay { IslandSelectionRing(isSelected: isSelected) }
         }
     }
 
@@ -896,15 +877,6 @@ private struct CaptureGalleryCard: View {
         .frame(width: HistoryShelfTokens.cardSize, height: height)
     }
 
-    private var selectionStroke: some View {
-        RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
-            .stroke(
-                isSelected
-                    ? AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
-                    : .clear,
-                lineWidth: HistoryShelfTokens.selectionStroke
-            )
-    }
 }
 
 private struct CaptureContextCopyButton: View {
@@ -983,16 +955,7 @@ private struct TextClipGalleryCard: View {
                 onDragChanged: onDragChanged
             ) {
                 textPreview
-                .overlay {
-                    RoundedRectangle(
-                        cornerRadius: AssistDesignTokens.Radius.medium,
-                        style: .continuous
-                    )
-                        .stroke(
-                            selectionColor,
-                            lineWidth: HistoryShelfTokens.selectionStroke
-                        )
-                }
+                .overlay { IslandSelectionRing(isSelected: isSelected) }
                 .clipShape(
                     RoundedRectangle(
                         cornerRadius: AssistDesignTokens.Radius.medium,
@@ -1026,7 +989,7 @@ private struct TextClipGalleryCard: View {
                 Color(clipboardColor: colorCode)
 
                 Text(colorCode.displayValue)
-                    .font(AssistFont.mono())
+                    .font(AssistDesignTokens.Typography.mono)
                     .foregroundStyle(
                         colorCode.usesDarkForeground(
                             over: AssistDesignTokens.Palette.inkComponents
@@ -1043,8 +1006,8 @@ private struct TextClipGalleryCard: View {
         } else {
             VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xSmall) {
                 Text(item.preview)
-                    .font(AssistFont.roundedFootnote(.medium))
-                    .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
+                    .font(AssistDesignTokens.Typography.footnote(.medium))
+                    .foregroundStyle(tint.ink)
                     .lineLimit(7)
             }
             .padding(AssistDesignTokens.Spacing.large)
@@ -1053,27 +1016,37 @@ private struct TextClipGalleryCard: View {
                 height: HistoryShelfTokens.cardSize,
                 alignment: .topLeading
             )
-            .background(
-                Color.white.opacity(
-                    isSelected
-                        ? AssistDesignTokens.Opacity.hoverSurface
-                        : AssistDesignTokens.Opacity.quietSurface
-                ),
-                in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
-            )
+            .background(IslandCardSurface(tint: tint))
         }
     }
 
-    private var selectionColor: Color {
-        guard isSelected else { return .clear }
-        guard let colorCode = item.colorCode else {
-            return AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
-        }
+    private var tint: AssistDesignTokens.IslandCard.Tint {
+        AssistDesignTokens.IslandCard.textTint(for: item.id)
+    }
+}
 
-        return (colorCode.usesDarkForeground(over: AssistDesignTokens.Palette.inkComponents)
-            ? AssistDesignTokens.Palette.ink
-            : AssistDesignTokens.Palette.paper
-        ).opacity(AssistDesignTokens.Opacity.selectedStroke)
+/// Marks the selected island card with a light ring and a dark inner ring,
+/// so one of them stands out over any thumbnail, tint, or color clip.
+private struct IslandSelectionRing: View {
+    let isSelected: Bool
+
+    var body: some View {
+        if isSelected {
+            let shape = RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
+            ZStack {
+                shape.strokeBorder(
+                    HistoryShelfTokens.selectionRingOuter,
+                    lineWidth: HistoryShelfTokens.selectionRingWidth
+                )
+                shape
+                    .inset(by: HistoryShelfTokens.selectionRingWidth)
+                    .strokeBorder(
+                        HistoryShelfTokens.selectionRingInner,
+                        lineWidth: HistoryShelfTokens.selectionRingInnerWidth
+                    )
+            }
+            .allowsHitTesting(false)
+        }
     }
 }
 
@@ -1243,6 +1216,7 @@ private final class IslandDragSourceView: NSView, NSDraggingSource {
     }
 }
 
+@MainActor
 private enum IslandDragPreview {
     static let cardSize = NSSize(
         width: HistoryShelfTokens.cardSize,
@@ -1268,7 +1242,8 @@ private enum IslandDragPreview {
     }
 
     static func text(_ item: TextClipItem) -> NSImage {
-        cardImage { rect in
+        let tint = AssistDesignTokens.IslandCard.textTint(for: item.id)
+        return cardImage { rect in
             if let colorCode = item.colorCode {
                 NSColor(
                     calibratedRed: colorCode.red,
@@ -1277,19 +1252,24 @@ private enum IslandDragPreview {
                     alpha: colorCode.alpha
                 ).setFill()
                 rect.fill()
+            } else {
+                IslandCardTexture.draw(tint, in: rect)
             }
 
             let insetRect = rect.insetBy(dx: 12, dy: 12)
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.lineBreakMode = .byTruncatingTail
 
+            let foreground: NSColor = if let colorCode = item.colorCode {
+                colorCode.usesDarkForeground(over: AssistDesignTokens.Palette.inkComponents)
+                    ? NSColor.black.withAlphaComponent(0.9)
+                    : NSColor.white.withAlphaComponent(0.9)
+            } else {
+                NSColor(tint.ink)
+            }
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-                .foregroundColor: item.colorCode?.usesDarkForeground(
-                    over: AssistDesignTokens.Palette.inkComponents
-                ) == true
-                    ? NSColor.black.withAlphaComponent(0.9)
-                    : NSColor.white.withAlphaComponent(0.9),
+                .foregroundColor: foreground,
                 .paragraphStyle: paragraphStyle
             ]
 
