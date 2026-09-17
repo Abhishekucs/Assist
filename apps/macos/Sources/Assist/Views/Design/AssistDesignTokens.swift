@@ -41,7 +41,6 @@ enum AssistDesignTokens {
         static let danger = Color(hex: 0xFF453A)
         static let lightDangerText = Color(hex: 0xD70015)
         static let darkDangerText = Color(hex: 0xFF6961)
-        static let folder = Color(hex: 0x118AF3)
     }
 
     enum Opacity {
@@ -235,6 +234,44 @@ enum AssistDesignTokens {
         static let selectionStroke: CGFloat = 1
         static let actionHitArea: CGFloat = 32
         static let actionControl: CGFloat = 24
+    }
+
+    /// Muted, grainy tints for history cards on the island's black surface,
+    /// sampled from the design reference. Text on a tint uses its dark `ink`.
+    enum IslandCard {
+        struct Tint: Equatable, Sendable {
+            let fillHex: UInt32
+            let inkHex: UInt32
+
+            var fill: Color { Color(hex: fillHex) }
+            var ink: Color { Color(hex: inkHex) }
+            /// Smaller labels on the tint; still at least 4.5:1.
+            var secondaryInk: Color { ink.opacity(IslandCard.secondaryInkOpacity) }
+        }
+
+        // Fills sit a few steps below the sampled colors (#98B3A3, #A7A1BD,
+        // #B2AC75, #96AEBF) because the grain's overlay blend lightens them
+        // back to those values on screen.
+        // Inks are near-black with a trace of the tint's hue, for crisp text.
+        static let sage = Tint(fillHex: 0x93AF9E, inkHex: 0x050F08)
+        static let lavender = Tint(fillHex: 0xA29AB9, inkHex: 0x0B0914)
+        static let mustard = Tint(fillHex: 0xADA96E, inkHex: 0x0F0B02)
+        static let dustyBlue = Tint(fillHex: 0x91AABB, inkHex: 0x040C12)
+
+        /// Text clips rotate through these; voice-context captures keep the
+        /// blue that marks them as a folder.
+        static let textTints = [sage, lavender, mustard]
+        static let contextTint = dustyBlue
+
+        static let secondaryInkOpacity: Double = 0.9
+        static let selectionInkOpacity: Double = 0.7
+        /// Strength of the fixed noise laid over a tint.
+        static let grainOpacity: Double = 0.11
+
+        /// A clip's tint, derived from its id so it stays the same across launches.
+        static func textTint(for id: UUID) -> Tint {
+            textTints[Int(id.uuid.0) % textTints.count]
+        }
     }
 
     enum CaptureLibrary {

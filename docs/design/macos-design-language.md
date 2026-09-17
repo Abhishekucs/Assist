@@ -114,6 +114,15 @@ rather than by a fixed number. Window backgrounds match the surface they host:
 The notch retains its black silhouette to meet the display edge. Its selected
 filters, the editor's selected tools and chips, and primary actions use the same
 purple accent family through `AssistDesignTokens.DarkSurface`.
+
+History cards on the notch use muted, grainy tints (`AssistDesignTokens.IslandCard`,
+drawn by `IslandCardSurface`) sampled from the reference widgets: sage `#98B3A3`,
+lavender `#A7A1BD`, and mustard `#B2AC75` for text clips, and dusty blue
+`#96AEBF` for voice-context captures, which keep their folder shape. A clip's
+tint comes from its id, so it keeps the same color across launches. Text on a
+tint uses that tint's near-black ink (at least 7:1), and the grain is a fixed noise
+tile blended at low strength. Screenshot thumbnails and copied color codes keep
+their own colors.
 Capture geometry, keyboard layouts, and image-editing behavior are unchanged.
 
 All product icons reuse the existing bundled Hugeicons Stroke Rounded assets.

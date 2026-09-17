@@ -31,6 +31,42 @@ final class AssistDesignTokenTests: XCTestCase {
         }
     }
 
+    func testIslandCardInkStaysReadableOnEveryTint() throws {
+        let tints = AssistDesignTokens.IslandCard.textTints + [AssistDesignTokens.IslandCard.contextTint]
+        for tint in tints {
+            let fill = try rgba(tint.fill)
+            let ink = contrast(try rgba(tint.ink), fill)
+            let secondary = contrast(try composite(tint.secondaryInk, over: tint.fill), fill)
+            let selection = contrast(
+                try composite(tint.ink.opacity(AssistDesignTokens.IslandCard.selectionInkOpacity), over: tint.fill),
+                fill
+            )
+            XCTAssertGreaterThanOrEqual(ink, 7, "ink on \(String(tint.fillHex, radix: 16))")
+            XCTAssertGreaterThanOrEqual(secondary, 4.5, "secondary ink on \(String(tint.fillHex, radix: 16))")
+            XCTAssertGreaterThanOrEqual(selection, 3, "selection stroke on \(String(tint.fillHex, radix: 16))")
+        }
+    }
+
+    func testIslandTextTintIsStablePerClipAndUsesEveryTint() {
+        let ids = (0..<30).map { _ in UUID() }
+        for id in ids {
+            XCTAssertEqual(AssistDesignTokens.IslandCard.textTint(for: id), AssistDesignTokens.IslandCard.textTint(for: id))
+        }
+        let byFirstByte = (0..<3).map { first in
+            AssistDesignTokens.IslandCard.textTint(
+                for: UUID(uuid: (UInt8(first), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+            )
+        }
+        XCTAssertEqual(byFirstByte, AssistDesignTokens.IslandCard.textTints)
+    }
+
+    @MainActor
+    func testIslandCardGrainTextureIsGenerated() throws {
+        let texture = try XCTUnwrap(IslandCardGrain.texture)
+        XCTAssertEqual(texture.width, texture.height)
+        XCTAssertGreaterThan(texture.width, 0)
+    }
+
     @MainActor
     func testSettingsRowTitleKeepsItsWidthBesideAFlexibleControl() {
         for trailingPriority in [0.0, 1.0, 10.0] {

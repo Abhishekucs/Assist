@@ -794,10 +794,11 @@ private struct CaptureGalleryCard: View {
     @ViewBuilder
     private var cardPreview: some View {
         if item.hasVoiceContext {
+            let tint = AssistDesignTokens.IslandCard.contextTint
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.small, style: .continuous)
-                    .fill(AssistDesignTokens.Palette.folder)
+                IslandCardSurface(tint: tint)
                     .frame(width: 58, height: 18)
+                    .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.small, style: .continuous))
 
                 VStack(spacing: 0) {
                     screenshotThumbnail(height: 84)
@@ -806,18 +807,18 @@ private struct CaptureGalleryCard: View {
                         HugeIcon(
                             .document,
                             size: 11,
-                            color: .white.opacity(AssistDesignTokens.Opacity.muted)
+                            color: tint.secondaryInk
                         )
                         .padding(.top, 1)
 
                         VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xxxSmall) {
                             Text("context.md")
                                 .font(.system(size: 8.5, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.muted))
+                                .foregroundStyle(tint.secondaryInk)
 
                             Text(contextPreview)
                                 .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                                .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
+                                .foregroundStyle(tint.ink)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
                         }
@@ -831,16 +832,15 @@ private struct CaptureGalleryCard: View {
                         height: 50,
                         alignment: .topLeading
                     )
-                    .background(AssistDesignTokens.Palette.ink.opacity(0.26))
                 }
                 .frame(
                     width: HistoryShelfTokens.cardSize,
                     height: HistoryShelfTokens.cardSize - AssistDesignTokens.Spacing.small,
                     alignment: .top
                 )
-                .background(AssistDesignTokens.Palette.folder)
+                .background(IslandCardSurface(tint: tint))
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
-                .overlay { selectionStroke }
+                .overlay { selectionStroke(color: tint.ink.opacity(AssistDesignTokens.IslandCard.selectionInkOpacity)) }
                 .offset(y: AssistDesignTokens.Spacing.small)
             }
             .frame(
@@ -851,7 +851,11 @@ private struct CaptureGalleryCard: View {
         } else {
             screenshotThumbnail(height: HistoryShelfTokens.cardSize)
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
-                .overlay { selectionStroke }
+                .overlay {
+                    selectionStroke(
+                        color: AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
+                    )
+                }
         }
     }
 
@@ -877,12 +881,10 @@ private struct CaptureGalleryCard: View {
         .frame(width: HistoryShelfTokens.cardSize, height: height)
     }
 
-    private var selectionStroke: some View {
+    private func selectionStroke(color: Color) -> some View {
         RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
-            .stroke(
-                isSelected
-                    ? AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
-                    : .clear,
+            .strokeBorder(
+                isSelected ? color : .clear,
                 lineWidth: HistoryShelfTokens.selectionStroke
             )
     }
@@ -969,7 +971,7 @@ private struct TextClipGalleryCard: View {
                         cornerRadius: AssistDesignTokens.Radius.medium,
                         style: .continuous
                     )
-                        .stroke(
+                        .strokeBorder(
                             selectionColor,
                             lineWidth: HistoryShelfTokens.selectionStroke
                         )
@@ -1025,7 +1027,7 @@ private struct TextClipGalleryCard: View {
             VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xSmall) {
                 Text(item.preview)
                     .font(AssistDesignTokens.Typography.footnote(.medium))
-                    .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
+                    .foregroundStyle(tint.ink)
                     .lineLimit(7)
             }
             .padding(AssistDesignTokens.Spacing.large)
@@ -1034,21 +1036,18 @@ private struct TextClipGalleryCard: View {
                 height: HistoryShelfTokens.cardSize,
                 alignment: .topLeading
             )
-            .background(
-                Color.white.opacity(
-                    isSelected
-                        ? AssistDesignTokens.Opacity.hoverSurface
-                        : AssistDesignTokens.Opacity.quietSurface
-                ),
-                in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
-            )
+            .background(IslandCardSurface(tint: tint))
         }
+    }
+
+    private var tint: AssistDesignTokens.IslandCard.Tint {
+        AssistDesignTokens.IslandCard.textTint(for: item.id)
     }
 
     private var selectionColor: Color {
         guard isSelected else { return .clear }
         guard let colorCode = item.colorCode else {
-            return AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
+            return tint.ink.opacity(AssistDesignTokens.IslandCard.selectionInkOpacity)
         }
 
         return (colorCode.usesDarkForeground(over: AssistDesignTokens.Palette.inkComponents)
@@ -1224,6 +1223,7 @@ private final class IslandDragSourceView: NSView, NSDraggingSource {
     }
 }
 
+@MainActor
 private enum IslandDragPreview {
     static let cardSize = NSSize(
         width: HistoryShelfTokens.cardSize,
@@ -1249,7 +1249,8 @@ private enum IslandDragPreview {
     }
 
     static func text(_ item: TextClipItem) -> NSImage {
-        cardImage { rect in
+        let tint = AssistDesignTokens.IslandCard.textTint(for: item.id)
+        return cardImage { rect in
             if let colorCode = item.colorCode {
                 NSColor(
                     calibratedRed: colorCode.red,
@@ -1258,19 +1259,26 @@ private enum IslandDragPreview {
                     alpha: colorCode.alpha
                 ).setFill()
                 rect.fill()
+            } else {
+                NSColor(tint.fill).setFill()
+                rect.fill()
+                IslandCardGrain.draw(in: rect)
             }
 
             let insetRect = rect.insetBy(dx: 12, dy: 12)
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.lineBreakMode = .byTruncatingTail
 
+            let foreground: NSColor = if let colorCode = item.colorCode {
+                colorCode.usesDarkForeground(over: AssistDesignTokens.Palette.inkComponents)
+                    ? NSColor.black.withAlphaComponent(0.9)
+                    : NSColor.white.withAlphaComponent(0.9)
+            } else {
+                NSColor(tint.ink)
+            }
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-                .foregroundColor: item.colorCode?.usesDarkForeground(
-                    over: AssistDesignTokens.Palette.inkComponents
-                ) == true
-                    ? NSColor.black.withAlphaComponent(0.9)
-                    : NSColor.white.withAlphaComponent(0.9),
+                .foregroundColor: foreground,
                 .paragraphStyle: paragraphStyle
             ]
 
