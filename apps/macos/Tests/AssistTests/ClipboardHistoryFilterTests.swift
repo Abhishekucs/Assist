@@ -29,3 +29,33 @@ final class ClipboardHistoryFilterTests: XCTestCase {
         XCTAssertFalse(ClipboardHistoryFilter.text.includes(screenshot))
     }
 }
+
+final class PillViewModelHistoryTests: XCTestCase {
+    @MainActor
+    func testHistoryIsCachedNewestFirstPerFilterAndFollowsChanges() {
+        let viewModel = PillViewModel(
+            settings: PillSettings(defaults: UserDefaults(suiteName: "Assist.PillViewModelHistoryTests.\(UUID().uuidString)")!),
+            voiceContextService: VoiceContextService(modelStateOverride: .notInstalled, microphoneAccessStateOverride: .notDetermined)
+        )
+        let older = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 10), text: "older")
+        let screenshot = CaptureItem(
+            id: UUID(),
+            createdAt: Date(timeIntervalSince1970: 20),
+            imagePath: "/tmp/screenshot.png",
+            thumbnailPath: "/tmp/thumbnail.png",
+            context: .saved
+        )
+        viewModel.replaceHistory(screenshots: [screenshot], textClips: [older])
+
+        XCTAssertEqual(viewModel.historyItems.map(\.id), [screenshot.id, older.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [older.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .images).map(\.id), [screenshot.id])
+
+        let newer = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 30), text: "newer")
+        viewModel.textItems.insert(newer, at: 0)
+
+        XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, screenshot.id, older.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [newer.id, older.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .all).count, 3)
+    }
+}

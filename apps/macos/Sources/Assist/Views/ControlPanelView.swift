@@ -18,16 +18,15 @@ struct ControlPanelView: View {
 
     var body: some View {
         AssistAppSurface { theme in
-            let historyItems = viewModel.historyItems
             ZStack {
                 HStack(spacing: 0) {
                     LibrarySidebar(
                         selectedFilter: $selectedFilter,
-                        items: historyItems,
+                        counts: historyCounts,
                         openSettings: { isSettingsDialogPresented = true }
                     )
 
-                    CaptureLibraryView(viewModel: viewModel, historyItems: historyItems, selectedFilter: $selectedFilter)
+                    CaptureLibraryView(viewModel: viewModel, selectedFilter: $selectedFilter)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .background(theme.background)
                         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.window))
@@ -40,6 +39,7 @@ struct ControlPanelView: View {
                 if isSettingsDialogPresented {
                     Color.black
                         .opacity(theme.isDark ? 0.42 : 0.32)
+                        .ignoresSafeArea()
                         .transition(.opacity)
                         .onTapGesture { isSettingsDialogPresented = false }
                         .accessibilityHidden(true)
@@ -58,6 +58,12 @@ struct ControlPanelView: View {
             .animation(reduceMotion ? nil : Tokens.Motion.quick, value: isSettingsDialogPresented)
         }
         .onAppear { viewModel.willShowHistory() }
+    }
+
+    private var historyCounts: [ClipboardHistoryFilter: Int] {
+        Dictionary(uniqueKeysWithValues: ClipboardHistoryFilter.allCases.map { filter in
+            (filter, viewModel.historyItems(matching: filter).count)
+        })
     }
 
     private var settingsView: some View {
@@ -161,7 +167,6 @@ private extension AppAppearance {
 
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
-    let historyItems: [ClipboardHistoryItem]
     @Binding var selectedFilter: ClipboardHistoryFilter
     @Environment(\.assistTheme) private var theme
 
@@ -179,8 +184,8 @@ private struct CaptureLibraryView: View {
     }
 
     var body: some View {
-        let filteredItems = historyItems.filter(selectedFilter.includes)
-        let selectedID = viewModel.selectedItem(in: historyItems)?.id
+        let filteredItems = viewModel.historyItems(matching: selectedFilter)
+        let selectedID = viewModel.selectedItem?.id
         VStack(alignment: .leading, spacing: 0) {
             LibraryWelcomeHeader()
                 .padding(.horizontal, LibraryTokens.contentInset)
@@ -193,7 +198,7 @@ private struct CaptureLibraryView: View {
                     .padding(.bottom, Tokens.Spacing.xxLarge)
             }
 
-            if historyItems.isEmpty {
+            if viewModel.historyItems.isEmpty {
                 EmptyCaptureLibraryView()
             } else {
                 historyHeader(count: filteredItems.count)
@@ -224,12 +229,12 @@ private struct CaptureLibraryView: View {
         let countText = count == 1 ? "1 item" : "\(count.formatted()) items"
         return HStack(alignment: .firstTextBaseline) {
             Text(selectedFilter == .all ? "History" : selectedFilter.title)
-                .font(AssistFont.sectionTitle())
+                .font(Tokens.Typography.sectionTitle)
                 .foregroundStyle(theme.foreground)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             Text("\(countText) · Newest first")
-                .font(AssistFont.caption())
+                .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
         }
         .padding(.horizontal, LibraryTokens.contentInset)
@@ -263,11 +268,11 @@ private struct CapturePermissionBanner: View {
 
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall) {
                 Text(issue.title)
-                    .font(AssistFont.small(.semibold))
+                    .font(Tokens.Typography.small(.semibold))
                     .foregroundStyle(theme.foreground)
 
                 Text(issue.detail ?? issue.message)
-                    .font(AssistFont.footnote(.medium))
+                    .font(Tokens.Typography.footnote(.medium))
                     .foregroundStyle(theme.muted)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -300,11 +305,11 @@ private struct EmptyFilteredLibraryView: View {
     var body: some View {
         VStack(spacing: Tokens.Spacing.small) {
             Text("No \(filter.title.lowercased()) yet")
-                .font(AssistFont.pageTitle())
+                .font(Tokens.Typography.pageTitle)
                 .foregroundStyle(theme.foreground)
 
             Text("Select \(ClipboardHistoryFilter.all.navigationTitle) to see every saved item.")
-                .font(AssistFont.caption())
+                .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
         }
         .multilineTextAlignment(.center)
@@ -320,11 +325,11 @@ private struct EmptyCaptureLibraryView: View {
             HugeIcon(.image, size: Tokens.Icon.emptyState, color: theme.muted)
 
             Text("No captures yet")
-                .font(AssistFont.pageTitle())
+                .font(Tokens.Typography.pageTitle)
                 .foregroundStyle(theme.foreground)
 
             Text("Hold Option to annotate a screenshot, or press Control + Option for a clean capture.")
-                .font(AssistFont.caption())
+                .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
@@ -361,6 +366,15 @@ private struct CaptureLibraryCard: View {
                             isSelected ? theme.accent : theme.border,
                             lineWidth: isSelected ? LibraryTokens.selectionStroke : LibraryTokens.borderStroke
                         )
+                    }
+                    // An inner ring keeps the selection visible on a clipboard
+                    // color that matches the accent.
+                    .overlay {
+                        if isSelected {
+                            shape
+                                .inset(by: LibraryTokens.selectionStroke)
+                                .strokeBorder(theme.background, lineWidth: LibraryTokens.borderStroke)
+                        }
                     }
                     .shadow(color: .black.opacity(theme.isDark ? 0.08 : 0.025), radius: 4, y: 2)
             }
@@ -412,7 +426,7 @@ private struct CaptureLibraryCard: View {
                     Color(clipboardColor: colorCode)
 
                     Text(colorCode.displayValue)
-                        .font(AssistFont.mono())
+                        .font(Tokens.Typography.mono)
                         .foregroundStyle(
                             colorCode.usesDarkForeground(over: backgroundComponents)
                                 ? Tokens.Palette.ink
@@ -424,7 +438,7 @@ private struct CaptureLibraryCard: View {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.large) {
                     HugeIcon(.document, size: Tokens.Icon.feedback, color: theme.muted)
                     Text(textClip.preview)
-                        .font(AssistFont.label())
+                        .font(Tokens.Typography.label())
                         .lineSpacing(3)
                         .foregroundStyle(theme.foreground)
                         .lineLimit(4)
@@ -498,7 +512,7 @@ private struct SettingsSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
             Text("Settings")
-                .font(AssistFont.sectionTitle())
+                .font(Tokens.Typography.sectionTitle)
                 .foregroundStyle(theme.foreground)
                 .padding(.horizontal, Tokens.AppLayout.sidebarInset)
                 .padding(.top, Tokens.Settings.headerTopInset)
@@ -516,7 +530,7 @@ private struct SettingsSidebar: View {
             HStack(spacing: Tokens.Spacing.small) {
                 AssistLogo(size: 20)
                 Text("Assist")
-                    .font(AssistFont.small())
+                    .font(Tokens.Typography.small())
                     .foregroundStyle(theme.muted)
             }
             .padding(Tokens.AppLayout.sidebarInset)
@@ -553,11 +567,11 @@ private struct SettingValueRow: View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Settings.rowInset) {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall) {
                 Text(title)
-                    .font(AssistFont.label())
+                    .font(Tokens.Typography.label())
                     .foregroundStyle(theme.foreground)
                 if let detail {
                     Text(detail)
-                        .font(AssistFont.caption())
+                        .font(Tokens.Typography.caption())
                         .foregroundStyle(theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -566,7 +580,7 @@ private struct SettingValueRow: View {
             Spacer(minLength: Tokens.Settings.rowInset)
 
             Text(value)
-                .font(AssistFont.small(.medium))
+                .font(Tokens.Typography.small(.medium))
                 .foregroundStyle(theme.muted)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -593,22 +607,6 @@ private struct SettingsActionButton: View {
         .buttonStyle(AssistButtonStyle(isBusy: isBusy))
         .disabled(isBusy)
         .help(title)
-    }
-}
-
-/// Container for a row of controls inside a settings group, on the row inset.
-private struct SettingsControlGroup<Content: View>: View {
-    private let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, Tokens.Settings.rowInset)
-            .padding(.vertical, Tokens.Spacing.large)
     }
 }
 
@@ -649,7 +647,7 @@ private struct ThemePicker: View {
             VStack(spacing: Tokens.Spacing.small) {
                 HugeIcon(appearance.icon, size: Tokens.Icon.tile, color: isSelected ? theme.accent : theme.foreground)
                 Text(appearance.title)
-                    .font(AssistFont.label(isSelected ? .medium : .regular))
+                    .font(Tokens.Typography.label(isSelected ? .medium : .regular))
             }
             .foregroundStyle(theme.foreground)
             .frame(width: 92, height: 76)
@@ -737,10 +735,10 @@ private struct VoiceContextSettings: View {
                         HStack(alignment: .center, spacing: Tokens.Spacing.xLarge) {
                             VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
                                 Text(modelStatusTitle)
-                                    .font(AssistFont.label())
+                                    .font(Tokens.Typography.label())
                                     .foregroundStyle(theme.foreground)
                                 Text(modelStatusDetail)
-                                    .font(AssistFont.caption())
+                                    .font(Tokens.Typography.caption())
                                     .foregroundStyle(theme.muted)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -770,12 +768,12 @@ private struct VoiceContextSettings: View {
             SettingsControlGroup {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.large) {
                     Text("Assist does not inspect, summarize, redact, or upload screenshot contents. Copying is always an explicit action.")
-                        .font(AssistFont.caption())
+                        .font(Tokens.Typography.caption())
                         .foregroundStyle(theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Copy Context includes your screenshot and notes. Use Copy Screenshot when you only need the image.")
-                        .font(AssistFont.caption())
+                    Text("Every new capture stores a Markdown context beside its screenshot. Copy Context sends that exact Markdown and the original image to macOS. Each destination decides whether it accepts multiple pasteboard items; Copy Screenshot remains the manual fallback.")
+                        .font(Tokens.Typography.caption())
                         .foregroundStyle(theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -855,10 +853,10 @@ private struct ShortcutRow: View {
         HStack(alignment: .center, spacing: Tokens.Settings.rowInset) {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall) {
                 Text(title)
-                    .font(AssistFont.label())
+                    .font(Tokens.Typography.label())
                     .foregroundStyle(theme.foreground)
                 Text(detail)
-                    .font(AssistFont.caption())
+                    .font(Tokens.Typography.caption())
                     .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -986,7 +984,7 @@ private struct UpdatesSettingsPane: View {
                                 }
 
                                 Text(updateStatusText)
-                                    .font(AssistFont.small(.medium))
+                                    .font(Tokens.Typography.small(.medium))
                                     .foregroundStyle(theme.muted)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -1007,13 +1005,13 @@ private struct AboutInfoRow: View {
     var body: some View {
         HStack(spacing: Tokens.Settings.rowInset) {
             Text(title)
-                .font(AssistFont.label())
+                .font(Tokens.Typography.label())
                 .foregroundStyle(theme.muted)
 
             Spacer(minLength: Tokens.Settings.rowInset)
 
             Text(value)
-                .font(AssistFont.label())
+                .font(Tokens.Typography.label())
                 .foregroundStyle(theme.foreground)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -1032,7 +1030,7 @@ private struct AboutActionRow: View {
     var body: some View {
         HStack(spacing: Tokens.Settings.rowInset) {
             Text(title)
-                .font(AssistFont.label())
+                .font(Tokens.Typography.label())
                 .foregroundStyle(theme.muted)
 
             Spacer(minLength: Tokens.Settings.rowInset)
@@ -1040,7 +1038,7 @@ private struct AboutActionRow: View {
             // Styled as a link, since it opens a web page.
             Button(action: action) {
                 Text(actionTitle)
-                    .font(AssistFont.label())
+                    .font(Tokens.Typography.label())
                     .underline()
                     .foregroundStyle(theme.accent)
             }

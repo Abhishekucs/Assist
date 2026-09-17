@@ -133,7 +133,7 @@ private struct CollapsedIslandHeader: View {
         HStack(spacing: 0) {
             if let feedback = viewModel.copyFeedback {
                 Text(feedback.badge)
-                    .font(AssistFont.footnote(.semibold))
+                    .font(AssistDesignTokens.Typography.footnote(.semibold))
                     .foregroundStyle(feedbackForeground(for: feedback.kind))
                     .lineLimit(1)
                     .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
@@ -269,7 +269,7 @@ struct ExpandedIslandView: View {
     @State private var selectedFilter: ClipboardHistoryFilter = .all
 
     var body: some View {
-        let filteredItems = viewModel.historyItems.filter(selectedFilter.includes)
+        let filteredItems = viewModel.historyItems(matching: selectedFilter)
         let historyItems = Array(filteredItems.prefix(24))
         let visibleSelectedItem = historyItems.first { $0.id == viewModel.selectedItem?.id }
             ?? historyItems.first
@@ -388,7 +388,7 @@ private struct ExpandedIslandHeader: View {
                 }
             } else {
                 Text("Needs attention")
-                    .font(AssistFont.headline())
+                    .font(AssistDesignTokens.Typography.headline)
                     .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
             }
 
@@ -438,17 +438,17 @@ private struct IslandHistoryFilterChip: View {
             selectedFilter = filter
         } label: {
             Text(filter.title)
-                .font(AssistFont.footnote(isSelected ? .semibold : .medium))
+                .font(AssistDesignTokens.Typography.footnote(isSelected ? .semibold : .medium))
                 .foregroundStyle(
                     isSelected
-                        ? AssistDesignTokens.DarkSelection.foreground
+                        ? AssistDesignTokens.DarkSurface.selectionForeground
                         : AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.secondary)
                 )
                 .lineLimit(1)
                 .padding(.horizontal, AssistDesignTokens.Spacing.medium)
                 .frame(height: AssistDesignTokens.Control.compactHeight)
                 .background(
-                    isSelected ? AssistDesignTokens.DarkSelection.fill : .clear,
+                    isSelected ? AssistDesignTokens.DarkSurface.selectionFill : .clear,
                     in: Capsule()
                 )
                 .contentShape(Capsule())
@@ -509,11 +509,11 @@ private struct IslandHistoryEmptyState: View {
             .padding(.bottom, AssistDesignTokens.Spacing.xxxSmall)
 
             Text(title)
-                .font(AssistFont.headline())
+                .font(AssistDesignTokens.Typography.headline)
                 .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.primary))
 
             Text(message)
-                .font(AssistFont.footnote(.medium))
+                .font(AssistDesignTokens.Typography.footnote(.medium))
                 .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.muted))
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -543,7 +543,7 @@ private struct CaptureIssuePanel: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(issue.title)
-                    .font(AssistFont.headline())
+                    .font(AssistDesignTokens.Typography.headline)
                     .foregroundStyle(.white.opacity(0.94))
                     .lineLimit(1)
 
@@ -598,12 +598,14 @@ private struct CaptureIssueActionButton: View {
         Button(action: action) {
             Text(title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(isPrimary ? Color.white : Color.white.opacity(0.9))
+                .foregroundStyle(
+                    isPrimary ? AssistDesignTokens.DarkSurface.primaryForeground : Color.white.opacity(0.9)
+                )
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
                 .background(
-                    isPrimary ? AssistDesignTokens.Palette.purple : Color.white.opacity(0.12),
+                    isPrimary ? AssistDesignTokens.DarkSurface.primaryFill : Color.white.opacity(0.12),
                     in: Capsule()
                 )
         }
@@ -706,7 +708,7 @@ private struct DebugActionButton: View {
             HStack(spacing: 5) {
                 HugeIcon(icon, size: 12, color: .white.opacity(0.88))
                 Text(title)
-                    .font(AssistFont.footnote(.medium))
+                    .font(AssistDesignTokens.Typography.footnote(.medium))
             }
             .foregroundStyle(.white.opacity(0.9))
             .padding(.horizontal, 8)
@@ -1026,7 +1028,7 @@ private struct TextClipGalleryCard: View {
                 Color(clipboardColor: colorCode)
 
                 Text(colorCode.displayValue)
-                    .font(AssistFont.mono())
+                    .font(AssistDesignTokens.Typography.mono)
                     .foregroundStyle(
                         colorCode.usesDarkForeground(
                             over: AssistDesignTokens.Palette.inkComponents
@@ -1043,7 +1045,7 @@ private struct TextClipGalleryCard: View {
         } else {
             VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xSmall) {
                 Text(item.preview)
-                    .font(AssistFont.footnote(.medium))
+                    .font(AssistDesignTokens.Typography.footnote(.medium))
                     .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
                     .lineLimit(7)
             }

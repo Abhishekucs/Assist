@@ -4,25 +4,25 @@ private typealias Tokens = AssistDesignTokens
 
 struct LibrarySidebar: View {
     @Binding var selectedFilter: ClipboardHistoryFilter
-    let items: [ClipboardHistoryItem]
+    let counts: [ClipboardHistoryFilter: Int]
     let openSettings: () -> Void
     @Environment(\.assistTheme) private var theme
+    @Environment(\.titleBarInset) private var titleBarInset
 
     var body: some View {
-        let counts = Self.counts(for: items)
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 9) {
                 AssistLogo(size: 26)
                 Text("Assist")
-                    .font(AssistFont.title())
+                    .font(Tokens.Typography.title)
             }
             .padding(.horizontal, Tokens.AppLayout.sidebarInset)
-            .padding(.top, Tokens.AppLayout.sidebarTopInset)
+            .padding(.top, titleBarInset + Tokens.AppLayout.sidebarTopInset)
             .padding(.bottom, 28)
             .accessibilityElement(children: .combine)
 
             Text("Library")
-                .font(AssistFont.section())
+                .font(Tokens.Typography.section)
                 .foregroundStyle(theme.muted)
                 .padding(.horizontal, Tokens.AppLayout.sidebarInset)
                 .padding(.bottom, Tokens.Spacing.small)
@@ -57,10 +57,10 @@ struct LibrarySidebar: View {
     private var privacyNote: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
             Text("Right here on your Mac")
-                .font(AssistFont.small(.medium))
+                .font(Tokens.Typography.small(.medium))
                 .foregroundStyle(theme.foreground)
             Text("Your captures and clipboard history stay local.")
-                .font(AssistFont.caption())
+                .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
                 .lineSpacing(3)
@@ -69,17 +69,6 @@ struct LibrarySidebar: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(theme.accentSurface, in: RoundedRectangle(cornerRadius: Tokens.Radius.large))
         .accessibilityElement(children: .combine)
-    }
-
-    /// Counts every filter in a single pass over the history.
-    nonisolated static func counts(for items: [ClipboardHistoryItem]) -> [ClipboardHistoryFilter: Int] {
-        var counts: [ClipboardHistoryFilter: Int] = [:]
-        for item in items {
-            for filter in ClipboardHistoryFilter.allCases where filter.includes(item) {
-                counts[filter, default: 0] += 1
-            }
-        }
-        return counts
     }
 
     private func icon(for filter: ClipboardHistoryFilter) -> HugeIconKind {
@@ -108,7 +97,7 @@ struct LibraryWelcomeHeader: View {
                 AssistKeycap(title: "Option")
                 Text("to draw on your screen")
             }
-            .font(AssistFont.display())
+            .font(Tokens.Typography.display)
             .foregroundStyle(theme.foreground)
             .accessibilityElement(children: .combine)
 
@@ -132,8 +121,8 @@ struct LibraryWelcomeHeader: View {
                 ForEach(keys, id: \.self) { AssistKeycap(title: $0) }
             }
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
-                Text(title).font(AssistFont.body())
-                Text(detail).font(AssistFont.caption()).foregroundStyle(theme.muted)
+                Text(title).font(Tokens.Typography.body())
+                Text(detail).font(Tokens.Typography.caption()).foregroundStyle(theme.muted)
             }
         }
         .padding(.horizontal, Tokens.Spacing.xxLarge)

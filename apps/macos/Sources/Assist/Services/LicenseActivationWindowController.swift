@@ -6,7 +6,7 @@ import SwiftUI
 final class LicenseActivationWindowController: NSWindowController, NSWindowDelegate {
     private let viewModel: LicenseActivationViewModel
     private var allowsCloseAfterActivation = false
-    private var appearanceSubscription: AnyCancellable?
+    private let appearanceSubscription: AnyCancellable
 
     init(
         validationService: LicenseValidationService,
@@ -22,30 +22,27 @@ final class LicenseActivationWindowController: NSWindowController, NSWindowDeleg
         viewModel.errorMessage = initialErrorMessage
         viewModel.onActivated = onActivated
 
-        let hostingController = NSHostingController(
-            rootView: LicenseActivationView(viewModel: viewModel)
-        )
-        // Content runs under the transparent title bar. Without a safe area, the
-        // window is sized to exactly the view's frame, with no title-bar inset.
-        hostingController.safeAreaRegions = []
         let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: LicenseActivationView.size),
+            contentRect: NSRect(origin: .zero, size: LicenseActivationView.minimumSize),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "\(AppIdentity.name) Activation"
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.backgroundColor = .assistContentSurface
-        window.isMovableByWindowBackground = true
-        window.isReleasedWhenClosed = false
+        appearanceSubscription = window.applyAssistChrome(background: .assistContentSurface, appearanceFrom: settings)
+
+        let hostingController = NSHostingController(
+            rootView: LicenseActivationView(viewModel: viewModel)
+                .environment(\.titleBarInset, window.titleBarInset)
+        )
+        // Without a safe area the window is exactly the view's size, and it
+        // resizes with the view (for example, when an error needs more room).
+        hostingController.safeAreaRegions = []
         window.contentViewController = hostingController
 
         super.init(window: window)
 
         window.delegate = self
-        appearanceSubscription = window.followAppearance(of: settings)
     }
 
     @available(*, unavailable)

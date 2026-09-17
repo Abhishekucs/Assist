@@ -16,7 +16,7 @@ struct AssistAppSurface<Content: View>: View {
         content(theme)
             .environment(\.assistTheme, theme)
             .foregroundStyle(theme.foreground)
-            .font(AssistFont.body())
+            .font(AssistDesignTokens.Typography.body())
             .tint(theme.accent)
     }
 }

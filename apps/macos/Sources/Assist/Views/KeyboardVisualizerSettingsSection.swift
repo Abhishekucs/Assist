@@ -40,7 +40,7 @@ struct KeyboardVisualizerSettingsSection: View {
                 }
             }
             Text("US keyboard layout. Works with sounds off. Clicks pass through to the app underneath.")
-                .font(AssistFont.caption())
+                .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, Tokens.Settings.rowInset)
@@ -50,7 +50,7 @@ struct KeyboardVisualizerSettingsSection: View {
 
     private func pickerRow<Control: View>(_ title: String, @ViewBuilder picker: () -> Control) -> some View {
         HStack {
-            Text(title).font(AssistFont.label())
+            Text(title).font(Tokens.Typography.label())
             Spacer()
             picker()
                 .labelsHidden()

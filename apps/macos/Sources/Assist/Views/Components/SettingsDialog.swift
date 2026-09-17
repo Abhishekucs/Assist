@@ -19,8 +19,8 @@ struct SettingsDialog<Content: View>: View {
             // A shortcut, unlike onExitCommand, fires without focus inside the dialog.
             HugeIconButton(kind: .close, tooltip: "Close settings", action: onClose)
                 .keyboardShortcut(.cancelAction)
-                .padding(.top, Tokens.Spacing.medium)
-                .padding(.trailing, Tokens.Spacing.medium)
+                .padding(.top, Tokens.Settings.closeButtonInset)
+                .padding(.trailing, Tokens.Settings.closeButtonInset)
         }
         .background(theme.background)
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.window, style: .continuous))

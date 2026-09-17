@@ -13,7 +13,45 @@ extension AppAppearance {
     }
 }
 
+extension NSAppearance {
+    var isDark: Bool {
+        bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+}
+
+private struct TitleBarInsetKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    /// Height of the transparent title bar that a window's content runs under.
+    /// Assist windows turn off SwiftUI's safe area so each window is exactly its
+    /// view's size; views pad their top content by this instead.
+    var titleBarInset: CGFloat {
+        get { self[TitleBarInsetKey.self] }
+        set { self[TitleBarInsetKey.self] = newValue }
+    }
+}
+
 extension NSWindow {
+    /// The part of the window's height covered by its title bar.
+    var titleBarInset: CGFloat {
+        frame.height - contentLayoutRect.height
+    }
+
+    /// Chrome shared by Assist's titled windows: content runs under a hidden,
+    /// transparent title bar on an opaque themed background, and the window
+    /// follows the persisted Appearance preference. Keep the returned
+    /// subscription for as long as the window lives.
+    func applyAssistChrome(background: NSColor, appearanceFrom settings: PillSettings) -> AnyCancellable {
+        titleVisibility = .hidden
+        titlebarAppearsTransparent = true
+        backgroundColor = background
+        isMovableByWindowBackground = true
+        isReleasedWhenClosed = false
+        return followAppearance(of: settings)
+    }
+
     /// Applies the persisted Appearance preference to this window. SwiftUI content
     /// reads the result through `\.colorScheme`, so System tracks macOS directly.
     func followAppearance(of settings: PillSettings) -> AnyCancellable {
@@ -34,8 +72,7 @@ extension NSColor {
 
     private static func assistThemeColor(_ role: KeyPath<AssistTheme, Color> & Sendable) -> NSColor {
         NSColor(name: nil) { appearance in
-            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            return NSColor(AssistTheme(colorScheme: isDark ? .dark : .light)[keyPath: role])
+            NSColor(AssistTheme(colorScheme: appearance.isDark ? .dark : .light)[keyPath: role])
         }
     }
 }

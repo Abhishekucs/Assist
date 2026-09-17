@@ -7,8 +7,12 @@ final class PillViewModel: ObservableObject {
     let voiceContextService: VoiceContextService
 
     @Published var latestItem: CaptureItem?
-    @Published var items: [CaptureItem] = []
-    @Published var textItems: [TextClipItem] = []
+    @Published var items: [CaptureItem] = [] {
+        didSet { rebuildHistory() }
+    }
+    @Published var textItems: [TextClipItem] = [] {
+        didSet { rebuildHistory() }
+    }
     @Published var selectedHistoryItem: ClipboardHistoryItem?
     @Published private(set) var thumbnailImages: [UUID: NSImage] = [:]
     @Published private(set) var captureContextMarkdown: [UUID: String] = [:]
@@ -257,24 +261,31 @@ final class PillViewModel: ObservableObject {
             && captureContextMarkdown[item.id] != nil
     }
 
-    var historyItems: [ClipboardHistoryItem] {
-        (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
-            .sorted { $0.createdAt > $1.createdAt }
+    /// Screenshots and text clips, newest first. Rebuilt only when `items` or
+    /// `textItems` change, so views can read it on every render.
+    private(set) var historyItems: [ClipboardHistoryItem] = []
+    private var historyItemsByFilter: [ClipboardHistoryFilter: [ClipboardHistoryItem]] = [:]
+
+    /// The cached `historyItems` that a filter includes, in the same order.
+    func historyItems(matching filter: ClipboardHistoryFilter) -> [ClipboardHistoryItem] {
+        historyItemsByFilter[filter, default: []]
     }
 
     var selectedItem: ClipboardHistoryItem? {
-        selectedItem(in: historyItems)
-    }
-
-    /// Resolves the selection against an already-built `historyItems` snapshot,
-    /// so views that hold one don't rebuild and re-sort the history again.
-    func selectedItem(in historyItems: [ClipboardHistoryItem]) -> ClipboardHistoryItem? {
         if let selectedHistoryItem,
            historyItems.contains(selectedHistoryItem) {
             return selectedHistoryItem
         }
 
         return historyItems.first
+    }
+
+    private func rebuildHistory() {
+        historyItems = (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
+            .sorted { $0.createdAt > $1.createdAt }
+        historyItemsByFilter = Dictionary(uniqueKeysWithValues: ClipboardHistoryFilter.allCases.map { filter in
+            (filter, historyItems.filter(filter.includes))
+        })
     }
 
     var canCopySelectedImage: Bool {

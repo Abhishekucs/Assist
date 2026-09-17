@@ -16,8 +16,8 @@ struct HugeIconButton: View {
                     backgroundColor,
                     in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.iconButton, style: .continuous)
                 )
-                .opacity(isEnabled ? 1 : AssistDesignTokens.Opacity.disabledControl)
         }
+        // The plain style already dims disabled content.
         .buttonStyle(.plain)
         .help(tooltip)
         .accessibilityLabel(tooltip)

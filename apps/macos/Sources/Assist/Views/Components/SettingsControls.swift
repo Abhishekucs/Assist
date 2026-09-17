@@ -2,7 +2,9 @@ import SwiftUI
 
 private typealias Tokens = AssistDesignTokens
 
-/// A scrolling settings page. It draws no background of its own; the settings
+/// A settings page: a fixed header, then scrolling content. The header keeps
+/// clear of the dialog's close button, and content scrolls beneath the header
+/// rather than under the button. The page draws no background; the settings
 /// dialog paints the surface behind it.
 struct SettingsDetailPage<Content: View>: View {
     let title: String
@@ -17,29 +19,33 @@ struct SettingsDetailPage<Content: View>: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: Tokens.Spacing.xxxLarge) {
-                VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
-                    Text(title)
-                        .font(AssistFont.pageTitle())
-                        .foregroundStyle(theme.foreground)
-                        .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xxxLarge) {
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
+                Text(title)
+                    .font(Tokens.Typography.pageTitle)
+                    .foregroundStyle(theme.foreground)
+                    .accessibilityAddTraits(.isHeader)
 
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(AssistFont.caption())
-                            .foregroundStyle(theme.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                if let subtitle {
+                    Text(subtitle)
+                        .font(Tokens.Typography.caption())
+                        .foregroundStyle(theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.top, Tokens.Settings.headerTopInset)
-
-                content
             }
-            .padding(.trailing, Tokens.Spacing.medium)
-            .padding(.bottom, Tokens.Spacing.xxxLarge)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(.top, Tokens.Settings.headerTopInset)
+            .padding(.trailing, Tokens.Settings.closeButtonClearance)
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xxxLarge) {
+                    content
+                }
+                .padding(.trailing, Tokens.Spacing.medium)
+                .padding(.bottom, Tokens.Spacing.xxxLarge)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -59,7 +65,7 @@ struct SettingsSection<Content: View>: View {
         let shape = RoundedRectangle(cornerRadius: Tokens.Radius.large)
         VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
             Text(title)
-                .font(AssistFont.section())
+                .font(Tokens.Typography.section)
                 .foregroundStyle(theme.muted)
                 .padding(.horizontal, Tokens.Settings.rowInset)
                 .accessibilityAddTraits(.isHeader)
@@ -74,6 +80,22 @@ struct SettingsSection<Content: View>: View {
                 shape.strokeBorder(theme.border, lineWidth: Tokens.Control.borderWidth)
             }
         }
+    }
+}
+
+/// Controls or notes inside a settings group, on the shared row inset.
+struct SettingsControlGroup<Content: View>: View {
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Tokens.Settings.rowInset)
+            .padding(.vertical, Tokens.Spacing.large)
     }
 }
 
@@ -93,12 +115,12 @@ struct SettingToggleRow: View {
         HStack(spacing: Tokens.Settings.rowInset) {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall) {
                 Text(title)
-                    .font(AssistFont.label())
+                    .font(Tokens.Typography.label())
                     .foregroundStyle(theme.foreground)
 
                 if let detail {
                     Text(detail)
-                        .font(AssistFont.caption())
+                        .font(Tokens.Typography.caption())
                         .foregroundStyle(theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }

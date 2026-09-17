@@ -14,8 +14,11 @@ struct AssistButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: Tokens.Radius.control)
         configuration.label
-            .font(AssistFont.small(.medium))
-            .foregroundStyle(emphasis == .primary ? .white : theme.foreground)
+            .font(Tokens.Typography.small(.medium))
+            .foregroundStyle(emphasis == .primary ? theme.primaryButtonForeground : theme.foreground)
+            // Controls inside the label, such as a progress spinner, render for
+            // the fill behind them rather than for the window.
+            .environment(\.colorScheme, emphasis == .primary ? theme.primaryButtonContentScheme : theme.colorScheme)
             .padding(.horizontal, Tokens.Spacing.xLarge)
             .frame(height: height)
             .background(emphasis == .primary ? theme.primaryButton : theme.card, in: shape)
@@ -37,7 +40,8 @@ struct AssistButtonStyle: ButtonStyle {
 }
 
 /// Plain text field chrome: an outlined box that focuses the field anywhere
-/// inside it and shows an accent ring while focused.
+/// inside it and shows an accent ring while focused. When disabled, only the
+/// box dims; AppKit already dims the field's text.
 private struct AssistTextFieldChrome: ViewModifier {
     let height: CGFloat
     @Environment(\.assistTheme) private var theme
@@ -51,10 +55,10 @@ private struct AssistTextFieldChrome: ViewModifier {
             .focused($isFocused)
             .padding(.horizontal, Tokens.Spacing.large)
             .frame(height: height)
-            .background(theme.control, in: shape)
+            .background(theme.control.opacity(chromeOpacity), in: shape)
             .overlay {
                 shape.strokeBorder(
-                    isFocused ? theme.accent : theme.controlBorder,
+                    (isFocused ? theme.accent : theme.controlBorder).opacity(chromeOpacity),
                     lineWidth: isFocused ? Tokens.Control.focusRingWidth : Tokens.Control.borderWidth
                 )
             }
@@ -62,8 +66,11 @@ private struct AssistTextFieldChrome: ViewModifier {
             // needs its own tap target to focus the field.
             .contentShape(shape)
             .onTapGesture { isFocused = true }
-            .opacity(isEnabled ? 1 : Tokens.Opacity.disabledControl)
             .animation(Tokens.Motion.quick, value: isFocused)
+    }
+
+    private var chromeOpacity: Double {
+        isEnabled ? 1 : Tokens.Opacity.disabledControl
     }
 }
 
@@ -79,7 +86,7 @@ struct AssistKeycap: View {
 
     var body: some View {
         Text(title)
-            .font(AssistFont.keycap())
+            .font(Tokens.Typography.keycap)
             .foregroundStyle(theme.accent)
             .padding(.horizontal, 9)
             .frame(height: 28)
@@ -104,11 +111,11 @@ struct AssistNavigationRow: View {
             HStack(spacing: Tokens.Spacing.medium) {
                 HugeIcon(icon, size: Tokens.Icon.navigation, color: isSelected ? theme.accent : theme.foreground)
                 Text(title)
-                    .font(AssistFont.label(isSelected ? .medium : .regular))
+                    .font(Tokens.Typography.label(isSelected ? .medium : .regular))
                 Spacer(minLength: 0)
                 if let count {
                     Text(count.formatted())
-                        .font(AssistFont.caption())
+                        .font(Tokens.Typography.caption())
                         .foregroundStyle(theme.muted)
                 }
             }

@@ -48,27 +48,29 @@ private typealias Tokens = AssistDesignTokens
 
 /// A single focused form: heading, license key, and the two actions.
 struct LicenseActivationView: View {
-    static let size = CGSize(width: 480, height: 340)
+    /// The window's size until an error message needs more height.
+    static let minimumSize = CGSize(width: 480, height: 340)
 
     @ObservedObject var viewModel: LicenseActivationViewModel
+    @Environment(\.titleBarInset) private var titleBarInset
 
     var body: some View {
         AssistAppSurface { theme in
             VStack(alignment: .leading, spacing: 0) {
                 Text("Welcome to Assist")
-                    .font(AssistFont.largeTitle())
+                    .font(Tokens.Typography.largeTitle)
                     .accessibilityAddTraits(.isHeader)
                     .padding(.bottom, Tokens.Spacing.medium)
 
                 Text("Enter the license key from your purchase receipt to get started.")
-                    .font(AssistFont.body())
+                    .font(Tokens.Typography.body())
                     .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(3)
 
                 VStack(alignment: .leading, spacing: 9) {
                     Text("License key")
-                        .font(AssistFont.small(.medium))
+                        .font(Tokens.Typography.small(.medium))
                     TextField("Paste your license key", text: $viewModel.licenseKey)
                         .assistTextField(height: Tokens.Control.heroHeight)
                         .accessibilityLabel("License key")
@@ -77,7 +79,7 @@ struct LicenseActivationView: View {
 
                     if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
-                            .font(AssistFont.caption())
+                            .font(Tokens.Typography.caption())
                             .foregroundStyle(theme.dangerText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -96,7 +98,8 @@ struct LicenseActivationView: View {
                     Button { viewModel.activate() } label: {
                         HStack(spacing: Tokens.Spacing.small) {
                             if viewModel.isActivating {
-                                ProgressView().controlSize(.small)
+                                ProgressView()
+                                    .controlSize(.small)
                             }
                             Text(viewModel.isActivating ? "Activating…" : "Activate Assist")
                         }
@@ -113,10 +116,13 @@ struct LicenseActivationView: View {
                 }
             }
             .padding(.horizontal, 32)
-            // Clears the close button in the transparent title bar.
-            .padding(.top, 44)
+            .padding(.top, titleBarInset + Tokens.Spacing.large)
             .padding(.bottom, 32)
-            .frame(width: Self.size.width, height: Self.size.height, alignment: .topLeading)
+            // Fixed width; the height grows past the minimum only when the
+            // content (such as a long server error) needs it.
+            .frame(width: Self.minimumSize.width)
+            .frame(minHeight: Self.minimumSize.height, alignment: .top)
+            .fixedSize(horizontal: false, vertical: true)
             .background(theme.background)
         }
     }

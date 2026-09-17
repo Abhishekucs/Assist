@@ -23,10 +23,15 @@ enum AssistDesignTokens {
         // Darker than the reference sample so captions stay at or above 4.5:1
         // on every light surface they sit on, including selection and lavender.
         static let secondaryText = Color(hex: 0x66666D)
-        static let separator = Color(hex: 0xEEEEF1)
+        static let separator = Color(hex: 0xE0E0E5)
+        /// A faint tint so white groups and cards read on the white content surface.
+        static let cardComponents = RGBColorComponents(hex: 0xF8F8FA)
         static let purple = Color(hex: 0x5142B8)
         static let lavenderComponents = RGBColorComponents(hex: 0xEEEBFA)
         static let darkPurple = Color(hex: 0xB6A9FF)
+        /// Label on a `darkPurple` fill; dark surfaces use that lighter fill so
+        /// primary actions keep 3:1 against them.
+        static let onDarkPurple = Color(hex: 0x17122E)
         // Outlines for inputs, buttons, and option tiles keep at least 3:1
         // against every surface they sit on (WCAG non-text contrast).
         static let lightControlBorder = Color(hex: 0x84848C)
@@ -79,18 +84,21 @@ enum AssistDesignTokens {
         static let window: CGFloat = 18
     }
 
-    /// Selected chips and tools on the island and editor's dark surfaces.
-    enum DarkSelection {
-        static let fill = Palette.purple.opacity(0.28)
-        static let foreground = Palette.darkPurple
+    /// Selections and primary actions on the island and editor's dark surfaces.
+    enum DarkSurface {
+        static let selectionFill = Palette.purple.opacity(0.28)
+        static let selectionForeground = Palette.darkPurple
+        static let primaryFill = Palette.darkPurple
+        static let primaryForeground = Palette.onDarkPurple
     }
 
-    /// Window chrome shared by the activation window and the library.
+    /// Library window layout.
     enum AppLayout {
         static let sidebarWidth: CGFloat = 196
         /// Inset of sidebar content, which also insets navigation row contents.
         static let sidebarInset: CGFloat = 12
-        static let sidebarTopInset: CGFloat = 42
+        /// Space between the title bar and the sidebar wordmark.
+        static let sidebarTopInset: CGFloat = 10
         static let navigationRowHeight: CGFloat = 36
         /// Gap between the window edge and the inset content pane.
         static let paneInset: CGFloat = 8
@@ -107,6 +115,11 @@ enum AssistDesignTokens {
         /// Aligns the sidebar title with the page title beside it.
         static let headerTopInset: CGFloat = 7
         static let pickerWidth: CGFloat = 166
+        /// The close button's inset from the dialog's top-right corner.
+        static let closeButtonInset = Spacing.medium
+        /// Keeps a page header clear of the close button, which overlays the
+        /// dialog's top-right corner.
+        static let closeButtonClearance = Control.largeIconButton + closeButtonInset + Spacing.small - dialogInset
     }
 
     enum Control {
@@ -368,7 +381,15 @@ struct AssistTheme {
     var border: Color { isDark ? Color(hex: 0x38373E) : AssistDesignTokens.Palette.separator }
     var accent: Color { isDark ? AssistDesignTokens.Palette.darkPurple : AssistDesignTokens.Palette.purple }
     var accentSurface: Color { Color(rgb: accentSurfaceComponents) }
-    var primaryButton: Color { AssistDesignTokens.Palette.purple }
+    var primaryButton: Color {
+        isDark ? AssistDesignTokens.DarkSurface.primaryFill : AssistDesignTokens.Palette.purple
+    }
+    var primaryButtonForeground: Color {
+        isDark ? AssistDesignTokens.DarkSurface.primaryForeground : .white
+    }
+    /// The scheme for controls drawn on a primary fill (such as a progress
+    /// spinner): a dark purple in light appearance, a light one in dark.
+    var primaryButtonContentScheme: ColorScheme { isDark ? .light : .dark }
     var control: Color { Color(rgb: controlComponents) }
     var controlBorder: Color {
         isDark ? AssistDesignTokens.Palette.darkControlBorder : AssistDesignTokens.Palette.lightControlBorder
@@ -377,7 +398,7 @@ struct AssistTheme {
     // Opaque surfaces as components, so text over translucent content (such as
     // a clipboard color) can be judged against the surface actually behind it.
     var cardComponents: RGBColorComponents {
-        isDark ? RGBColorComponents(hex: 0x25252B) : .white
+        isDark ? RGBColorComponents(hex: 0x25252B) : AssistDesignTokens.Palette.cardComponents
     }
     var controlComponents: RGBColorComponents {
         isDark ? RGBColorComponents(hex: 0x2D2D33) : RGBColorComponents(hex: 0xF5F5F6)
@@ -396,25 +417,6 @@ extension EnvironmentValues {
         get { self[AssistThemeKey.self] }
         set { self[AssistThemeKey.self] = newValue }
     }
-}
-
-/// Call-site API for typography. Values live in `AssistDesignTokens.Typography`;
-/// each function here only forwards to one of them.
-enum AssistFont {
-    static func largeTitle() -> Font { AssistDesignTokens.Typography.largeTitle }
-    static func title() -> Font { AssistDesignTokens.Typography.title }
-    static func display() -> Font { AssistDesignTokens.Typography.display }
-    static func pageTitle() -> Font { AssistDesignTokens.Typography.pageTitle }
-    static func sectionTitle() -> Font { AssistDesignTokens.Typography.sectionTitle }
-    static func label(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.label(weight) }
-    static func section() -> Font { AssistDesignTokens.Typography.section }
-    static func keycap() -> Font { AssistDesignTokens.Typography.keycap }
-    static func body(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.body(weight) }
-    static func small(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.small(weight) }
-    static func caption(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.caption(weight) }
-    static func headline() -> Font { AssistDesignTokens.Typography.headline }
-    static func footnote(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.footnote(weight) }
-    static func mono() -> Font { AssistDesignTokens.Typography.mono }
 }
 
 extension Color {
