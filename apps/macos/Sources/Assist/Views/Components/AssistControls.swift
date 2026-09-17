@@ -132,7 +132,7 @@ struct AssistNavigationRow: View {
     }
 
     private var backgroundColor: Color {
-        if isSelected { return theme.selected }
-        return isHovered && isEnabled ? theme.control : .clear
+        if isSelected { return theme.selectedFill }
+        return isHovered && isEnabled ? theme.hoverFill : .clear
     }
 }

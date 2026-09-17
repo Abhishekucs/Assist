@@ -70,7 +70,11 @@ fields, secondary buttons, and option tiles (the control outline). Focused text
 fields show an accent ring, and the whole field box accepts clicks. Selection
 never relies on color alone: selected tiles add a check mark, selected cards a
 heavier accent stroke with an inner ring (visible even on an accent-colored
-clip), and selected navigation rows a medium weight and accent icon. Chips and keycaps have no outline. Shadows are low contrast. Standalone
+clip), and selected navigation rows a medium weight and accent icon.
+Navigation rows and icon buttons show hover and selection as foreground tints
+(`AssistTheme.hoverFill` at 6% and `selectedFill` at 11%), so both read on the
+sidebar and on the settings dialog, and a hovered row stays lighter than a
+selected one. Chips and keycaps have no outline. Shadows are low contrast. Standalone
 icons remain transparent until hover, and disabled controls are dimmed once, by
 their button style or by AppKit; actions that float over previews keep a card
 backing. Destructive icons remain red.
@@ -78,8 +82,9 @@ backing. Destructive icons remain red.
 Windows draw under a transparent title bar with no SwiftUI safe area, so each
 window is exactly its view's frame (or, for the main window, its minimum frame).
 Window controllers pass the real title bar height to SwiftUI as
-`EnvironmentValues.titleBarInset`, and views pad their top content by it rather
-than by a fixed number. Window backgrounds match the surface they host:
+`EnvironmentValues.titleBarInset` through `WindowTitleBarMetrics`, which follows
+changes such as full screen or a toolbar, and views pad their top content by it
+rather than by a fixed number. Window backgrounds match the surface they host:
 `NSColor.assistWindowSurface` for the library frame and
 `NSColor.assistContentSurface` for activation.
 
@@ -93,10 +98,15 @@ than by a fixed number. Window backgrounds match the surface they host:
   common controls.
 - `HugeIcon`: bundled icons; without an explicit color they take the
   surrounding foreground style.
-- `SettingsDetailPage`, `SettingsSection`, `SettingsControlGroup`,
-  `SettingToggleRow`, `SettingsDialog`: grouped settings. The dialog paints the
-  only settings background and is modal for VoiceOver.
-- `LibrarySidebar` and `LibraryWelcomeHeader`: library chrome and guidance.
+- `SettingsDetailPage`, `SettingsSection`, `SettingsRow` (with
+  `SettingToggleRow` and `SettingsValueText`), `SettingsControlGroup`,
+  `SettingsDialog`: grouped settings. Every row with a title and a trailing
+  control or value is a `SettingsRow`. The dialog paints the only settings
+  background and is modal for VoiceOver.
+- `LibrarySidebar` and `LibraryWelcomeHeader`: library chrome and guidance. The
+  header carries the capture shortcuts, so empty states don't repeat them.
+- `ClipboardHistoryFilter` presentation (`navigationTitle`, `icon`,
+  `emptyTitle`): one source for the library and the island.
 
 The notch retains its black silhouette to meet the display edge. Its selected
 filters, the editor's selected tools and chips, and primary actions use the same

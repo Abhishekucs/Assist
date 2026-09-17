@@ -33,10 +33,49 @@ extension EnvironmentValues {
     }
 }
 
+/// Tracks a window's title bar height as it changes, for example when the
+/// window enters or leaves full screen or gains a toolbar.
+@MainActor
+final class WindowTitleBarMetrics: ObservableObject {
+    @Published private(set) var inset: CGFloat
+    private var subscriptions: Set<AnyCancellable> = []
+
+    init(window: NSWindow) {
+        inset = window.titleBarInset
+        let fullScreenChanges = [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification]
+            .map { NotificationCenter.default.publisher(for: $0, object: window).map { _ in () } }
+        Publishers.MergeMany(fullScreenChanges)
+            .merge(with: window.publisher(for: \.contentLayoutRect).map { _ in () })
+            .sink { [weak self, weak window] in
+                guard let self, let window else { return }
+                let inset = window.titleBarInset
+                if inset != self.inset {
+                    self.inset = inset
+                }
+            }
+            .store(in: &subscriptions)
+    }
+}
+
+/// Supplies a window's live `titleBarInset` to its SwiftUI content.
+struct TitleBarInsetReader<Content: View>: View {
+    @ObservedObject var metrics: WindowTitleBarMetrics
+    let content: Content
+
+    var body: some View {
+        content.environment(\.titleBarInset, metrics.inset)
+    }
+}
+
 extension NSWindow {
     /// The part of the window's height covered by its title bar.
     var titleBarInset: CGFloat {
         frame.height - contentLayoutRect.height
+    }
+
+    /// Wraps a root view so it reads this window's live `titleBarInset`.
+    func withTitleBarInset<Content: View>(_ content: Content) -> TitleBarInsetReader<Content> {
+        TitleBarInsetReader(metrics: WindowTitleBarMetrics(window: self), content: content)
     }
 
     /// Chrome shared by Assist's titled windows: content runs under a hidden,

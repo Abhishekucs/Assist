@@ -27,6 +27,6 @@ struct HugeIconButton: View {
     }
 
     private var backgroundColor: Color {
-        isHovered && isEnabled ? theme.selected.opacity(theme.isDark ? 0.62 : 0.78) : .clear
+        isHovered && isEnabled ? theme.hoverFill : .clear
     }
 }

@@ -75,6 +75,9 @@ struct LicenseActivationView: View {
                         .assistTextField(height: Tokens.Control.heroHeight)
                         .accessibilityLabel("License key")
                         .disabled(viewModel.isActivating)
+                        // A focused field keeps Return for itself, so the Activate
+                        // button's default-action shortcut only fires when the
+                        // field isn't focused; each path covers one case.
                         .onSubmit { viewModel.activate() }
 
                     if let errorMessage = viewModel.errorMessage {

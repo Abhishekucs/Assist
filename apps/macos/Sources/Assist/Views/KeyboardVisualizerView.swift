@@ -24,14 +24,6 @@ struct KeyboardVisualizerView: View {
         .padding(KeyboardVisualizerLayout.inset)
         .background(style == .assist ? theme.card : Color.black.opacity(0.8),
                     in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium))
-        // The Assist style shares the card color of the settings group that
-        // previews it, so it needs its own edge.
-        .overlay {
-            if style == .assist {
-                RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium)
-                    .strokeBorder(theme.border, lineWidth: AssistDesignTokens.Control.borderWidth)
-            }
-        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Keyboard visualizer, US layout")
         .accessibilityValue(state.isVisible ? "Live" : "Off")
@@ -47,7 +39,7 @@ private struct KeyboardVisualizerKeycap: View {
 
     var body: some View {
         let palette = KeyboardVisualizerPalette(style: style)
-        let fill = style == .assist ? theme.selected : Color(hex: palette.fill(for: key.code))
+        let fill = style == .assist ? theme.keyFill : Color(hex: palette.fill(for: key.code))
         let text = style == .assist ? theme.muted : Color(hex: palette.text(for: key.code))
         let pressedFill = style == .assist ? theme.foreground : text
         let pressedText = style == .assist ? theme.background : fill
@@ -73,7 +65,8 @@ private struct KeyboardVisualizerKeycap: View {
 }
 
 struct KeyboardVisualizerOverlay: View {
-    @ObservedObject var state: KeyboardVisualizerState
+    /// Observed by `KeyboardVisualizerView`; key presses don't rebuild this wrapper.
+    let state: KeyboardVisualizerState
     @ObservedObject var soundSettings: KeyboardSoundSettings
 
     var body: some View {

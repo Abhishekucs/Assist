@@ -99,16 +99,18 @@ struct SettingsControlGroup<Content: View>: View {
     }
 }
 
-struct SettingToggleRow: View {
+/// A row in a settings group: a title and optional detail on the leading side,
+/// and a control or value on the trailing side, on the shared row inset.
+struct SettingsRow<Trailing: View>: View {
     let title: String
     let detail: String?
-    @Binding var isOn: Bool
+    let trailing: Trailing
     @Environment(\.assistTheme) private var theme
 
-    init(title: String, detail: String? = nil, isOn: Binding<Bool>) {
+    init(_ title: String, detail: String? = nil, @ViewBuilder trailing: () -> Trailing) {
         self.title = title
         self.detail = detail
-        _isOn = isOn
+        self.trailing = trailing()
     }
 
     var body: some View {
@@ -126,8 +128,47 @@ struct SettingToggleRow: View {
                 }
             }
 
-            Spacer(minLength: Tokens.Settings.rowInset)
+            Spacer(minLength: 0)
 
+            trailing
+        }
+        .padding(.horizontal, Tokens.Settings.rowInset)
+        .frame(minHeight: detail == nil ? Tokens.Settings.rowHeight : Tokens.Settings.detailedRowHeight)
+    }
+}
+
+/// A read-only value on the trailing side of a settings row.
+struct SettingsValueText: View {
+    let value: String
+    @Environment(\.assistTheme) private var theme
+
+    init(_ value: String) {
+        self.value = value
+    }
+
+    var body: some View {
+        Text(value)
+            .font(Tokens.Typography.small(.medium))
+            .foregroundStyle(theme.muted)
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
+}
+
+struct SettingToggleRow: View {
+    let title: String
+    let detail: String?
+    @Binding var isOn: Bool
+    @Environment(\.assistTheme) private var theme
+
+    init(title: String, detail: String? = nil, isOn: Binding<Bool>) {
+        self.title = title
+        self.detail = detail
+        _isOn = isOn
+    }
+
+    var body: some View {
+        SettingsRow(title, detail: detail) {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .accessibilityLabel(title)
@@ -136,7 +177,5 @@ struct SettingToggleRow: View {
                 .controlSize(.small)
                 .pointingHandCursor()
         }
-        .padding(.horizontal, Tokens.Settings.rowInset)
-        .frame(minHeight: detail == nil ? Tokens.Settings.rowHeight : Tokens.Settings.detailedRowHeight)
     }
 }

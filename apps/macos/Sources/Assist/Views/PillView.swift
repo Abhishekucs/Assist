@@ -271,7 +271,8 @@ struct ExpandedIslandView: View {
     var body: some View {
         let filteredItems = viewModel.historyItems(matching: selectedFilter)
         let historyItems = Array(filteredItems.prefix(24))
-        let visibleSelectedItem = historyItems.first { $0.id == viewModel.selectedItem?.id }
+        let selectedHistoryID = viewModel.selectedItem?.id
+        let visibleSelectedItem = historyItems.first { $0.id == selectedHistoryID }
             ?? historyItems.first
         let selectedID = visibleSelectedItem?.id
 
@@ -466,28 +467,6 @@ private struct IslandHistoryEmptyState: View {
     let showsDebugActions: Bool
     @ObservedObject var viewModel: PillViewModel
 
-    private var icon: HugeIconKind {
-        switch filter {
-        case .all:
-            .camera
-        case .images:
-            .image
-        case .text:
-            .document
-        }
-    }
-
-    private var title: String {
-        switch filter {
-        case .all:
-            "No captures yet"
-        case .text:
-            "No text yet"
-        case .images:
-            "No images yet"
-        }
-    }
-
     private var message: String {
         switch filter {
         case .all:
@@ -502,13 +481,13 @@ private struct IslandHistoryEmptyState: View {
     var body: some View {
         VStack(alignment: .center, spacing: AssistDesignTokens.Spacing.small) {
             HugeIcon(
-                icon,
+                filter.icon,
                 size: 20,
                 color: .white.opacity(AssistDesignTokens.Opacity.subtle)
             )
             .padding(.bottom, AssistDesignTokens.Spacing.xxxSmall)
 
-            Text(title)
+            Text(filter.emptyTitle)
                 .font(AssistDesignTokens.Typography.headline)
                 .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.primary))
 

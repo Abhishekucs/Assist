@@ -304,7 +304,7 @@ private struct EmptyFilteredLibraryView: View {
 
     var body: some View {
         VStack(spacing: Tokens.Spacing.small) {
-            Text("No \(filter.title.lowercased()) yet")
+            Text(filter.emptyTitle)
                 .font(Tokens.Typography.pageTitle)
                 .foregroundStyle(theme.foreground)
 
@@ -322,13 +322,14 @@ private struct EmptyCaptureLibraryView: View {
 
     var body: some View {
         VStack(spacing: Tokens.Spacing.xLarge) {
-            HugeIcon(.image, size: Tokens.Icon.emptyState, color: theme.muted)
+            HugeIcon(ClipboardHistoryFilter.all.icon, size: Tokens.Icon.emptyState, color: theme.muted)
 
-            Text("No captures yet")
+            Text(ClipboardHistoryFilter.all.emptyTitle)
                 .font(Tokens.Typography.pageTitle)
                 .foregroundStyle(theme.foreground)
 
-            Text("Hold Option to annotate a screenshot, or press Control + Option for a clean capture.")
+            // The shortcuts are already shown in the header above.
+            Text("Screenshots and copied text will appear here.")
                 .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
                 .multilineTextAlignment(.center)
@@ -551,46 +552,6 @@ private struct RowDivider: View {
     }
 }
 
-private struct SettingValueRow: View {
-    let title: String
-    let value: String
-    let detail: String?
-    @Environment(\.assistTheme) private var theme
-
-    init(title: String, value: String, detail: String? = nil) {
-        self.title = title
-        self.value = value
-        self.detail = detail
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Tokens.Settings.rowInset) {
-            VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall) {
-                Text(title)
-                    .font(Tokens.Typography.label())
-                    .foregroundStyle(theme.foreground)
-                if let detail {
-                    Text(detail)
-                        .font(Tokens.Typography.caption())
-                        .foregroundStyle(theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            Spacer(minLength: Tokens.Settings.rowInset)
-
-            Text(value)
-                .font(Tokens.Typography.small(.medium))
-                .foregroundStyle(theme.muted)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, Tokens.Settings.rowInset)
-        .frame(minHeight: detail == nil ? Tokens.Settings.rowHeight : Tokens.Settings.detailedRowHeight)
-    }
-}
-
 private struct SettingsActionButton: View {
     let title: String
     let icon: HugeIconKind
@@ -683,9 +644,13 @@ private struct CaptureSettingsPane: View {
             subtitle: "Shortcuts used by the capture island."
         ) {
             SettingsSection("Shortcuts") {
-                ShortcutRow(title: "Annotate screenshot", keys: ["Option"], detail: "Hold and move the pointer to draw.")
+                SettingsRow("Annotate screenshot", detail: "Hold and move the pointer to draw.") {
+                    shortcutKeys(["Option"])
+                }
                 RowDivider()
-                ShortcutRow(title: "Clean screenshot", keys: ["Control", "Option"], detail: "Capture the active display without annotation.")
+                SettingsRow("Clean screenshot", detail: "Capture the active display without annotation.") {
+                    shortcutKeys(["Control", "Option"])
+                }
             }
 
             VoiceContextSettings(
@@ -710,6 +675,14 @@ private struct CaptureSettingsPane: View {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private func shortcutKeys(_ keys: [String]) -> some View {
+        HStack(spacing: Tokens.Spacing.xSmall) {
+            ForEach(keys, id: \.self) { key in
+                AssistKeycap(title: key)
             }
         }
     }
@@ -797,7 +770,7 @@ private struct VoiceContextSettings: View {
             }
             return service.audioInputError == nil ? "Allow microphone" : "Retry audio input"
         }
-        return "Set up (~487 MB)"
+        return "Set up (~\(VoiceContextService.modelDownloadMegabytes) MB)"
     }
 
     private var modelStatusTitle: String {
@@ -843,37 +816,6 @@ private struct VoiceContextSettings: View {
     }
 }
 
-private struct ShortcutRow: View {
-    let title: String
-    let keys: [String]
-    let detail: String
-    @Environment(\.assistTheme) private var theme
-
-    var body: some View {
-        HStack(alignment: .center, spacing: Tokens.Settings.rowInset) {
-            VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall) {
-                Text(title)
-                    .font(Tokens.Typography.label())
-                    .foregroundStyle(theme.foreground)
-                Text(detail)
-                    .font(Tokens.Typography.caption())
-                    .foregroundStyle(theme.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: Tokens.Settings.rowInset)
-
-            HStack(spacing: Tokens.Spacing.xSmall) {
-                ForEach(keys, id: \.self) { key in
-                    AssistKeycap(title: key)
-                }
-            }
-        }
-        .padding(.horizontal, Tokens.Settings.rowInset)
-        .frame(minHeight: Tokens.Settings.detailedRowHeight)
-    }
-}
-
 private struct StorageSettingsPane: View {
     @State private var metrics = StorageMetrics.loading
 
@@ -883,7 +825,9 @@ private struct StorageSettingsPane: View {
             subtitle: "Inspect the local library used by Assist."
         ) {
             SettingsSection("Library") {
-                SettingValueRow(title: "Library size", value: metrics.librarySize)
+                SettingsRow("Library size") {
+                    SettingsValueText(metrics.librarySize)
+                }
             }
 
             SettingsActionButton(title: "Refresh storage", icon: .refresh) {
@@ -997,74 +941,36 @@ private struct UpdatesSettingsPane: View {
     }
 }
 
-private struct AboutInfoRow: View {
-    let title: String
-    let value: String
-    @Environment(\.assistTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: Tokens.Settings.rowInset) {
-            Text(title)
-                .font(Tokens.Typography.label())
-                .foregroundStyle(theme.muted)
-
-            Spacer(minLength: Tokens.Settings.rowInset)
-
-            Text(value)
-                .font(Tokens.Typography.label())
-                .foregroundStyle(theme.foreground)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .multilineTextAlignment(.trailing)
-        }
-        .frame(height: Tokens.Control.compactHeight)
-    }
-}
-
-private struct AboutActionRow: View {
-    let title: String
-    let actionTitle: String
-    let action: () -> Void
-    @Environment(\.assistTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: Tokens.Settings.rowInset) {
-            Text(title)
-                .font(Tokens.Typography.label())
-                .foregroundStyle(theme.muted)
-
-            Spacer(minLength: Tokens.Settings.rowInset)
-
-            // Styled as a link, since it opens a web page.
-            Button(action: action) {
-                Text(actionTitle)
-                    .font(Tokens.Typography.label())
-                    .underline()
-                    .foregroundStyle(theme.accent)
-            }
-            .buttonStyle(.plain)
-            .help(actionTitle)
-            .pointingHandCursor()
-        }
-        .frame(height: Tokens.Control.compactHeight)
-    }
-}
-
 private struct AboutSettingsPane: View {
+    @Environment(\.assistTheme) private var theme
+
     var body: some View {
         SettingsDetailPage(
             title: "About",
             subtitle: nil
         ) {
             SettingsSection("Assist for macOS") {
-                SettingsControlGroup {
-                    VStack(alignment: .leading, spacing: Tokens.Spacing.large) {
-                        AboutInfoRow(title: "Version", value: appVersion)
-                        AboutActionRow(title: "Privacy", actionTitle: "View policy") {
-                            NSWorkspace.shared.open(AppIdentity.privacyPolicyURL)
-                        }
-                        AboutInfoRow(title: "Support", value: AppIdentity.supportEmail)
+                SettingsRow("Version") {
+                    SettingsValueText(appVersion)
+                }
+                RowDivider()
+                SettingsRow("Privacy") {
+                    // Styled as a link, since it opens a web page.
+                    Button {
+                        NSWorkspace.shared.open(AppIdentity.privacyPolicyURL)
+                    } label: {
+                        Text("View policy")
+                            .font(Tokens.Typography.label())
+                            .underline()
+                            .foregroundStyle(theme.accent)
                     }
+                    .buttonStyle(.plain)
+                    .help("View policy")
+                    .pointingHandCursor()
+                }
+                RowDivider()
+                SettingsRow("Support") {
+                    SettingsValueText(AppIdentity.supportEmail)
                 }
             }
         }

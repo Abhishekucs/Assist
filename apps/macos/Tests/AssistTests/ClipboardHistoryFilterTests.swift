@@ -31,20 +31,18 @@ final class ClipboardHistoryFilterTests: XCTestCase {
 }
 
 final class PillViewModelHistoryTests: XCTestCase {
+    private var suiteName = ""
+
+    override func tearDown() {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        super.tearDown()
+    }
+
     @MainActor
-    func testHistoryIsCachedNewestFirstPerFilterAndFollowsChanges() {
-        let viewModel = PillViewModel(
-            settings: PillSettings(defaults: UserDefaults(suiteName: "Assist.PillViewModelHistoryTests.\(UUID().uuidString)")!),
-            voiceContextService: VoiceContextService(modelStateOverride: .notInstalled, microphoneAccessStateOverride: .notDetermined)
-        )
+    func testHistoryIsCachedNewestFirstPerFilterAndFollowsChanges() throws {
+        let viewModel = try makeViewModel()
         let older = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 10), text: "older")
-        let screenshot = CaptureItem(
-            id: UUID(),
-            createdAt: Date(timeIntervalSince1970: 20),
-            imagePath: "/tmp/screenshot.png",
-            thumbnailPath: "/tmp/thumbnail.png",
-            context: .saved
-        )
+        let screenshot = makeScreenshot(createdAt: 20)
         viewModel.replaceHistory(screenshots: [screenshot], textClips: [older])
 
         XCTAssertEqual(viewModel.historyItems.map(\.id), [screenshot.id, older.id])
@@ -57,5 +55,66 @@ final class PillViewModelHistoryTests: XCTestCase {
         XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, screenshot.id, older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [newer.id, older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .all).count, 3)
+    }
+
+    @MainActor
+    func testReplacingHistoryWithTheSameItemsPublishesNothing() throws {
+        let viewModel = try makeViewModel()
+        let screenshot = makeScreenshot(createdAt: 20)
+        let text = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 10), text: "text")
+        viewModel.replaceHistory(screenshots: [screenshot], textClips: [text])
+
+        var changes = 0
+        let subscriptions = [
+            viewModel.$items.dropFirst().sink { _ in changes += 1 },
+            viewModel.$textItems.dropFirst().sink { _ in changes += 1 },
+        ]
+        viewModel.replaceHistory(screenshots: [screenshot], textClips: [text])
+
+        XCTAssertEqual(changes, 0)
+        XCTAssertEqual(viewModel.historyItems.map(\.id), [screenshot.id, text.id])
+        withExtendedLifetime(subscriptions) {}
+    }
+
+    @MainActor
+    func testUpdatingAScreenshotRefreshesTheCacheInPlace() throws {
+        let viewModel = try makeViewModel()
+        let newer = makeScreenshot(createdAt: 30)
+        let older = makeScreenshot(createdAt: 10)
+        let text = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 20), text: "text")
+        viewModel.replaceHistory(screenshots: [newer, older], textClips: [text])
+
+        let edited = CaptureItem(
+            id: older.id,
+            createdAt: older.createdAt,
+            imagePath: "/tmp/edited.png",
+            thumbnailPath: older.thumbnailPath,
+            context: older.context
+        )
+        viewModel.updateScreenshot(edited)
+
+        XCTAssertEqual(viewModel.historyItems, [.screenshot(newer), .text(text), .screenshot(edited)])
+        XCTAssertEqual(viewModel.historyItems(matching: .images), [.screenshot(newer), .screenshot(edited)])
+        XCTAssertEqual(viewModel.historyItems(matching: .all), viewModel.historyItems)
+    }
+
+    @MainActor
+    private func makeViewModel() throws -> PillViewModel {
+        suiteName = "Assist.PillViewModelHistoryTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        return PillViewModel(
+            settings: PillSettings(defaults: defaults),
+            voiceContextService: VoiceContextService(modelStateOverride: .notInstalled, microphoneAccessStateOverride: .notDetermined)
+        )
+    }
+
+    private func makeScreenshot(createdAt seconds: TimeInterval) -> CaptureItem {
+        CaptureItem(
+            id: UUID(),
+            createdAt: Date(timeIntervalSince1970: seconds),
+            imagePath: "/tmp/screenshot.png",
+            thumbnailPath: "/tmp/thumbnail.png",
+            context: .saved
+        )
     }
 }

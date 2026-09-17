@@ -8,10 +8,10 @@ final class PillViewModel: ObservableObject {
 
     @Published var latestItem: CaptureItem?
     @Published var items: [CaptureItem] = [] {
-        didSet { rebuildHistory() }
+        didSet { historySourceDidChange() }
     }
     @Published var textItems: [TextClipItem] = [] {
-        didSet { rebuildHistory() }
+        didSet { historySourceDidChange() }
     }
     @Published var selectedHistoryItem: ClipboardHistoryItem?
     @Published private(set) var thumbnailImages: [UUID: NSImage] = [:]
@@ -280,6 +280,33 @@ final class PillViewModel: ObservableObject {
         return historyItems.first
     }
 
+    private var isBatchingHistoryChanges = false
+
+    private func historySourceDidChange() {
+        guard !isBatchingHistoryChanges else { return }
+        rebuildHistory()
+    }
+
+    /// Applies changes to `items` and `textItems` without rebuilding the cache;
+    /// the caller then rebuilds or patches it once.
+    private func withoutHistoryRebuild(_ changes: () -> Void) {
+        isBatchingHistoryChanges = true
+        defer { isBatchingHistoryChanges = false }
+        changes()
+    }
+
+    /// Swaps in an item whose position in the newest-first order is unchanged.
+    private func replaceCachedHistoryItem(_ item: ClipboardHistoryItem) {
+        if let index = historyItems.firstIndex(where: { $0.id == item.id }) {
+            historyItems[index] = item
+        }
+        for filter in ClipboardHistoryFilter.allCases where filter.includes(item) {
+            if let index = historyItemsByFilter[filter]?.firstIndex(where: { $0.id == item.id }) {
+                historyItemsByFilter[filter]?[index] = item
+            }
+        }
+    }
+
     private func rebuildHistory() {
         historyItems = (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
             .sorted { $0.createdAt > $1.createdAt }
@@ -463,8 +490,17 @@ final class PillViewModel: ObservableObject {
     }
 
     func replaceHistory(screenshots: [CaptureItem], textClips: [TextClipItem]) {
-        items = screenshots
-        textItems = textClips
+        // Syncs usually find nothing new; unchanged arrays keep their cache and
+        // publish nothing.
+        let screenshotsChanged = items != screenshots
+        let textClipsChanged = textItems != textClips
+        if screenshotsChanged || textClipsChanged {
+            withoutHistoryRebuild {
+                if screenshotsChanged { items = screenshots }
+                if textClipsChanged { textItems = textClips }
+            }
+            rebuildHistory()
+        }
 
         if let selectedHistoryItem,
            !historyItems.contains(selectedHistoryItem) {
@@ -495,7 +531,12 @@ final class PillViewModel: ObservableObject {
 
     func updateScreenshot(_ item: CaptureItem) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index] = item
+        if items[index].createdAt == item.createdAt {
+            withoutHistoryRebuild { items[index] = item }
+            replaceCachedHistoryItem(.screenshot(item))
+        } else {
+            items[index] = item
+        }
 
         if latestItem?.id == item.id {
             latestItem = item

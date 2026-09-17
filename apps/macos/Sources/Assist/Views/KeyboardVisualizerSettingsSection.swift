@@ -26,6 +26,12 @@ struct KeyboardVisualizerSettingsSection: View {
 
             KeyboardVisualizerView(state: controller.visualizer, style: settings.configuration.visualizerStyle)
                 .frame(width: KeyboardVisualizerLayout.size.width)
+                // The Assist style shares this group's card color, so the
+                // preview needs its own edge.
+                .overlay {
+                    RoundedRectangle(cornerRadius: Tokens.Radius.medium)
+                        .strokeBorder(theme.border, lineWidth: Tokens.Control.borderWidth)
+                }
                 .padding(.vertical, Tokens.Spacing.small)
                 // The preview is centered in the group on purpose.
                 .frame(maxWidth: .infinity)
@@ -49,15 +55,11 @@ struct KeyboardVisualizerSettingsSection: View {
     }
 
     private func pickerRow<Control: View>(_ title: String, @ViewBuilder picker: () -> Control) -> some View {
-        HStack {
-            Text(title).font(Tokens.Typography.label())
-            Spacer()
+        SettingsRow(title) {
             picker()
                 .labelsHidden()
                 .frame(width: Tokens.Settings.pickerWidth)
                 .controlSize(.small)
         }
-        .padding(.horizontal, Tokens.Settings.rowInset)
-        .frame(height: Tokens.Settings.rowHeight)
     }
 }

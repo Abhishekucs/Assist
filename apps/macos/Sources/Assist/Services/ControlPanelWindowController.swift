@@ -38,8 +38,9 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
         appearanceSubscription = window.applyAssistChrome(background: .assistWindowSurface, appearanceFrom: settings)
 
         let hostingView = NSHostingView(
-            rootView: ControlPanelView(settings: settings, viewModel: pillViewModel, keyboardSounds: keyboardSounds)
-                .environment(\.titleBarInset, window.titleBarInset)
+            rootView: window.withTitleBarInset(
+                ControlPanelView(settings: settings, viewModel: pillViewModel, keyboardSounds: keyboardSounds)
+            )
         )
         // Without a safe area, the hosting view turns ControlPanelView's minimum
         // frame into the window's minimum size as-is.

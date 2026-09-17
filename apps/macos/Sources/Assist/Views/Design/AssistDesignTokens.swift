@@ -56,6 +56,10 @@ enum AssistDesignTokens {
         static let quietSurface: Double = 0.08
         static let hoverSurface: Double = 0.14
         static let destructiveHoverSurface: Double = 0.12
+        /// Foreground tints for hovered and selected rows and icon buttons, so
+        /// both read on whichever surface they sit on.
+        static let hoverFill: Double = 0.06
+        static let selectedFill: Double = 0.11
         /// Pressed and disabled buttons, fields, and icon buttons in app windows.
         static let pressedControl: Double = 0.76
         static let disabledControl: Double = 0.42
@@ -372,7 +376,8 @@ struct AssistTheme {
     var background: Color { isDark ? Color(hex: 0x202024) : .white }
     var sidebar: Color { isDark ? Color(hex: 0x19191D) : AssistDesignTokens.Palette.window }
     var card: Color { Color(rgb: cardComponents) }
-    var selected: Color { isDark ? Color(hex: 0x333239) : Color(hex: 0xEAE9ED) }
+    /// Resting keys in the Assist keyboard visualizer.
+    var keyFill: Color { isDark ? Color(hex: 0x333239) : Color(hex: 0xEAE9ED) }
     var foreground: Color { isDark ? Color(hex: 0xEEEEF2) : AssistDesignTokens.Palette.text }
     var muted: Color { isDark ? Color(hex: 0xABAAB3) : AssistDesignTokens.Palette.secondaryText }
     var dangerText: Color {
@@ -391,6 +396,8 @@ struct AssistTheme {
     /// spinner): a dark purple in light appearance, a light one in dark.
     var primaryButtonContentScheme: ColorScheme { isDark ? .light : .dark }
     var control: Color { Color(rgb: controlComponents) }
+    var hoverFill: Color { foreground.opacity(AssistDesignTokens.Opacity.hoverFill) }
+    var selectedFill: Color { foreground.opacity(AssistDesignTokens.Opacity.selectedFill) }
     var controlBorder: Color {
         isDark ? AssistDesignTokens.Palette.darkControlBorder : AssistDesignTokens.Palette.lightControlBorder
     }

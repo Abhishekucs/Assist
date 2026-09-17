@@ -32,8 +32,7 @@ final class LicenseActivationWindowController: NSWindowController, NSWindowDeleg
         appearanceSubscription = window.applyAssistChrome(background: .assistContentSurface, appearanceFrom: settings)
 
         let hostingController = NSHostingController(
-            rootView: LicenseActivationView(viewModel: viewModel)
-                .environment(\.titleBarInset, window.titleBarInset)
+            rootView: window.withTitleBarInset(LicenseActivationView(viewModel: viewModel))
         )
         // Without a safe area the window is exactly the view's size, and it
         // resizes with the view (for example, when an error needs more room).

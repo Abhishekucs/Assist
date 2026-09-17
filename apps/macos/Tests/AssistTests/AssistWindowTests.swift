@@ -87,6 +87,31 @@ final class AssistWindowTests: XCTestCase {
     }
 
     @MainActor
+    func testTitleBarInsetFollowsTheWindowsTitleBar() throws {
+        _ = NSApplication.shared
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.titlebarAppearsTransparent = true
+        let metrics = WindowTitleBarMetrics(window: window)
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+        let titleBarOnly = metrics.inset
+        XCTAssertGreaterThan(titleBarOnly, 0)
+
+        // A toolbar makes the title bar taller; removing it restores the height.
+        window.toolbar = NSToolbar(identifier: "AssistWindowTests")
+        XCTAssertTrue(waitUntil { metrics.inset > titleBarOnly }, "\(metrics.inset)")
+        XCTAssertEqual(metrics.inset, window.titleBarInset)
+        window.toolbar = nil
+        XCTAssertTrue(waitUntil { metrics.inset == titleBarOnly }, "\(metrics.inset)")
+    }
+
+    @MainActor
     func testWindowAppearanceFollowsTheSetting() throws {
         _ = NSApplication.shared
         let (settings, _, cleanUp) = try makeSettings(appearance: .system)
@@ -122,6 +147,7 @@ final class AssistWindowTests: XCTestCase {
 
     /// Settings in a throwaway defaults suite; light appearance unless stated,
     /// so rendered colors are predictable.
+    @MainActor
     private func makeSettings(appearance: AppAppearance = .light) throws -> (PillSettings, UserDefaults, () -> Void) {
         let suite = "Assist.AssistWindowTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

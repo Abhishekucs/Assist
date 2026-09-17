@@ -38,18 +38,20 @@ struct KeyboardSoundSettingsPane: View {
             }
 
             SettingsSection("Playback") {
-                HStack(spacing: Tokens.Spacing.large) {
-                    Text("Volume").font(Tokens.Typography.label())
-                    Slider(value: $settings.configuration.volume, in: 0...1)
-                        .controlSize(.small)
-                        .accessibilityLabel("Keyboard sound volume")
-                    Text("\(Int(settings.configuration.validated.volume * 100))%")
-                        .font(Tokens.Typography.caption().monospacedDigit())
-                        .foregroundStyle(theme.muted)
-                        .frame(width: 34, alignment: .trailing)
+                SettingsRow("Volume") {
+                    HStack(spacing: Tokens.Spacing.large) {
+                        Slider(value: $settings.configuration.volume, in: 0...1)
+                            .controlSize(.small)
+                            .accessibilityLabel("Keyboard sound volume")
+                        Text("\(Int(settings.configuration.validated.volume * 100))%")
+                            .font(Tokens.Typography.caption().monospacedDigit())
+                            .foregroundStyle(theme.muted)
+                            .frame(width: 34, alignment: .trailing)
+                    }
+                    // The slider takes the row's free width.
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(1)
                 }
-                .padding(.horizontal, Tokens.Settings.rowInset)
-                .frame(height: Tokens.Settings.rowHeight)
 
                 SettingToggleRow(title: "Stereo positioning", detail: "Follow each key from left to right.",
                                  isOn: $settings.configuration.stereo)

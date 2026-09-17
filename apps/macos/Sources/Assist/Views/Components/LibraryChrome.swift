@@ -32,7 +32,7 @@ struct LibrarySidebar: View {
                 ForEach(ClipboardHistoryFilter.allCases) { filter in
                     AssistNavigationRow(
                         title: filter.navigationTitle,
-                        icon: icon(for: filter),
+                        icon: filter.icon,
                         isSelected: selectedFilter == filter,
                         count: counts[filter, default: 0]
                     ) {
@@ -71,20 +71,6 @@ struct LibrarySidebar: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func icon(for filter: ClipboardHistoryFilter) -> HugeIconKind {
-        switch filter {
-        case .all: .grid
-        case .text: .document
-        case .images: .image
-        }
-    }
-}
-
-extension ClipboardHistoryFilter {
-    /// The library sidebar's label, which empty states refer to by name.
-    var navigationTitle: String {
-        self == .all ? "All history" : title
-    }
 }
 
 struct LibraryWelcomeHeader: View {
