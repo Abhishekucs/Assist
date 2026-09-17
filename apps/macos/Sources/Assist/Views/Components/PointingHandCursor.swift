@@ -3,25 +3,34 @@ import SwiftUI
 
 private struct PointingHandCursorModifier: ViewModifier {
     let isEnabled: Bool
+    @State private var isHovering = false
     @State private var isCursorPushed = false
 
     func body(content: Content) -> some View {
         content
             .onHover { isHovering in
-                if isHovering && isEnabled {
-                    guard !isCursorPushed else { return }
-                    NSCursor.pointingHand.push()
-                    isCursorPushed = true
-                } else if isCursorPushed {
-                    NSCursor.pop()
-                    isCursorPushed = false
-                }
+                self.isHovering = isHovering
+                updateCursor()
+            }
+            // A control can be enabled or disabled while the pointer rests on it.
+            .onChange(of: isEnabled) {
+                updateCursor()
             }
             .onDisappear {
-                guard isCursorPushed else { return }
-                NSCursor.pop()
-                isCursorPushed = false
+                isHovering = false
+                updateCursor()
             }
+    }
+
+    private func updateCursor() {
+        let wantsPointingHand = isHovering && isEnabled
+        if wantsPointingHand, !isCursorPushed {
+            NSCursor.pointingHand.push()
+            isCursorPushed = true
+        } else if !wantsPointingHand, isCursorPushed {
+            NSCursor.pop()
+            isCursorPushed = false
+        }
     }
 }
 

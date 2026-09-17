@@ -25,8 +25,12 @@ enum AssistDesignTokens {
         static let secondaryText = Color(hex: 0x66666D)
         static let separator = Color(hex: 0xEEEEF1)
         static let purple = Color(hex: 0x5142B8)
-        static let lavender = Color(hex: 0xEEEBFA)
+        static let lavenderComponents = RGBColorComponents(hex: 0xEEEBFA)
         static let darkPurple = Color(hex: 0xB6A9FF)
+        // Outlines for inputs, buttons, and option tiles keep at least 3:1
+        // against every surface they sit on (WCAG non-text contrast).
+        static let lightControlBorder = Color(hex: 0x84848C)
+        static let darkControlBorder = Color(hex: 0x807F88)
 
         static let warning = Color(hex: 0xFF751F)
         static let danger = Color(hex: 0xFF453A)
@@ -41,11 +45,15 @@ enum AssistDesignTokens {
         static let secondary: Double = 0.70
         static let muted: Double = 0.52
         static let subtle: Double = 0.36
+        /// Disabled glyphs on the island and editor's dark surfaces.
         static let disabled: Double = 0.34
         static let selectedStroke: Double = 0.72
         static let quietSurface: Double = 0.08
         static let hoverSurface: Double = 0.14
         static let destructiveHoverSurface: Double = 0.12
+        /// Pressed and disabled buttons, fields, and icon buttons in app windows.
+        static let pressedControl: Double = 0.76
+        static let disabledControl: Double = 0.42
     }
 
     enum Spacing {
@@ -63,7 +71,9 @@ enum AssistDesignTokens {
 
     enum Radius {
         static let small: CGFloat = 5
+        static let keycap: CGFloat = 6
         static let control: CGFloat = 7
+        static let iconButton: CGFloat = 8
         static let medium: CGFloat = 10
         static let large: CGFloat = 14
         static let window: CGFloat = 18
@@ -75,32 +85,92 @@ enum AssistDesignTokens {
         static let foreground = Palette.darkPurple
     }
 
+    /// Window chrome shared by the activation window and the library.
+    enum AppLayout {
+        static let sidebarWidth: CGFloat = 196
+        /// Inset of sidebar content, which also insets navigation row contents.
+        static let sidebarInset: CGFloat = 12
+        static let sidebarTopInset: CGFloat = 42
+        static let navigationRowHeight: CGFloat = 36
+        /// Gap between the window edge and the inset content pane.
+        static let paneInset: CGFloat = 8
+    }
+
     enum Settings {
         /// Shared leading and trailing inset for every row inside a settings group.
         static let rowInset: CGFloat = 16
+        static let rowHeight: CGFloat = 46
+        static let detailedRowHeight: CGFloat = 60
+        static let dialogSize = CGSize(width: 820, height: 560)
+        static let dialogInset: CGFloat = 22
+        static let columnSpacing: CGFloat = 28
+        /// Aligns the sidebar title with the page title beside it.
+        static let headerTopInset: CGFloat = 7
+        static let pickerWidth: CGFloat = 166
     }
 
     enum Control {
         static let compactHeight: CGFloat = 24
         static let regularHeight: CGFloat = 30
-        static let fieldHeight: CGFloat = 36
+        static let mediumHeight: CGFloat = 32
+        static let largeHeight: CGFloat = 36
+        static let heroHeight: CGFloat = 42
         static let iconButton: CGFloat = 30
+        static let largeIconButton: CGFloat = 34
         static let tooltipHeight: CGFloat = 22
+        static let borderWidth: CGFloat = 1
+        static let focusRingWidth: CGFloat = 2
     }
 
     enum Icon {
         static let small: CGFloat = 12
         static let regular: CGFloat = 14
+        static let medium: CGFloat = 15
+        static let navigation: CGFloat = 17
         static let feedback: CGFloat = 18
+        static let tile: CGFloat = 22
+        static let placeholder: CGFloat = 30
+        static let emptyState: CGFloat = 32
     }
 
     enum Typography {
+        /// Window headings.
+        static var largeTitle: Font {
+            .system(size: 24, weight: .medium)
+        }
+
+        /// The Assist wordmark.
         static var title: Font {
             .system(size: 20, weight: .medium)
         }
 
+        /// Prominent regular-weight guidance, such as the library welcome line.
+        static var display: Font {
+            .system(size: 20)
+        }
+
+        /// Settings page and empty-state headings.
+        static var pageTitle: Font {
+            .system(size: 17, weight: .medium)
+        }
+
+        /// Headings above a list, such as History.
+        static var sectionTitle: Font {
+            .system(size: 15, weight: .medium)
+        }
+
+        /// Navigation, row, and tile labels.
+        static func label(_ weight: Font.Weight = .regular) -> Font {
+            .system(size: 13, weight: weight)
+        }
+
+        /// Labels above a settings group or navigation list.
         static var section: Font {
-            .caption.weight(.medium)
+            .system(size: 12)
+        }
+
+        static var keycap: Font {
+            .system(size: 12, weight: .medium)
         }
 
         static func body(_ weight: Font.Weight = .regular) -> Font {
@@ -157,7 +227,9 @@ enum AssistDesignTokens {
         static let gridSpacing = Spacing.xLarge
         static let contentInset = Spacing.xxxLarge
         static let cardRadius = Radius.medium
-        static let selectionStroke: CGFloat = 1
+        static let borderStroke = Control.borderWidth
+        /// Thicker than the border, so selection is not signalled by color alone.
+        static let selectionStroke: CGFloat = 2
         static let actionInset = Spacing.xSmall
     }
 
@@ -286,7 +358,7 @@ struct AssistTheme {
     var isDark: Bool { colorScheme == .dark }
     var background: Color { isDark ? Color(hex: 0x202024) : .white }
     var sidebar: Color { isDark ? Color(hex: 0x19191D) : AssistDesignTokens.Palette.window }
-    var card: Color { Color(rgb: cardColorComponents) }
+    var card: Color { Color(rgb: cardComponents) }
     var selected: Color { isDark ? Color(hex: 0x333239) : Color(hex: 0xEAE9ED) }
     var foreground: Color { isDark ? Color(hex: 0xEEEEF2) : AssistDesignTokens.Palette.text }
     var muted: Color { isDark ? Color(hex: 0xABAAB3) : AssistDesignTokens.Palette.secondaryText }
@@ -295,11 +367,23 @@ struct AssistTheme {
     }
     var border: Color { isDark ? Color(hex: 0x38373E) : AssistDesignTokens.Palette.separator }
     var accent: Color { isDark ? AssistDesignTokens.Palette.darkPurple : AssistDesignTokens.Palette.purple }
-    var accentSurface: Color { isDark ? Color(hex: 0x353047) : AssistDesignTokens.Palette.lavender }
+    var accentSurface: Color { Color(rgb: accentSurfaceComponents) }
     var primaryButton: Color { AssistDesignTokens.Palette.purple }
-    var control: Color { isDark ? Color(hex: 0x2D2D33) : Color(hex: 0xF5F5F6) }
-    var cardColorComponents: RGBColorComponents {
+    var control: Color { Color(rgb: controlComponents) }
+    var controlBorder: Color {
+        isDark ? AssistDesignTokens.Palette.darkControlBorder : AssistDesignTokens.Palette.lightControlBorder
+    }
+
+    // Opaque surfaces as components, so text over translucent content (such as
+    // a clipboard color) can be judged against the surface actually behind it.
+    var cardComponents: RGBColorComponents {
         isDark ? RGBColorComponents(hex: 0x25252B) : .white
+    }
+    var controlComponents: RGBColorComponents {
+        isDark ? RGBColorComponents(hex: 0x2D2D33) : RGBColorComponents(hex: 0xF5F5F6)
+    }
+    var accentSurfaceComponents: RGBColorComponents {
+        isDark ? RGBColorComponents(hex: 0x353047) : AssistDesignTokens.Palette.lavenderComponents
     }
 }
 
@@ -314,11 +398,17 @@ extension EnvironmentValues {
     }
 }
 
-/// Compatibility gateway for existing views. New design values should be added
-/// to `AssistDesignTokens.Typography`, keeping this API intentionally thin.
+/// Call-site API for typography. Values live in `AssistDesignTokens.Typography`;
+/// each function here only forwards to one of them.
 enum AssistFont {
+    static func largeTitle() -> Font { AssistDesignTokens.Typography.largeTitle }
     static func title() -> Font { AssistDesignTokens.Typography.title }
+    static func display() -> Font { AssistDesignTokens.Typography.display }
+    static func pageTitle() -> Font { AssistDesignTokens.Typography.pageTitle }
+    static func sectionTitle() -> Font { AssistDesignTokens.Typography.sectionTitle }
+    static func label(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.label(weight) }
     static func section() -> Font { AssistDesignTokens.Typography.section }
+    static func keycap() -> Font { AssistDesignTokens.Typography.keycap }
     static func body(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.body(weight) }
     static func small(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.small(weight) }
     static func caption(_ weight: Font.Weight = .regular) -> Font { AssistDesignTokens.Typography.caption(weight) }

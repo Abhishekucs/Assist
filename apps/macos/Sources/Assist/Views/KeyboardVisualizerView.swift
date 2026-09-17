@@ -24,6 +24,14 @@ struct KeyboardVisualizerView: View {
         .padding(KeyboardVisualizerLayout.inset)
         .background(style == .assist ? theme.card : Color.black.opacity(0.8),
                     in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium))
+        // The Assist style shares the card color of the settings group that
+        // previews it, so it needs its own edge.
+        .overlay {
+            if style == .assist {
+                RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium)
+                    .strokeBorder(theme.border, lineWidth: AssistDesignTokens.Control.borderWidth)
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Keyboard visualizer, US layout")
         .accessibilityValue(state.isVisible ? "Live" : "Off")

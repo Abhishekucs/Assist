@@ -9,6 +9,7 @@ final class AssistWindowTests: XCTestCase {
         _ = NSApplication.shared
         let (settings, _, cleanUp) = try makeSettings()
         defer { cleanUp() }
+        settings.appAppearance = .light
         let controller = LicenseActivationWindowController(
             validationService: LicenseValidationService(),
             activationStore: LicenseActivationStore(),
@@ -19,12 +20,25 @@ final class AssistWindowTests: XCTestCase {
         let window = try XCTUnwrap(controller.window)
         let contentView = try XCTUnwrap(window.contentView)
         window.orderFront(nil)
-        settle()
 
-        XCTAssertEqual(window.frame.size, LicenseActivationView.size)
+        XCTAssertTrue(waitUntil { window.frame.size == LicenseActivationView.size }, "\(window.frame.size)")
         XCTAssertEqual(contentView.bounds.size, LicenseActivationView.size)
-        XCTAssertTrue(window.isOpaque)
-        XCTAssertEqual(try alpha(of: contentView, atPointFromTop: contentView.bounds.height - 1), 1, accuracy: 0.01)
+        // The form lays out from the window's top edge, under the transparent title bar.
+        let hostingController = try XCTUnwrap(window.contentViewController as? NSHostingController<LicenseActivationView>)
+        XCTAssertEqual(hostingController.safeAreaRegions, [])
+        // The title bar strip and the bottom edge are where an inset used to leave gaps.
+        let bounds = contentView.bounds
+        let samples = try colors(of: contentView, at: [
+            CGPoint(x: bounds.width - 4, y: 0.5),
+            CGPoint(x: 4, y: bounds.height - 0.5),
+            CGPoint(x: bounds.width - 4, y: bounds.height - 0.5),
+        ])
+        let background = AssistTheme(colorScheme: .light).background
+        for sample in samples {
+            XCTAssertEqual(sample.alphaComponent, 1)
+            XCTAssertTrue(sample.matches(background), "\(sample)")
+        }
+        XCTAssertTrue(try resolvedColor(of: window.backgroundColor, in: window).matches(background))
     }
 
     @MainActor
@@ -39,22 +53,27 @@ final class AssistWindowTests: XCTestCase {
             keyboardSounds: KeyboardSoundController(settings: KeyboardSoundSettings(defaults: defaults))
         )
         controller.showWindow()
-        let window = try XCTUnwrap(NSApp.windows.first { $0.contentView is NSHostingView<ControlPanelView> })
+        let window = try XCTUnwrap(NSApp.windows.first { $0.isVisible && $0.contentView is NSHostingView<ControlPanelView> })
         defer { window.close() }
-        settle()
 
-        XCTAssertEqual(window.contentMinSize, ControlPanelView.minimumSize)
+        XCTAssertTrue(
+            waitUntil { window.contentMinSize == ControlPanelView.minimumSize },
+            "contentMinSize is \(window.contentMinSize)"
+        )
         window.setFrame(NSRect(x: 0, y: 0, width: 400, height: 300), display: true)
-        settle()
-        XCTAssertEqual(window.frame.size, ControlPanelView.minimumSize)
-        XCTAssertTrue(window.isOpaque)
+        XCTAssertTrue(waitUntil { window.frame.size == ControlPanelView.minimumSize }, "\(window.frame.size)")
+        let surface = try resolvedColor(of: window.backgroundColor, in: window)
+        XCTAssertEqual(surface.alphaComponent, 1)
+        XCTAssertTrue(surface.matches(AssistTheme(colorScheme: window.effectiveAppearance.isDark ? .dark : .light).sidebar))
     }
 
     @MainActor
     func testWindowAppearanceFollowsTheSetting() throws {
+        _ = NSApplication.shared
         let (settings, _, cleanUp) = try makeSettings()
         defer { cleanUp() }
         let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
         let subscription = window.followAppearance(of: settings)
         defer { subscription.cancel() }
 
@@ -69,8 +88,7 @@ final class AssistWindowTests: XCTestCase {
 
     func testSidebarCountsEveryFilterInOnePass() {
         let text = TextClipItem(id: UUID(), createdAt: Date(), text: "hello")
-        let items: [ClipboardHistoryItem] = [.text(text)]
-        let counts = LibrarySidebar.counts(for: items)
+        let counts = LibrarySidebar.counts(for: [.text(text)])
 
         XCTAssertEqual(counts[.all], 1)
         XCTAssertEqual(counts[.text], 1)
@@ -83,18 +101,51 @@ final class AssistWindowTests: XCTestCase {
         return (PillSettings(defaults: defaults), defaults, { defaults.removePersistentDomain(forName: suite) })
     }
 
+    /// Spins the run loop until `condition` holds, so layout passes finish
+    /// without a fixed delay; returns false after `timeout`.
     @MainActor
-    private func settle() {
-        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+    private func waitUntil(timeout: TimeInterval = 5, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() {
+            guard Date() < deadline else { return false }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        return true
     }
 
+    /// sRGB colors of the view's rendering at points measured from its top-left.
     @MainActor
-    private func alpha(of view: NSView, atPointFromTop y: CGFloat) throws -> CGFloat {
+    private func colors(of view: NSView, at points: [CGPoint]) throws -> [NSColor] {
         view.layoutSubtreeIfNeeded()
         let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
         view.cacheDisplay(in: view.bounds, to: rep)
         let scale = CGFloat(rep.pixelsHigh) / view.bounds.height
-        let row = min(rep.pixelsHigh - 1, Int(y * scale))
-        return try XCTUnwrap(rep.colorAt(x: rep.pixelsWide / 2, y: row)).alphaComponent
+        return try points.map { point in
+            let x = min(rep.pixelsWide - 1, Int(point.x * scale))
+            let y = min(rep.pixelsHigh - 1, Int(point.y * scale))
+            return try XCTUnwrap(rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
+        }
+    }
+
+    @MainActor
+    private func resolvedColor(of color: NSColor, in window: NSWindow) throws -> NSColor {
+        var resolved: NSColor?
+        window.effectiveAppearance.performAsCurrentDrawingAppearance {
+            resolved = color.usingColorSpace(.sRGB)
+        }
+        return try XCTUnwrap(resolved)
+    }
+}
+
+private extension NSAppearance {
+    var isDark: Bool { bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+}
+
+private extension NSColor {
+    func matches(_ color: Color, tolerance: CGFloat = 0.02) -> Bool {
+        guard let expected = NSColor(color).usingColorSpace(.sRGB) else { return false }
+        return abs(redComponent - expected.redComponent) <= tolerance
+            && abs(greenComponent - expected.greenComponent) <= tolerance
+            && abs(blueComponent - expected.blueComponent) <= tolerance
     }
 }

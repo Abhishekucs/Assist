@@ -1,5 +1,7 @@
 import SwiftUI
 
+private typealias Tokens = AssistDesignTokens
+
 struct KeyboardSoundSettingsPane: View {
     @ObservedObject var controller: KeyboardSoundController
     @ObservedObject private var settings: KeyboardSoundSettings
@@ -30,44 +32,49 @@ struct KeyboardSoundSettingsPane: View {
             statusMessage
 
             SettingsSection("Sound pack") {
-                VStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.large) {
                     TextField("Find a sound or switch", text: $search)
                         .assistTextField()
                         .accessibilityLabel("Find a sound or switch")
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    LazyVGrid(
+                        columns: [GridItem(.flexible()), GridItem(.flexible())],
+                        spacing: Tokens.Spacing.small
+                    ) {
                         ForEach(matchingPacks) { pack in
                             soundPack(pack)
                         }
                     }
                     if matchingPacks.isEmpty {
                         Text("No sounds match your search.")
-                            .font(.caption).foregroundStyle(theme.muted)
-                            .padding(.vertical, 12)
+                            .font(AssistFont.caption())
+                            .foregroundStyle(theme.muted)
+                            .padding(.vertical, Tokens.Spacing.large)
                     }
                 }
-                .padding(12)
+                .padding(.horizontal, Tokens.Settings.rowInset)
+                .padding(.vertical, Tokens.Spacing.large)
             }
 
             SettingsSection("Playback") {
-                HStack(spacing: 12) {
-                    Text("Volume").font(.system(size: 13))
+                HStack(spacing: Tokens.Spacing.large) {
+                    Text("Volume").font(AssistFont.label())
                     Slider(value: $settings.configuration.volume, in: 0...1)
                         .controlSize(.small)
                         .accessibilityLabel("Keyboard sound volume")
                     Text("\(Int(settings.configuration.validated.volume * 100))%")
-                        .font(.caption.monospacedDigit())
+                        .font(AssistFont.caption().monospacedDigit())
                         .foregroundStyle(theme.muted)
                         .frame(width: 34, alignment: .trailing)
                 }
-                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
-                .frame(height: 40)
+                .padding(.horizontal, Tokens.Settings.rowInset)
+                .frame(height: Tokens.Settings.rowHeight)
 
                 SettingToggleRow(title: "Stereo positioning", detail: "Follow each key from left to right.",
                                  isOn: $settings.configuration.stereo)
             }
 
             Text("Keyboard feedback stays on your Mac. Typed text is never saved. Sounds and the visualizer pause while Assist records voice context.")
-                .font(.caption)
+                .font(AssistFont.caption())
                 .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -76,17 +83,18 @@ struct KeyboardSoundSettingsPane: View {
 
     private func soundPack(_ pack: KeyboardSoundPack) -> some View {
         let selected = settings.configuration.pack == pack
-        return HStack(spacing: 4) {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.control)
+        return HStack(spacing: Tokens.Spacing.xxSmall) {
             Button {
                 settings.configuration.pack = pack
             } label: {
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 6) {
-                        Text(pack.title).font(.system(size: 13))
-                        if selected { HugeIcon(.check, size: 12, color: theme.accent) }
+                    HStack(spacing: Tokens.Spacing.xSmall) {
+                        Text(pack.title).font(AssistFont.label(selected ? .medium : .regular))
+                        if selected { HugeIcon(.check, size: Tokens.Icon.small, color: theme.accent) }
                     }
                     Text(pack.detail)
-                        .font(.caption)
+                        .font(AssistFont.caption())
                         .foregroundStyle(theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -105,40 +113,50 @@ struct KeyboardSoundSettingsPane: View {
             .disabled(controller.status == .recording || controller.status == .suspended)
         }
         .foregroundStyle(theme.foreground)
-        .padding(.leading, 12)
-        .padding(.trailing, 6)
-        .padding(.vertical, 8)
-        .background(selected ? theme.accentSurface : theme.control,
-                    in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.control))
+        .padding(.leading, Tokens.Spacing.large)
+        .padding(.trailing, Tokens.Spacing.xSmall)
+        .padding(.vertical, Tokens.Spacing.small)
+        .background(selected ? theme.accentSurface : theme.control, in: shape)
+        .overlay {
+            shape.strokeBorder(selected ? theme.accent : theme.controlBorder, lineWidth: Tokens.Control.borderWidth)
+        }
     }
 
     @ViewBuilder
     private var statusMessage: some View {
         if let error = controller.previewError {
-            Text(error).font(.caption).foregroundStyle(theme.muted)
+            Text(error)
+                .font(AssistFont.caption())
+                .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         switch controller.status {
         case .needsPermission:
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
                 Text("Allow Input Monitoring for keyboard sounds and the visualizer in other apps. You can preview every sound pack here first.")
-                    .font(.caption).foregroundStyle(theme.muted)
+                    .font(AssistFont.caption())
+                    .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Allow Input Monitoring") { controller.requestPermission() }
                     .buttonStyle(AssistButtonStyle())
             }
         case .recording:
             Text("Paused while Assist records voice context.")
-                .font(.caption).foregroundStyle(theme.muted)
+                .font(AssistFont.caption())
+                .foregroundStyle(theme.muted)
         case let .failed(message):
-            VStack(alignment: .leading, spacing: 8) {
-                Text(message).font(.caption).foregroundStyle(theme.muted)
+            VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
+                Text(message)
+                    .font(AssistFont.caption())
+                    .foregroundStyle(theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Retry") { controller.refresh() }.buttonStyle(AssistButtonStyle())
+                Button("Retry") { controller.refresh() }
+                    .buttonStyle(AssistButtonStyle())
             }
         case .suspended:
             Text("Paused while this Mac is inactive.")
-                .font(.caption).foregroundStyle(theme.muted)
+                .font(AssistFont.caption())
+                .foregroundStyle(theme.muted)
         case .off, .ready:
             EmptyView()
         }

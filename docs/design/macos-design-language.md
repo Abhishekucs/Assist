@@ -16,11 +16,14 @@ separated by fine rules.
 | Secondary text | `#66666D` | Descriptions and section labels |
 | Accent | `#5142B8` | Primary actions and active controls |
 | Accent surface | `#EEEBFA` | Keycaps and selected content |
+| Control outline | `#84848C` | Text fields, secondary buttons, option tiles |
 
 These are reference-derived approximations, not a source design-token export.
 Secondary text is darker than the sampled `#85858C` so captions keep at least
 4.5:1 contrast on every light surface, including selection and lavender. Error
 text uses `AssistTheme.dangerText` rather than the brighter destructive icon red.
+Control outlines keep at least 3:1 against every surface they sit on (`#807F88`
+in dark appearance), so inputs and buttons read as controls.
 
 Dark appearance preserves the hierarchy with charcoal surfaces and a lighter
 lavender foreground. Window controllers apply the Light, Dark, or System
@@ -30,26 +33,42 @@ appearance. `AssistAppSurface` builds the theme from the resulting color scheme.
 
 ## Type and layout
 
-Use the native system sans serif, predominantly regular weight. Window headings
-are 20–24 pt; settings headings are 17 pt; navigation and row labels are 13 pt;
-supporting text is 11–12 pt. Keep text left aligned and use weight sparingly.
+Use the native system sans serif, predominantly regular weight, through
+`AssistFont`: window headings are 24 pt (`largeTitle`) and the wordmark 20 pt
+(`title`); settings and empty-state headings are 17 pt (`pageTitle`); list
+headings are 15 pt (`sectionTitle`); navigation, row, and tile labels are 13 pt
+(`label`); group labels are 12 pt (`section`); supporting text uses `caption`.
+Keep text left aligned and use weight sparingly. Rows in a settings group are
+leading-aligned; a preview that should be centered says so with its own frame.
 
-The main window has a 196 pt navigation rail and a flexible inset content pane.
-The library keeps its screenshot/text grid and exposes the existing filters in
-the rail. Shortcut guidance sits above history. Settings use a 196 pt navigation
-column beside scrollable groups. Activation uses the same two-column hierarchy.
+The main window has a 196 pt navigation rail (`AssistDesignTokens.AppLayout`)
+with the wordmark on top, beside a content surface inset 8 pt from the window
+edge. The library keeps its screenshot/text grid and exposes the existing
+filters in the rail. Shortcut guidance sits above history. Settings use a 196 pt
+navigation column beside scrollable groups.
 
-Controls use 7 pt radii, groups use 14 pt, and inset window/dialog surfaces use
-18 pt. Rows inside a settings group share a 16 pt inset
-(`AssistDesignTokens.Settings.rowInset`). Borders only delineate a settings
-group, input action, or selection; focused text fields show an accent ring.
-Chips and keycaps have no outline. Shadows are low contrast. Standalone icons
-remain transparent until hover; actions that float over previews keep a card
-backing. Destructive icons remain red.
+Activation is a single focused form on the content surface, with no rail: the
+welcome heading, a line about the purchase receipt, the license key field with
+any error below it, and Quit and Activate Assist at the bottom.
+
+Radii come from `AssistDesignTokens.Radius`: keycaps 6 pt, controls 7 pt, icon
+buttons 8 pt, cards 10 pt, groups 14 pt, and inset window/dialog surfaces 18 pt.
+Rows inside a settings group share a 16 pt inset
+(`AssistDesignTokens.Settings.rowInset`).
+
+Borders delineate settings groups and history cards (a hairline), and text
+fields, secondary buttons, and option tiles (the control outline). Focused text
+fields show an accent ring, and the whole field box accepts clicks. Selection
+never relies on color alone: selected tiles add a check mark, selected cards a
+heavier accent stroke, and selected navigation rows a medium weight and accent
+icon. Chips and keycaps have no outline. Shadows are low contrast. Standalone
+icons remain transparent until hover and dim when disabled; actions that float
+over previews keep a card backing. Destructive icons remain red.
 
 Windows draw under a transparent title bar with no SwiftUI safe area, so each
 window is exactly its view's frame (or, for the main window, its minimum frame).
-Window backgrounds use the opaque `NSColor.assistWindowSurface`.
+Window backgrounds match the surface they host: `NSColor.assistWindowSurface`
+for the library frame and `NSColor.assistContentSurface` for activation.
 
 ## Shared components
 
@@ -58,7 +77,10 @@ Window backgrounds use the opaque `NSColor.assistWindowSurface`.
 - `NSWindow.followAppearance(of:)`: applies the persisted appearance preference.
 - `AssistButtonStyle`, `assistTextField()`, `AssistKeycap`, `AssistNavigationRow`:
   common controls.
-- `SettingsSection`, `SettingToggleRow`, `SettingsDialog`: grouped settings.
+- `HugeIcon`: bundled icons; without an explicit color they take the
+  surrounding foreground style.
+- `SettingsSection`, `SettingToggleRow`, `SettingsDialog`: grouped settings. The
+  dialog paints the only settings background and is modal for VoiceOver.
 - `LibrarySidebar` and `LibraryWelcomeHeader`: library chrome and guidance.
 
 The notch retains its black silhouette to meet the display edge. Its selected

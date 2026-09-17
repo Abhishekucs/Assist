@@ -24,10 +24,18 @@ extension NSWindow {
 }
 
 extension NSColor {
-    /// The theme's outer surface for whichever appearance the window resolves to,
-    /// so an Assist window never has an unpainted, see-through region.
-    static let assistWindowSurface = NSColor(name: nil) { appearance in
-        let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        return NSColor(AssistTheme(colorScheme: isDark ? .dark : .light).sidebar)
+    // A window's background matches the SwiftUI surface it hosts, resolved for
+    // whichever appearance the window uses, so no region is ever see-through.
+
+    /// The library window's outer frame behind its sidebar.
+    static let assistWindowSurface = assistThemeColor(\.sidebar)
+    /// The activation window, which is a single content surface.
+    static let assistContentSurface = assistThemeColor(\.background)
+
+    private static func assistThemeColor(_ role: KeyPath<AssistTheme, Color> & Sendable) -> NSColor {
+        NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return NSColor(AssistTheme(colorScheme: isDark ? .dark : .light)[keyPath: role])
+        }
     }
 }

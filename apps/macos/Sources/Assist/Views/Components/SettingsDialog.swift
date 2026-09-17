@@ -1,5 +1,7 @@
 import SwiftUI
 
+private typealias Tokens = AssistDesignTokens
+
 struct SettingsDialog<Content: View>: View {
     let onClose: () -> Void
     let content: Content
@@ -17,11 +19,13 @@ struct SettingsDialog<Content: View>: View {
             // A shortcut, unlike onExitCommand, fires without focus inside the dialog.
             HugeIconButton(kind: .close, tooltip: "Close settings", action: onClose)
                 .keyboardShortcut(.cancelAction)
-                .padding(.top, 10)
-                .padding(.trailing, 10)
+                .padding(.top, Tokens.Spacing.medium)
+                .padding(.trailing, Tokens.Spacing.medium)
         }
         .background(theme.background)
-        .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.window, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.window, style: .continuous))
         .shadow(color: .black.opacity(theme.isDark ? 0.28 : 0.12), radius: 28, y: 14)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
     }
 }

@@ -1,5 +1,7 @@
 import SwiftUI
 
+private typealias Tokens = AssistDesignTokens
+
 struct KeyboardVisualizerSettingsSection: View {
     @ObservedObject var controller: KeyboardSoundController
     @ObservedObject private var settings: KeyboardSoundSettings
@@ -14,47 +16,48 @@ struct KeyboardVisualizerSettingsSection: View {
         SettingsSection("Keyboard visualizer") {
             SettingToggleRow(title: "Show keyboard while typing", detail: "Appears as you type and hides after one second of inactivity.",
                              isOn: $settings.configuration.visualizerEnabled)
-            HStack {
-                Text("Keyboard design").font(.system(size: 13))
-                Spacer()
+            pickerRow("Keyboard design") {
                 Picker("Keyboard design", selection: $settings.configuration.visualizerStyle) {
                     ForEach(KeyboardVisualizerStyle.allCases) { style in
                         Text(style.title).tag(style)
                     }
                 }
-                .labelsHidden()
-                .frame(width: 166)
-                .controlSize(.small)
             }
-            .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
-            .frame(height: 36)
 
             KeyboardVisualizerView(state: controller.visualizer, style: settings.configuration.visualizerStyle)
                 .frame(width: KeyboardVisualizerLayout.size.width)
-                .padding(.vertical, 8)
+                .padding(.vertical, Tokens.Spacing.small)
+                // The preview is centered in the group on purpose.
+                .frame(maxWidth: .infinity)
 
             if settings.configuration.visualizerEnabled {
-                HStack {
-                    Text("Position").font(.system(size: 13))
-                    Spacer()
+                pickerRow("Position") {
                     Picker("Visualizer position", selection: $settings.configuration.visualizerPosition) {
                         ForEach(KeyboardVisualizerPosition.allCases) { position in
                             Text(position.title).tag(position)
                         }
                     }
-                    .labelsHidden()
-                    .frame(width: 166)
-                    .controlSize(.small)
                 }
-                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
-                .frame(height: 36)
             }
             Text("US keyboard layout. Works with sounds off. Clicks pass through to the app underneath.")
-                .font(.caption)
+                .font(AssistFont.caption())
                 .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Tokens.Settings.rowInset)
+                .padding(.bottom, Tokens.Spacing.small)
         }
+    }
+
+    private func pickerRow<Control: View>(_ title: String, @ViewBuilder picker: () -> Control) -> some View {
+        HStack {
+            Text(title).font(AssistFont.label())
+            Spacer()
+            picker()
+                .labelsHidden()
+                .frame(width: Tokens.Settings.pickerWidth)
+                .controlSize(.small)
+        }
+        .padding(.horizontal, Tokens.Settings.rowInset)
+        .frame(height: Tokens.Settings.rowHeight)
     }
 }

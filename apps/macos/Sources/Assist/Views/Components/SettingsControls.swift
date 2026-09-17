@@ -1,5 +1,9 @@
 import SwiftUI
 
+private typealias Tokens = AssistDesignTokens
+
+/// A scrolling settings page. It draws no background of its own; the settings
+/// dialog paints the surface behind it.
 struct SettingsDetailPage<Content: View>: View {
     let title: String
     let subtitle: String?
@@ -14,11 +18,12 @@ struct SettingsDetailPage<Content: View>: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xxxLarge) {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
                     Text(title)
-                        .font(.system(size: 17, weight: .medium))
+                        .font(AssistFont.pageTitle())
                         .foregroundStyle(theme.foreground)
+                        .accessibilityAddTraits(.isHeader)
 
                     if let subtitle {
                         Text(subtitle)
@@ -27,18 +32,19 @@ struct SettingsDetailPage<Content: View>: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.top, 7)
+                .padding(.top, Tokens.Settings.headerTopInset)
 
                 content
             }
-            .padding(.trailing, 10)
-            .padding(.bottom, 24)
+            .padding(.trailing, Tokens.Spacing.medium)
+            .padding(.bottom, Tokens.Spacing.xxxLarge)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .background(theme.background)
     }
 }
 
+/// A labeled, outlined settings group. Rows are leading-aligned; a row that
+/// should be centered, such as a preview, sets its own full-width frame.
 struct SettingsSection<Content: View>: View {
     let title: String
     let content: Content
@@ -50,26 +56,26 @@ struct SettingsSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.large)
+        VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
             Text(title)
-                .font(.system(size: 12))
+                .font(AssistFont.section())
                 .foregroundStyle(theme.muted)
-                .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
+                .padding(.horizontal, Tokens.Settings.rowInset)
+                .accessibilityAddTraits(.isHeader)
 
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 content
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 4)
-            .background(theme.card, in: RoundedRectangle(cornerRadius: 14))
+            .padding(.vertical, Tokens.Spacing.xxSmall)
+            .background(theme.card, in: shape)
             .overlay {
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(theme.border.opacity(0.8), lineWidth: 1)
+                shape.strokeBorder(theme.border, lineWidth: Tokens.Control.borderWidth)
             }
         }
     }
 }
-
 
 struct SettingToggleRow: View {
     let title: String
@@ -84,21 +90,21 @@ struct SettingToggleRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: Tokens.Settings.rowInset) {
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall) {
                 Text(title)
-                    .font(.system(size: 13))
+                    .font(AssistFont.label())
                     .foregroundStyle(theme.foreground)
 
                 if let detail {
                     Text(detail)
-                        .font(.caption)
+                        .font(AssistFont.caption())
                         .foregroundStyle(theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            Spacer(minLength: 16)
+            Spacer(minLength: Tokens.Settings.rowInset)
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
@@ -108,7 +114,7 @@ struct SettingToggleRow: View {
                 .controlSize(.small)
                 .pointingHandCursor()
         }
-        .padding(.horizontal, AssistDesignTokens.Settings.rowInset)
-        .frame(minHeight: detail == nil ? 46 : 60)
+        .padding(.horizontal, Tokens.Settings.rowInset)
+        .frame(minHeight: detail == nil ? Tokens.Settings.rowHeight : Tokens.Settings.detailedRowHeight)
     }
 }

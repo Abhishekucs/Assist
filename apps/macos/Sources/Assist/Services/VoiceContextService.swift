@@ -309,7 +309,8 @@ final class VoiceContextService: ObservableObject {
     private static let sampleRate = 16_000
     private static let maximumSampleCount = sampleRate * 90
 
-    private let modelsDirectory: URL
+    /// Where the downloaded voice model is stored; shown in setup text.
+    let modelsDirectory: URL
     private let manifestURL: URL
     private let transcriber = WhisperTranscriber()
     private let audioRecorder: any VoiceAudioRecording

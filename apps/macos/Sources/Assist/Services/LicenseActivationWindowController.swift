@@ -37,7 +37,7 @@ final class LicenseActivationWindowController: NSWindowController, NSWindowDeleg
         window.title = "\(AppIdentity.name) Activation"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = .assistWindowSurface
+        window.backgroundColor = .assistContentSurface
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.contentViewController = hostingController

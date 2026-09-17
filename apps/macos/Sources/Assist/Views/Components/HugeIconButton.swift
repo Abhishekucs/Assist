@@ -5,23 +5,28 @@ struct HugeIconButton: View {
     let tooltip: String
     let action: () -> Void
     @Environment(\.assistTheme) private var theme
+    @Environment(\.isEnabled) private var isEnabled
     @State private var isHovered = false
 
     var body: some View {
         Button(action: action) {
-            HugeIcon(kind, size: 18, color: theme.muted)
-                .frame(width: 34, height: 34)
-                .background(backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            HugeIcon(kind, size: AssistDesignTokens.Icon.feedback, color: theme.muted)
+                .frame(width: AssistDesignTokens.Control.largeIconButton, height: AssistDesignTokens.Control.largeIconButton)
+                .background(
+                    backgroundColor,
+                    in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.iconButton, style: .continuous)
+                )
+                .opacity(isEnabled ? 1 : AssistDesignTokens.Opacity.disabledControl)
         }
         .buttonStyle(.plain)
         .help(tooltip)
         .accessibilityLabel(tooltip)
-        .pointingHandCursor()
+        .pointingHandCursor(isEnabled: isEnabled)
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .animation(AssistDesignTokens.Motion.quick, value: isHovered)
     }
 
     private var backgroundColor: Color {
-        isHovered ? theme.selected.opacity(theme.isDark ? 0.62 : 0.78) : .clear
+        isHovered && isEnabled ? theme.selected.opacity(theme.isDark ? 0.62 : 0.78) : .clear
     }
 }
