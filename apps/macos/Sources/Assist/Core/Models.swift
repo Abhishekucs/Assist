@@ -81,10 +81,7 @@ struct ClipboardColorCode: Equatable {
             green: green * alpha + surface.green * (1 - alpha),
             blue: blue * alpha + surface.blue * (1 - alpha)
         )
-        let luminance = Self.relativeLuminance(of: composited)
-        let blackContrast = (luminance + 0.05) / 0.05
-        let whiteContrast = 1.05 / (luminance + 0.05)
-        return blackContrast >= whiteContrast
+        return ColorContrast.ratio(composited, .black) >= ColorContrast.ratio(composited, .white)
     }
 
     init?(_ rawValue: String) {
@@ -122,20 +119,6 @@ struct ClipboardColorCode: Equatable {
         displayValue = "#" + expanded.uppercased()
     }
 
-    private static func relativeLuminance(of color: RGBColorComponents) -> Double {
-        let red = linearizedSRGB(color.red)
-        let green = linearizedSRGB(color.green)
-        let blue = linearizedSRGB(color.blue)
-        return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
-    }
-
-    private static func linearizedSRGB(_ component: Double) -> Double {
-        let component = min(max(component, 0), 1)
-        if component <= 0.04045 {
-            return component / 12.92
-        }
-        return pow((component + 0.055) / 1.055, 2.4)
-    }
 }
 
 enum ClipboardHistoryItem: Identifiable, Equatable {

@@ -25,12 +25,29 @@ struct ControlPanelView: View {
                         openSettings: { isSettingsDialogPresented = true }
                     )
 
+                    // The library sits below the title bar; only its pane
+                    // surface (behind) reaches up under it.
                     CaptureLibraryView(viewModel: viewModel, selectedFilter: $selectedFilter)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .background(theme.background)
-                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.window))
-                        .padding(.vertical, Tokens.AppLayout.paneInset)
+                        .clipShape(
+                            UnevenRoundedRectangle(
+                                bottomLeadingRadius: Tokens.Radius.window,
+                                bottomTrailingRadius: Tokens.Radius.window
+                            )
+                        )
+                        .padding(.bottom, Tokens.AppLayout.paneInset)
                         .padding(.trailing, Tokens.AppLayout.paneInset)
+                }
+                .background {
+                    HStack(spacing: 0) {
+                        Color.clear
+                            .frame(width: Tokens.AppLayout.sidebarWidth)
+                        RoundedRectangle(cornerRadius: Tokens.Radius.window)
+                            .fill(theme.background)
+                            .padding(.vertical, Tokens.AppLayout.paneInset)
+                            .padding(.trailing, Tokens.AppLayout.paneInset)
+                    }
+                    .ignoresSafeArea()
                 }
                 .disabled(isSettingsDialogPresented)
                 .accessibilityHidden(isSettingsDialogPresented)
@@ -52,6 +69,7 @@ struct ControlPanelView: View {
                     .transition(.opacity)
                 }
             }
+            .titleBarSafeArea()
             .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
             .background(theme.sidebar)
             .animation(reduceMotion ? nil : Tokens.Motion.quick, value: isSettingsDialogPresented)
@@ -168,7 +186,6 @@ private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
     @Binding var selectedFilter: ClipboardHistoryFilter
     @Environment(\.assistTheme) private var theme
-    @Environment(\.titleBarInset) private var titleBarInset
 
     private var columns: [GridItem] {
         [
@@ -189,7 +206,7 @@ private struct CaptureLibraryView: View {
         VStack(alignment: .leading, spacing: 0) {
             LibraryWelcomeHeader()
                 .padding(.horizontal, LibraryTokens.contentInset)
-                .padding(.top, headerTopInset)
+                .padding(.top, LibraryTokens.headerTopInset)
                 .padding(.bottom, LibraryTokens.contentInset)
 
             if let issue = viewModel.captureIssue {
@@ -223,15 +240,6 @@ private struct CaptureLibraryView: View {
                 }
             }
         }
-    }
-
-    /// The pane starts `paneInset` below the window's top edge, under the title
-    /// bar, so the header clears whatever part of the title bar overlaps it.
-    private var headerTopInset: CGFloat {
-        max(
-            LibraryTokens.headerTopInset,
-            titleBarInset - Tokens.AppLayout.paneInset + Tokens.Spacing.small
-        )
     }
 
     private func historyHeader(count: Int) -> some View {
@@ -481,7 +489,6 @@ private struct CaptureLibraryCard: View {
 private struct DeleteIconButton: View {
     @Binding var isHovered: Bool
     let action: () -> Void
-    @Environment(\.assistTheme) private var theme
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Tokens.Radius.iconButton, style: .continuous)
@@ -492,13 +499,9 @@ private struct DeleteIconButton: View {
                 color: Tokens.Palette.danger.opacity(isHovered ? 1 : Tokens.Opacity.primary)
             )
             .frame(width: Tokens.Control.largeIconButton, height: Tokens.Control.largeIconButton)
-            // Keeps the icon legible over busy thumbnails.
-            .background {
-                shape
-                    .fill(theme.card)
-                    .overlay { shape.fill(hoverTint) }
-                    .shadow(color: .black.opacity(theme.isDark ? 0.24 : 0.1), radius: 3, y: 1)
-            }
+            // Icon-only buttons stay transparent until hovered (AGENTS.md);
+            // delete shows a light red hover background.
+            .background(hoverTint, in: shape)
         }
         .buttonStyle(.plain)
         .help("Delete item")
@@ -570,7 +573,14 @@ private struct SettingsActionButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: Tokens.Spacing.small) {
-                HugeIcon(icon, size: Tokens.Icon.regular)
+                // A busy button stays legible, so it shows its progress in place.
+                if isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: Tokens.Icon.regular, height: Tokens.Icon.regular)
+                } else {
+                    HugeIcon(icon, size: Tokens.Icon.regular)
+                }
                 Text(title)
             }
         }
@@ -651,7 +661,7 @@ private struct CaptureSettingsPane: View {
                         RowDivider()
                     }
                     SettingsRow(shortcut.title, detail: shortcut.detail) {
-                        AssistKeycapRow(keys: shortcut.keys)
+                        AssistKeycapRow(keys: shortcut.keyNames)
                     }
                 }
             }
@@ -915,19 +925,11 @@ private struct UpdatesSettingsPane: View {
                         }
 
                         if let updateStatusText = viewModel.updateStatusText {
-                            HStack(alignment: .top, spacing: Tokens.Spacing.small) {
-                                if viewModel.isCheckingForUpdates {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                        .padding(.top, 1)
-                                }
-
-                                Text(updateStatusText)
-                                    .font(Tokens.Typography.small(.medium))
-                                    .foregroundStyle(theme.muted)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .transition(.opacity)
+                            Text(updateStatusText)
+                                .font(Tokens.Typography.small(.medium))
+                                .foregroundStyle(theme.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .transition(.opacity)
                         }
                     }
                 }

@@ -211,6 +211,11 @@ enum AssistDesignTokens {
             .footnote.weight(weight)
         }
 
+        /// The smallest island labels, such as a capture's context.md preview.
+        static func micro(_ weight: Font.Weight = .regular) -> Font {
+            .system(size: 8.5, weight: weight)
+        }
+
         static var mono: Font {
             .system(.caption, design: .monospaced).weight(.medium)
         }
@@ -285,7 +290,8 @@ enum AssistDesignTokens {
         static let cardHeight: CGFloat = 136
         static let gridSpacing = Spacing.xLarge
         static let contentInset = Spacing.xxxLarge
-        static let headerTopInset: CGFloat = 32
+        /// Space between the title bar and the library header.
+        static let headerTopInset = Spacing.small
         static let cardRadius = Radius.medium
         static let borderStroke = Control.borderWidth
         /// Thicker than the border, so selection is not signalled by color alone.

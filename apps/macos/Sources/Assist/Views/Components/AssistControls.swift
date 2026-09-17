@@ -37,9 +37,19 @@ struct AssistButtonStyle: ButtonStyle {
     }
 }
 
+/// Whether a text field inside the view is being edited, so containers can
+/// leave Esc to the field.
+struct AssistTextFieldEditingKey: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
 /// Plain text field chrome: an outlined box that focuses the field anywhere
-/// inside it and shows an accent ring while focused. When disabled, only the
-/// box dims; AppKit already dims the field's text.
+/// inside it and shows an accent ring while focused. Esc ends editing. When
+/// disabled, only the box dims; AppKit already dims the field's text.
 private struct AssistTextFieldChrome: ViewModifier {
     let height: CGFloat
     @Environment(\.assistTheme) private var theme
@@ -64,6 +74,12 @@ private struct AssistTextFieldChrome: ViewModifier {
             // needs its own tap target to focus the field.
             .contentShape(shape)
             .onTapGesture { isFocused = true }
+            .onKeyPress(.escape) {
+                guard isFocused else { return .ignored }
+                isFocused = false
+                return .handled
+            }
+            .preference(key: AssistTextFieldEditingKey.self, value: isFocused)
             .animation(Tokens.Motion.quick, value: isFocused)
     }
 

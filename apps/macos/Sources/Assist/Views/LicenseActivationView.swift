@@ -51,7 +51,6 @@ struct LicenseActivationView: View {
     static let errorLineLimit = 4
 
     @ObservedObject var viewModel: LicenseActivationViewModel
-    @Environment(\.titleBarInset) private var titleBarInset
 
     var body: some View {
         AssistAppSurface { theme in
@@ -125,8 +124,9 @@ struct LicenseActivationView: View {
                 }
             }
             .padding(.horizontal, 32)
-            .padding(.top, titleBarInset + Tokens.Spacing.large)
+            .padding(.top, Tokens.Spacing.large)
             .padding(.bottom, 32)
+            .titleBarSafeArea()
             // Fixed width; the height grows past the minimum only when the
             // content (such as a long server error) needs it.
             .frame(width: Self.minimumSize.width)

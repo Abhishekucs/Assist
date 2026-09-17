@@ -69,25 +69,29 @@ Rows inside a settings group share a 16 pt inset
 
 Borders delineate settings groups and history cards (a hairline), and text
 fields, secondary buttons, and option tiles (the control outline). Focused text
-fields show an accent ring, and the whole field box accepts clicks. Selection
+fields show an accent ring, and the whole field box accepts clicks. Esc in a
+focused field ends editing; in the settings dialog, the next Esc closes it. Selection
 never relies on color alone: selected tiles add a check mark, selected cards a
 heavier accent stroke with an inner ring (visible even on an accent-colored
 clip), and selected navigation rows a medium weight and accent icon.
 Navigation rows and icon buttons show hover and selection as foreground tints
 (`AssistTheme.hoverFill` at 6% and `selectedFill` at 11%), so both read on the
 sidebar and on the settings dialog, and a hovered row stays lighter than a
-selected one. Chips and keycaps have no outline. Shadows are low contrast. Standalone
-icons remain transparent until hover, and disabled controls are dimmed once, by
-their button style or by AppKit; actions that float over previews keep a card
-backing. Destructive icons remain red.
+selected one. Chips and keycaps have no outline. Shadows are low contrast.
+Icon-only buttons have no fill until hovered, as `AGENTS.md` requires; delete
+stays a red line icon with a light red hover background. Disabled controls are
+dimmed once, by their button style or by AppKit, and a busy button shows its
+progress in place of its icon.
 
-Windows draw under a transparent title bar with no SwiftUI safe area, so each
-window is exactly its view's frame (or, for the main window, its minimum frame).
-Window controllers pass the real title bar height to SwiftUI as
+Windows draw under a transparent title bar with SwiftUI's own safe area turned
+off, so each window is exactly its view's frame (or, for the main window, its
+minimum frame). Window controllers pass the real title bar height to SwiftUI as
 `EnvironmentValues.titleBarInset` through `WindowTitleBarMetrics`, which follows
-changes such as full screen or a toolbar, and every view whose content can
-reach the top of a window (the sidebar, the library header, the activation
-form) pads it by that value rather than by a fixed number. Window backgrounds match the surface they host:
+changes such as full screen or a toolbar. Each window's root view turns it back
+into a top safe area with `titleBarSafeArea()`, before the frame that sets the
+window's size, so other views lay out below the title bar as usual and only
+backgrounds (such as the library's content pane surface) extend under it.
+Window backgrounds match the surface they host:
 `NSColor.assistWindowSurface` for the library frame and
 `NSColor.assistContentSurface` for activation.
 
@@ -111,7 +115,11 @@ form) pads it by that value rather than by a fixed number. Window backgrounds ma
 - `LibrarySidebar` and `LibraryWelcomeHeader`: library chrome and guidance. The
   header carries the capture shortcuts, so empty states don't repeat them.
 - `CaptureShortcut`: one definition of each capture shortcut (title, detail,
-  keys) for the library header and Capture settings; keys are spelled out.
+  keys, hint) for the library header, Capture settings, and the island's idle
+  status and empty-history hint; `ShortcutKey` supplies each key's name,
+  abbreviation, and symbol.
+- `ColorContrast` (Core): the one WCAG contrast implementation, used by the app
+  and its tests.
 - `ClipboardHistoryFilter` presentation (`navigationTitle`, `icon`, `emptyIcon`,
   `emptyTitle`): one source for the library and the island. Empty states use a
   camera for all history and the filter's own icon otherwise.

@@ -25,12 +25,34 @@ private struct TitleBarInsetKey: EnvironmentKey {
 
 extension EnvironmentValues {
     /// Height of the transparent title bar that a window's content runs under.
-    /// Assist windows turn off SwiftUI's safe area so each window is exactly its
-    /// view's size, so every view whose content can reach the top of the window
-    /// pads it by this value instead.
+    /// Assist windows turn off SwiftUI's own safe area, so each window is exactly
+    /// its view's size; a window's root view restores it with
+    /// `titleBarSafeArea()`.
     var titleBarInset: CGFloat {
         get { self[TitleBarInsetKey.self] }
         set { self[TitleBarInsetKey.self] = newValue }
+    }
+}
+
+private struct TitleBarSafeArea: ViewModifier {
+    @Environment(\.titleBarInset) private var inset
+
+    func body(content: Content) -> some View {
+        content.safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear
+                .frame(height: inset)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+extension View {
+    /// Makes the window's title bar a top safe area for this view's content,
+    /// as SwiftUI's own safe area would. Apply it in a window's root view,
+    /// before any frame that sets the window's size, so the title bar is part
+    /// of that size. Backgrounds still extend under the title bar.
+    func titleBarSafeArea() -> some View {
+        modifier(TitleBarSafeArea())
     }
 }
 

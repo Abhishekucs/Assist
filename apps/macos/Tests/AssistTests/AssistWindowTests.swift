@@ -66,7 +66,10 @@ final class AssistWindowTests: XCTestCase {
         let window = controller.preparedWindow()
         let contentView = try XCTUnwrap(window.contentView)
         window.orderFront(nil)
-        defer { window.orderOut(nil) }
+        defer {
+            window.toolbar = nil
+            window.close()
+        }
 
         XCTAssertTrue(
             waitUntil { window.contentMinSize == ControlPanelView.minimumSize },
@@ -103,7 +106,6 @@ final class AssistWindowTests: XCTestCase {
                   ) else { return false }
             return sidebarInk >= window.titleBarInset && paneInk >= window.titleBarInset
         }, "content should start below the \(window.titleBarInset) pt title bar")
-        window.toolbar = nil
     }
 
     @MainActor

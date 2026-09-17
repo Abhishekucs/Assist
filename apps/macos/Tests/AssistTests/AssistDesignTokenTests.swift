@@ -65,6 +65,13 @@ final class AssistDesignTokenTests: XCTestCase {
         }
     }
 
+    func testCaptureShortcutHintsComeFromTheSharedDefinitions() {
+        XCTAssertEqual(CaptureShortcut.idleStatus, "Hold Opt / Ctrl+Opt")
+        XCTAssertEqual(CaptureShortcut.emptyHistoryHint, "Hold ⌥ to annotate  ·  ⌃⌥ for a clean screenshot")
+        XCTAssertEqual(CaptureShortcut.annotate.keyNames, ["Option"])
+        XCTAssertEqual(CaptureShortcut.cleanCapture.keyNames, ["Control", "Option"])
+    }
+
     func testIslandTextTintIsStablePerClipAndUsesEveryTint() {
         let ids = (0..<30).map { _ in UUID() }
         for id in ids {
@@ -148,13 +155,9 @@ final class AssistDesignTokenTests: XCTestCase {
     }
 
     private func contrast(_ a: RGBA, _ b: RGBA) -> CGFloat {
-        func luminance(_ c: RGBA) -> CGFloat {
-            func channel(_ v: CGFloat) -> CGFloat {
-                v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
-            }
-            return 0.2126 * channel(c.red) + 0.7152 * channel(c.green) + 0.0722 * channel(c.blue)
-        }
-        let (lighter, darker) = (max(luminance(a), luminance(b)), min(luminance(a), luminance(b)))
-        return (lighter + 0.05) / (darker + 0.05)
+        ColorContrast.ratio(
+            RGBColorComponents(red: a.red, green: a.green, blue: a.blue),
+            RGBColorComponents(red: b.red, green: b.green, blue: b.blue)
+        )
     }
 }

@@ -5,7 +5,6 @@ struct LibrarySidebar: View {
     let counts: [ClipboardHistoryFilter: Int]
     let openSettings: () -> Void
     @Environment(\.assistTheme) private var theme
-    @Environment(\.titleBarInset) private var titleBarInset
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -15,7 +14,7 @@ struct LibrarySidebar: View {
                     .font(Tokens.Typography.title)
             }
             .padding(.horizontal, Tokens.AppLayout.sidebarInset)
-            .padding(.top, titleBarInset + Tokens.AppLayout.sidebarTopInset)
+            .padding(.top, Tokens.AppLayout.sidebarTopInset)
             .padding(.bottom, 28)
             .accessibilityElement(children: .combine)
 
@@ -78,7 +77,7 @@ struct LibraryWelcomeHeader: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 9) {
                 Text("Hold")
-                AssistKeycapRow(keys: CaptureShortcut.annotate.keys)
+                AssistKeycapRow(keys: CaptureShortcut.annotate.keyNames)
                 Text("to draw on your screen")
             }
             .font(Tokens.Typography.display)
@@ -105,7 +104,7 @@ struct LibraryWelcomeHeader: View {
             HStack(spacing: Tokens.Spacing.xSmall) {
                 HugeIcon(shortcut.icon, size: Tokens.Icon.feedback, color: theme.muted)
                 Spacer(minLength: Tokens.Spacing.xxSmall)
-                AssistKeycapRow(keys: shortcut.keys)
+                AssistKeycapRow(keys: shortcut.keyNames)
             }
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
                 Text(shortcut.title).font(Tokens.Typography.body())

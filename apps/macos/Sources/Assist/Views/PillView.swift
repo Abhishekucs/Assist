@@ -470,7 +470,7 @@ private struct IslandHistoryEmptyState: View {
     private var message: String {
         switch filter {
         case .all:
-            "Hold ⌥ to annotate  ·  ⌃⌥ for a clean screenshot"
+            CaptureShortcut.emptyHistoryHint
         case .text:
             "Copied text will appear here"
         case .images:
@@ -813,11 +813,11 @@ private struct CaptureGalleryCard: View {
 
                         VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.xxxSmall) {
                             Text("context.md")
-                                .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                                .font(AssistDesignTokens.Typography.micro(.semibold))
                                 .foregroundStyle(tint.secondaryInk)
 
                             Text(contextPreview)
-                                .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                                .font(AssistDesignTokens.Typography.micro(.medium))
                                 .foregroundStyle(tint.ink)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
@@ -1031,21 +1031,22 @@ private struct IslandSelectionRing: View {
     let isSelected: Bool
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
-        ZStack {
-            shape.strokeBorder(
-                HistoryShelfTokens.selectionRingOuter,
-                lineWidth: HistoryShelfTokens.selectionRingWidth
-            )
-            shape
-                .inset(by: HistoryShelfTokens.selectionRingWidth)
-                .strokeBorder(
-                    HistoryShelfTokens.selectionRingInner,
-                    lineWidth: HistoryShelfTokens.selectionRingInnerWidth
+        if isSelected {
+            let shape = RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
+            ZStack {
+                shape.strokeBorder(
+                    HistoryShelfTokens.selectionRingOuter,
+                    lineWidth: HistoryShelfTokens.selectionRingWidth
                 )
+                shape
+                    .inset(by: HistoryShelfTokens.selectionRingWidth)
+                    .strokeBorder(
+                        HistoryShelfTokens.selectionRingInner,
+                        lineWidth: HistoryShelfTokens.selectionRingInnerWidth
+                    )
+            }
+            .allowsHitTesting(false)
         }
-        .opacity(isSelected ? 1 : 0)
-        .allowsHitTesting(false)
     }
 }
 

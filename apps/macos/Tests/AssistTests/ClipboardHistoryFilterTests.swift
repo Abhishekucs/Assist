@@ -59,21 +59,43 @@ final class PillViewModelHistoryTests: XCTestCase {
     }
 
     @MainActor
-    func testANewCaptureReadsOnlyItsOwnContext() throws {
+    func testSyncFollowsContextEditedOrDeletedOnDisk() throws {
+        let viewModel = try makeViewModel()
+        let (capture, contextURL) = try makeCaptureOnDisk(createdAt: 10, context: "first")
+        viewModel.replaceHistory(screenshots: [capture], textClips: [])
+        XCTAssertEqual(viewModel.contextPreview(for: capture), CaptureContextMarkdown.preview(from: "first"))
+
+        try "edited in Finder".write(to: contextURL, atomically: true, encoding: .utf8)
+        try setModificationDate(Date().addingTimeInterval(60), of: contextURL)
+        viewModel.replaceHistory(screenshots: [capture], textClips: [])
+        XCTAssertEqual(viewModel.contextPreview(for: capture), CaptureContextMarkdown.preview(from: "edited in Finder"))
+
+        try FileManager.default.removeItem(at: contextURL)
+        viewModel.replaceHistory(screenshots: [capture], textClips: [])
+        XCTAssertEqual(viewModel.contextPreview(for: capture), "context.md is unavailable")
+    }
+
+    @MainActor
+    func testUnchangedContextFilesAreNotReadAgain() throws {
         let viewModel = try makeViewModel()
         let (existing, existingURL) = try makeCaptureOnDisk(createdAt: 10, context: "first")
+        let modified = Date(timeIntervalSince1970: 1_700_000_000)
+        try setModificationDate(modified, of: existingURL)
         viewModel.replaceHistory(screenshots: [existing], textClips: [])
-        try "edited on disk".write(to: existingURL, atomically: true, encoding: .utf8)
 
+        // Same modification date, different bytes: a re-read would show them.
+        try "not read".write(to: existingURL, atomically: true, encoding: .utf8)
+        try setModificationDate(modified, of: existingURL)
         let (newer, _) = try makeCaptureOnDisk(createdAt: 20, context: "newer")
         viewModel.replaceScreenshot(newer)
+        viewModel.replaceHistory(screenshots: [newer, existing], textClips: [])
 
         XCTAssertEqual(viewModel.contextPreview(for: existing), CaptureContextMarkdown.preview(from: "first"))
         XCTAssertEqual(viewModel.contextPreview(for: newer), CaptureContextMarkdown.preview(from: "newer"))
+    }
 
-        // Updating a capture re-reads just that capture's file.
-        viewModel.updateScreenshot(existing)
-        XCTAssertEqual(viewModel.contextPreview(for: existing), CaptureContextMarkdown.preview(from: "edited on disk"))
+    private func setModificationDate(_ date: Date, of url: URL) throws {
+        try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
     }
 
     /// A capture laid out like the store's: <root>/<id>/screenshot.png beside
