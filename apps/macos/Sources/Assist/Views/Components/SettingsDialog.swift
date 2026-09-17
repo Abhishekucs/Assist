@@ -1,7 +1,5 @@
 import SwiftUI
 
-private typealias Tokens = AssistDesignTokens
-
 struct SettingsDialog<Content: View>: View {
     let onClose: () -> Void
     let content: Content

@@ -59,7 +59,8 @@ close button, while its groups scroll beneath it.
 Activation is a single focused form on the content surface, with no rail: the
 welcome heading, a line about the purchase receipt, the license key field with
 any error below it, and Quit and Activate Assist at the bottom. The window is
-480 × 340 pt and grows taller only when an error message needs the room.
+480 × 340 pt and grows taller only when an error message needs the room; an
+error shows at most four lines, with the full text on hover and for VoiceOver.
 
 Radii come from `AssistDesignTokens.Radius`: keycaps 6 pt, controls 7 pt, icon
 buttons 8 pt, cards 10 pt, groups 14 pt, and inset window/dialog surfaces 18 pt.
@@ -84,14 +85,16 @@ Windows draw under a transparent title bar with no SwiftUI safe area, so each
 window is exactly its view's frame (or, for the main window, its minimum frame).
 Window controllers pass the real title bar height to SwiftUI as
 `EnvironmentValues.titleBarInset` through `WindowTitleBarMetrics`, which follows
-changes such as full screen or a toolbar, and views pad their top content by it
-rather than by a fixed number. Window backgrounds match the surface they host:
+changes such as full screen or a toolbar, and every view whose content can
+reach the top of a window (the sidebar, the library header, the activation
+form) pads it by that value rather than by a fixed number. Window backgrounds match the surface they host:
 `NSColor.assistWindowSurface` for the library frame and
 `NSColor.assistContentSurface` for activation.
 
 ## Shared components
 
-- `AssistDesignTokens` and `AssistTheme`: palette, typography, spacing, radii.
+- `AssistDesignTokens` (also `Tokens`) and `AssistTheme`: palette, typography,
+  spacing, radii.
 - `AssistAppSurface`: theme, type, and tint for a window's SwiftUI content.
 - `NSWindow.applyAssistChrome(background:appearanceFrom:)`: the shared title bar,
   background, and appearance setup for Assist windows.
@@ -107,6 +110,8 @@ rather than by a fixed number. Window backgrounds match the surface they host:
   background and is modal for VoiceOver.
 - `LibrarySidebar` and `LibraryWelcomeHeader`: library chrome and guidance. The
   header carries the capture shortcuts, so empty states don't repeat them.
+- `CaptureShortcut`: one definition of each capture shortcut (title, detail,
+  keys) for the library header and Capture settings; keys are spelled out.
 - `ClipboardHistoryFilter` presentation (`navigationTitle`, `icon`, `emptyIcon`,
   `emptyTitle`): one source for the library and the island. Empty states use a
   camera for all history and the filter's own icon otherwise.
@@ -115,14 +120,17 @@ The notch retains its black silhouette to meet the display edge. Its selected
 filters, the editor's selected tools and chips, and primary actions use the same
 purple accent family through `AssistDesignTokens.DarkSurface`.
 
-History cards on the notch use muted, grainy tints (`AssistDesignTokens.IslandCard`,
-drawn by `IslandCardSurface`) sampled from the reference widgets: sage `#98B3A3`,
+History cards on the notch use muted, grainy tints (`AssistDesignTokens.IslandCard`)
+sampled from the reference widgets: sage `#98B3A3`,
 lavender `#A7A1BD`, and mustard `#B2AC75` for text clips, and dusty blue
 `#96AEBF` for voice-context captures, which keep their folder shape. A clip's
 tint comes from its id, so it keeps the same color across launches. Text on a
-tint uses that tint's near-black ink (at least 7:1), and the grain is a fixed noise
-tile blended at low strength. Screenshot thumbnails and copied color codes keep
-their own colors.
+tint uses that tint's near-black ink (at least 7:1). `IslandCardTexture` renders
+each tint once as a seamless tile with zero-mean noise, so a card keeps its
+exact color, and both `IslandCardSurface` and the drag preview draw that tile.
+Screenshot thumbnails and copied color codes keep their own colors. A selected
+card gets a light ring with a dark inner ring, so one of them stands out over
+any thumbnail, tint, or color.
 Capture geometry, keyboard layouts, and image-editing behavior are unchanged.
 
 All product icons reuse the existing bundled Hugeicons Stroke Rounded assets.

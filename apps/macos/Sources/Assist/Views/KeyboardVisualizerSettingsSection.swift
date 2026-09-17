@@ -1,7 +1,5 @@
 import SwiftUI
 
-private typealias Tokens = AssistDesignTokens
-
 struct KeyboardVisualizerSettingsSection: View {
     @ObservedObject var controller: KeyboardSoundController
     @ObservedObject private var settings: KeyboardSoundSettings

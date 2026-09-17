@@ -1,7 +1,5 @@
 import SwiftUI
 
-private typealias Tokens = AssistDesignTokens
-
 struct LibrarySidebar: View {
     @Binding var selectedFilter: ClipboardHistoryFilter
     let counts: [ClipboardHistoryFilter: Int]
@@ -80,7 +78,7 @@ struct LibraryWelcomeHeader: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 9) {
                 Text("Hold")
-                AssistKeycap(title: "Option")
+                AssistKeycapRow(keys: CaptureShortcut.annotate.keys)
                 Text("to draw on your screen")
             }
             .font(Tokens.Typography.display)
@@ -88,27 +86,30 @@ struct LibraryWelcomeHeader: View {
             .accessibilityElement(children: .combine)
 
             HStack(spacing: 0) {
-                shortcut(icon: .pen, title: "Annotate a screenshot", detail: "Release Option to save what you drew.", keys: ["⌥"])
-                Rectangle()
-                    .fill(theme.border)
-                    .frame(width: Tokens.Control.borderWidth, height: 44)
-                shortcut(icon: .camera, title: "Take a clean screenshot", detail: "Capture your screen, ready to edit.", keys: ["⌃", "⌥"])
+                ForEach(Array(CaptureShortcut.all.enumerated()), id: \.element.id) { index, shortcut in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(theme.border)
+                            .frame(width: Tokens.Control.borderWidth, height: 44)
+                    }
+                    card(for: shortcut)
+                }
             }
             .padding(.vertical, 16)
             .background(theme.control, in: RoundedRectangle(cornerRadius: Tokens.Radius.large))
         }
     }
 
-    private func shortcut(icon: HugeIconKind, title: String, detail: String, keys: [String]) -> some View {
+    private func card(for shortcut: CaptureShortcut) -> some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.medium) {
             HStack(spacing: Tokens.Spacing.xSmall) {
-                HugeIcon(icon, size: Tokens.Icon.feedback, color: theme.muted)
+                HugeIcon(shortcut.icon, size: Tokens.Icon.feedback, color: theme.muted)
                 Spacer(minLength: Tokens.Spacing.xxSmall)
-                AssistKeycapRow(keys: keys)
+                AssistKeycapRow(keys: shortcut.keys)
             }
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
-                Text(title).font(Tokens.Typography.body())
-                Text(detail).font(Tokens.Typography.caption()).foregroundStyle(theme.muted)
+                Text(shortcut.title).font(Tokens.Typography.body())
+                Text(shortcut.detail).font(Tokens.Typography.caption()).foregroundStyle(theme.muted)
             }
         }
         .padding(.horizontal, Tokens.Spacing.xxLarge)

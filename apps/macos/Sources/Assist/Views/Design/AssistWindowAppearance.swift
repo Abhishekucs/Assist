@@ -26,7 +26,8 @@ private struct TitleBarInsetKey: EnvironmentKey {
 extension EnvironmentValues {
     /// Height of the transparent title bar that a window's content runs under.
     /// Assist windows turn off SwiftUI's safe area so each window is exactly its
-    /// view's size; views pad their top content by this instead.
+    /// view's size, so every view whose content can reach the top of the window
+    /// pads it by this value instead.
     var titleBarInset: CGFloat {
         get { self[TitleBarInsetKey.self] }
         set { self[TitleBarInsetKey.self] = newValue }
@@ -35,25 +36,38 @@ extension EnvironmentValues {
 
 /// Tracks a window's title bar height as it changes, for example when the
 /// window enters or leaves full screen or gains a toolbar.
+///
+/// The window owns this object through its hosting view, so neither
+/// observation holds the window strongly.
 @MainActor
 final class WindowTitleBarMetrics: ObservableObject {
     @Published private(set) var inset: CGFloat
+    private var layoutObservation: NSKeyValueObservation?
     private var subscriptions: Set<AnyCancellable> = []
 
     init(window: NSWindow) {
         inset = window.titleBarInset
-        let fullScreenChanges = [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification]
-            .map { NotificationCenter.default.publisher(for: $0, object: window).map { _ in () } }
-        Publishers.MergeMany(fullScreenChanges)
-            .merge(with: window.publisher(for: \.contentLayoutRect).map { _ in () })
-            .sink { [weak self, weak window] in
-                guard let self, let window else { return }
-                let inset = window.titleBarInset
-                if inset != self.inset {
-                    self.inset = inset
-                }
+        layoutObservation = window.observe(\.contentLayoutRect) { [weak self] window, _ in
+            MainActor.assumeIsolated {
+                self?.update(from: window)
+            }
+        }
+        // Filtering by identity, rather than passing the window as the
+        // notification object, keeps these subscriptions from retaining it.
+        NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)
+            .merge(with: NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification))
+            .sink { [weak self, weak window] notification in
+                guard let window, notification.object as? NSWindow === window else { return }
+                self?.update(from: window)
             }
             .store(in: &subscriptions)
+    }
+
+    private func update(from window: NSWindow) {
+        let inset = window.titleBarInset
+        if inset != self.inset {
+            self.inset = inset
+        }
     }
 }
 

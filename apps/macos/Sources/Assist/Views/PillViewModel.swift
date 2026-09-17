@@ -470,6 +470,8 @@ final class PillViewModel: ObservableObject {
     /// Syncs usually find nothing new, so every property is assigned only when
     /// its value changes, and an unchanged sync publishes nothing.
     func replaceHistory(screenshots: [CaptureItem], textClips: [TextClipItem]) {
+        let previousScreenshots = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let changedScreenshotIDs = Set(screenshots.filter { previousScreenshots[$0.id] != $0 }.map(\.id))
         let screenshotsChanged = items != screenshots
         let textClipsChanged = textItems != textClips
         if screenshotsChanged {
@@ -492,11 +494,9 @@ final class PillViewModel: ObservableObject {
             latestItem = screenshots.first
         }
 
-        // Retries thumbnails that weren't on disk yet; publishes only on change.
+        // Both retry files that couldn't be read before and publish only on change.
         cacheThumbnails(for: screenshots)
-        if screenshotsChanged {
-            cacheContextMarkdown(for: screenshots)
-        }
+        cacheContextMarkdown(for: screenshots, refreshing: changedScreenshotIDs)
     }
 
     func replaceScreenshot(_ item: CaptureItem) {
@@ -508,7 +508,7 @@ final class PillViewModel: ObservableObject {
         latestItem = item
         selectedHistoryItem = .screenshot(item)
         cacheThumbnails(for: nextItems)
-        cacheContextMarkdown(for: nextItems)
+        cacheContextMarkdown(for: nextItems, refreshing: [item.id])
     }
 
     func updateScreenshot(_ item: CaptureItem) {
@@ -522,7 +522,7 @@ final class PillViewModel: ObservableObject {
         if selectedHistoryItem?.id == item.id {
             selectedHistoryItem = .screenshot(item)
         }
-        cacheContextMarkdown(for: item)
+        cacheContextMarkdown(for: items, refreshing: [item.id])
     }
 
     func refreshScreenshotPixels(for item: CaptureItem) {
@@ -623,11 +623,16 @@ final class PillViewModel: ObservableObject {
         }
     }
 
-    /// Reads context.md for the newest captures, publishing only on change.
-    private func cacheContextMarkdown(for items: [CaptureItem]) {
+    /// Keeps context.md text for the newest captures. A file is read only for a
+    /// capture in `refreshedIDs` or one without cached text (which retries a
+    /// file that couldn't be read before); captures that fell out of range are
+    /// dropped. Publishes only on change.
+    private func cacheContextMarkdown(for items: [CaptureItem], refreshing refreshedIDs: Set<UUID>) {
         var nextMarkdown: [UUID: String] = [:]
-        for item in items.prefix(Self.previewCacheLimit) {
-            if let markdown = readContextMarkdown(for: item) {
+        for item in items.prefix(Self.previewCacheLimit) where item.contextFileURL != nil {
+            if !refreshedIDs.contains(item.id), let cached = captureContextMarkdown[item.id] {
+                nextMarkdown[item.id] = cached
+            } else if let markdown = readContextMarkdown(for: item) {
                 nextMarkdown[item.id] = markdown
             }
         }
@@ -649,14 +654,6 @@ final class PillViewModel: ObservableObject {
         _ = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil)
 
         return image
-    }
-
-    private func cacheContextMarkdown(for item: CaptureItem) {
-        if let markdown = readContextMarkdown(for: item) {
-            captureContextMarkdown[item.id] = markdown
-        } else {
-            captureContextMarkdown.removeValue(forKey: item.id)
-        }
     }
 
     private func readContextMarkdown(for item: CaptureItem) -> String? {

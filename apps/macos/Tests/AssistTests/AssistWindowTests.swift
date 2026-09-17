@@ -35,7 +35,7 @@ final class AssistWindowTests: XCTestCase {
     func testActivationWindowGrowsToKeepItsActionsVisibleForLongErrors() throws {
         let (settings, _, cleanUp) = try makeSettings()
         defer { cleanUp() }
-        let longError = String(repeating: "The license server returned a long explanation. ", count: 20)
+        let longError = String(repeating: "The license server returned a long explanation. ", count: 200)
         let controller = makeActivationController(settings: settings, initialErrorMessage: longError)
         defer { controller.closeAfterActivation() }
         let window = try XCTUnwrap(controller.window)
@@ -44,6 +44,8 @@ final class AssistWindowTests: XCTestCase {
 
         XCTAssertTrue(waitUntil { window.frame.height > LicenseActivationView.minimumSize.height }, "\(window.frame.size)")
         XCTAssertEqual(window.frame.width, LicenseActivationView.minimumSize.width)
+        // The error shows a few lines at most, however long it is.
+        XCTAssertLessThan(window.frame.height, LicenseActivationView.minimumSize.height + 100)
         // The Quit and Activate row keeps its bottom padding instead of being clipped.
         let rendering = try Rendering(of: contentView)
         let background = AssistTheme(colorScheme: .light).background
@@ -84,6 +86,63 @@ final class AssistWindowTests: XCTestCase {
         let firstSidebarInk = try XCTUnwrap(rendering.firstRow(differingFrom: theme.sidebar, inColumns: 24...170))
         XCTAssertGreaterThanOrEqual(firstSidebarInk, window.titleBarInset)
         XCTAssertTrue(try resolvedColor(of: window.backgroundColor, in: window).matches(theme.sidebar))
+
+        // A taller title bar (here, a toolbar) moves the sidebar and the
+        // library header down with it.
+        let titleBarOnly = window.titleBarInset
+        window.toolbar = NSToolbar(identifier: "AssistWindowTests.library")
+        XCTAssertTrue(waitUntil { window.titleBarInset > titleBarOnly }, "\(window.titleBarInset)")
+        let paneContent = (Tokens.AppLayout.sidebarWidth + 40)...(rendering.width - 40)
+        XCTAssertTrue(waitUntil {
+            guard let rendering = try? Rendering(of: contentView),
+                  let sidebarInk = rendering.firstRow(differingFrom: theme.sidebar, inColumns: 24...170),
+                  let paneInk = rendering.firstRow(
+                    differingFrom: theme.background,
+                    inColumns: paneContent,
+                    startingAt: Tokens.AppLayout.paneInset + 4
+                  ) else { return false }
+            return sidebarInk >= window.titleBarInset && paneInk >= window.titleBarInset
+        }, "content should start below the \(window.titleBarInset) pt title bar")
+        window.toolbar = nil
+    }
+
+    @MainActor
+    func testTitleBarMetricsDoNotKeepTheWindowAlive() {
+        _ = NSApplication.shared
+        weak var releasedWindow: NSWindow?
+        var metrics: WindowTitleBarMetrics?
+        autoreleasepool {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
+                styleMask: [.titled, .fullSizeContentView],
+                backing: .buffered,
+                defer: true
+            )
+            window.isReleasedWhenClosed = false
+            metrics = WindowTitleBarMetrics(window: window)
+            releasedWindow = window
+        }
+
+        XCTAssertNil(releasedWindow)
+        XCTAssertNotNil(metrics)
+    }
+
+    @MainActor
+    func testActivationWindowIsReleasedAfterActivation() throws {
+        let (settings, _, cleanUp) = try makeSettings()
+        defer { cleanUp() }
+        weak var releasedWindow: NSWindow?
+        weak var releasedController: LicenseActivationWindowController?
+        autoreleasepool {
+            let controller = makeActivationController(settings: settings)
+            releasedController = controller
+            releasedWindow = controller.window
+            controller.window?.orderFront(nil)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            controller.closeAfterActivation()
+        }
+
+        XCTAssertTrue(waitUntil { releasedWindow == nil && releasedController == nil })
     }
 
     @MainActor
@@ -201,8 +260,12 @@ private struct Rendering {
 
     /// The top, in points, of the first pixel row that has a pixel in
     /// `columns` (points) differing from `background`.
-    func firstRow(differingFrom background: Color, inColumns columns: ClosedRange<CGFloat>) -> CGFloat? {
-        (0..<rep.pixelsHigh).first { hasInk(row: $0, differingFrom: background, inColumns: columns) }
+    func firstRow(
+        differingFrom background: Color,
+        inColumns columns: ClosedRange<CGFloat>,
+        startingAt top: CGFloat = 0
+    ) -> CGFloat? {
+        (Int(top * scale)..<rep.pixelsHigh).first { hasInk(row: $0, differingFrom: background, inColumns: columns) }
             .map { CGFloat($0) / scale }
     }
 

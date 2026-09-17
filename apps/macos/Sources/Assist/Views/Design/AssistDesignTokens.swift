@@ -1,5 +1,8 @@
 import SwiftUI
 
+/// Short name for `AssistDesignTokens` at call sites.
+typealias Tokens = AssistDesignTokens
+
 /// Shared visual language for every Assist surface.
 ///
 /// Feature-specific geometry (for example screenshot crop metrics) stays with the
@@ -51,7 +54,6 @@ enum AssistDesignTokens {
         static let subtle: Double = 0.36
         /// Disabled glyphs on the island and editor's dark surfaces.
         static let disabled: Double = 0.34
-        static let selectedStroke: Double = 0.72
         static let quietSurface: Double = 0.08
         static let hoverSurface: Double = 0.14
         static let destructiveHoverSurface: Double = 0.12
@@ -231,7 +233,12 @@ enum AssistDesignTokens {
     enum HistoryShelf {
         static let cardSize: CGFloat = 142
         static let cardSpacing = Spacing.large
-        static let selectionStroke: CGFloat = 1
+        /// The selected card's rings: a light outer ring and a dark inner one,
+        /// so at least one contrasts with any thumbnail, tint, or color clip.
+        static let selectionRingWidth: CGFloat = 1.5
+        static let selectionRingOuter = Palette.paper.opacity(Opacity.primary)
+        static let selectionRingInnerWidth: CGFloat = 1
+        static let selectionRingInner = Palette.ink.opacity(Opacity.strong)
         static let actionHitArea: CGFloat = 32
         static let actionControl: CGFloat = 24
     }
@@ -249,14 +256,13 @@ enum AssistDesignTokens {
             var secondaryInk: Color { ink.opacity(IslandCard.secondaryInkOpacity) }
         }
 
-        // Fills sit a few steps below the sampled colors (#98B3A3, #A7A1BD,
-        // #B2AC75, #96AEBF) because the grain's overlay blend lightens them
-        // back to those values on screen.
-        // Inks are near-black with a trace of the tint's hue, for crisp text.
-        static let sage = Tint(fillHex: 0x93AF9E, inkHex: 0x050F08)
-        static let lavender = Tint(fillHex: 0xA29AB9, inkHex: 0x0B0914)
-        static let mustard = Tint(fillHex: 0xADA96E, inkHex: 0x0F0B02)
-        static let dustyBlue = Tint(fillHex: 0x91AABB, inkHex: 0x040C12)
+        // Fills are the sampled reference colors; the grain averages to zero,
+        // so cards keep them on screen. Inks are near-black with a trace of
+        // the tint's hue, for crisp text.
+        static let sage = Tint(fillHex: 0x98B3A3, inkHex: 0x050F08)
+        static let lavender = Tint(fillHex: 0xA7A1BD, inkHex: 0x0B0914)
+        static let mustard = Tint(fillHex: 0xB2AC75, inkHex: 0x0F0B02)
+        static let dustyBlue = Tint(fillHex: 0x96AEBF, inkHex: 0x040C12)
 
         /// Text clips rotate through these; voice-context captures keep the
         /// blue that marks them as a folder.
@@ -264,9 +270,8 @@ enum AssistDesignTokens {
         static let contextTint = dustyBlue
 
         static let secondaryInkOpacity: Double = 0.9
-        static let selectionInkOpacity: Double = 0.7
-        /// Strength of the fixed noise laid over a tint.
-        static let grainOpacity: Double = 0.11
+        /// The largest brightness change the grain makes to a pixel, up or down.
+        static let grainAmplitude: Double = 0.04
 
         /// A clip's tint, derived from its id so it stays the same across launches.
         static func textTint(for id: UUID) -> Tint {
@@ -280,6 +285,7 @@ enum AssistDesignTokens {
         static let cardHeight: CGFloat = 136
         static let gridSpacing = Spacing.xLarge
         static let contentInset = Spacing.xxxLarge
+        static let headerTopInset: CGFloat = 32
         static let cardRadius = Radius.medium
         static let borderStroke = Control.borderWidth
         /// Thicker than the border, so selection is not signalled by color alone.

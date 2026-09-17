@@ -840,7 +840,7 @@ private struct CaptureGalleryCard: View {
                 )
                 .background(IslandCardSurface(tint: tint))
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
-                .overlay { selectionStroke(color: tint.ink.opacity(AssistDesignTokens.IslandCard.selectionInkOpacity)) }
+                .overlay { IslandSelectionRing(isSelected: isSelected) }
                 .offset(y: AssistDesignTokens.Spacing.small)
             }
             .frame(
@@ -851,11 +851,7 @@ private struct CaptureGalleryCard: View {
         } else {
             screenshotThumbnail(height: HistoryShelfTokens.cardSize)
                 .clipShape(RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous))
-                .overlay {
-                    selectionStroke(
-                        color: AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.selectedStroke)
-                    )
-                }
+                .overlay { IslandSelectionRing(isSelected: isSelected) }
         }
     }
 
@@ -881,13 +877,6 @@ private struct CaptureGalleryCard: View {
         .frame(width: HistoryShelfTokens.cardSize, height: height)
     }
 
-    private func selectionStroke(color: Color) -> some View {
-        RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
-            .strokeBorder(
-                isSelected ? color : .clear,
-                lineWidth: HistoryShelfTokens.selectionStroke
-            )
-    }
 }
 
 private struct CaptureContextCopyButton: View {
@@ -966,16 +955,7 @@ private struct TextClipGalleryCard: View {
                 onDragChanged: onDragChanged
             ) {
                 textPreview
-                .overlay {
-                    RoundedRectangle(
-                        cornerRadius: AssistDesignTokens.Radius.medium,
-                        style: .continuous
-                    )
-                        .strokeBorder(
-                            selectionColor,
-                            lineWidth: HistoryShelfTokens.selectionStroke
-                        )
-                }
+                .overlay { IslandSelectionRing(isSelected: isSelected) }
                 .clipShape(
                     RoundedRectangle(
                         cornerRadius: AssistDesignTokens.Radius.medium,
@@ -1043,17 +1023,29 @@ private struct TextClipGalleryCard: View {
     private var tint: AssistDesignTokens.IslandCard.Tint {
         AssistDesignTokens.IslandCard.textTint(for: item.id)
     }
+}
 
-    private var selectionColor: Color {
-        guard isSelected else { return .clear }
-        guard let colorCode = item.colorCode else {
-            return tint.ink.opacity(AssistDesignTokens.IslandCard.selectionInkOpacity)
+/// Marks the selected island card with a light ring and a dark inner ring,
+/// so one of them stands out over any thumbnail, tint, or color clip.
+private struct IslandSelectionRing: View {
+    let isSelected: Bool
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.medium, style: .continuous)
+        ZStack {
+            shape.strokeBorder(
+                HistoryShelfTokens.selectionRingOuter,
+                lineWidth: HistoryShelfTokens.selectionRingWidth
+            )
+            shape
+                .inset(by: HistoryShelfTokens.selectionRingWidth)
+                .strokeBorder(
+                    HistoryShelfTokens.selectionRingInner,
+                    lineWidth: HistoryShelfTokens.selectionRingInnerWidth
+                )
         }
-
-        return (colorCode.usesDarkForeground(over: AssistDesignTokens.Palette.inkComponents)
-            ? AssistDesignTokens.Palette.ink
-            : AssistDesignTokens.Palette.paper
-        ).opacity(AssistDesignTokens.Opacity.selectedStroke)
+        .opacity(isSelected ? 1 : 0)
+        .allowsHitTesting(false)
     }
 }
 
@@ -1260,9 +1252,7 @@ private enum IslandDragPreview {
                 ).setFill()
                 rect.fill()
             } else {
-                NSColor(tint.fill).setFill()
-                rect.fill()
-                IslandCardGrain.draw(in: rect)
+                IslandCardTexture.draw(tint, in: rect)
             }
 
             let insetRect = rect.insetBy(dx: 12, dy: 12)

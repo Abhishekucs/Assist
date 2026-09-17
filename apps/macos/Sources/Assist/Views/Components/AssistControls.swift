@@ -1,7 +1,5 @@
 import SwiftUI
 
-private typealias Tokens = AssistDesignTokens
-
 struct AssistButtonStyle: ButtonStyle {
     enum Emphasis { case primary, secondary }
     var emphasis: Emphasis = .secondary

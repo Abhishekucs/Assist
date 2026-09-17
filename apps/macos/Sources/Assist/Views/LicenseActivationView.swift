@@ -44,12 +44,11 @@ final class LicenseActivationViewModel: ObservableObject {
     }
 }
 
-private typealias Tokens = AssistDesignTokens
-
 /// A single focused form: heading, license key, and the two actions.
 struct LicenseActivationView: View {
     /// The window's size until an error message needs more height.
     static let minimumSize = CGSize(width: 480, height: 340)
+    static let errorLineLimit = 4
 
     @ObservedObject var viewModel: LicenseActivationViewModel
     @Environment(\.titleBarInset) private var titleBarInset
@@ -81,10 +80,17 @@ struct LicenseActivationView: View {
                         .onSubmit { viewModel.activate() }
 
                     if let errorMessage = viewModel.errorMessage {
+                        // Server errors can be long; the window grows by at most
+                        // a few lines, and the full text stays available.
                         Text(errorMessage)
                             .font(Tokens.Typography.caption())
                             .foregroundStyle(theme.dangerText)
+                            .lineLimit(Self.errorLineLimit)
+                            .truncationMode(.tail)
                             .fixedSize(horizontal: false, vertical: true)
+                            .help(errorMessage)
+                            .accessibilityLabel(errorMessage)
+                            .textSelection(.enabled)
                     }
                 }
                 .padding(.top, 30)

@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 
-private typealias Tokens = AssistDesignTokens
 private typealias LibraryTokens = AssistDesignTokens.CaptureLibrary
 
 struct ControlPanelView: View {
@@ -169,6 +168,7 @@ private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
     @Binding var selectedFilter: ClipboardHistoryFilter
     @Environment(\.assistTheme) private var theme
+    @Environment(\.titleBarInset) private var titleBarInset
 
     private var columns: [GridItem] {
         [
@@ -189,7 +189,7 @@ private struct CaptureLibraryView: View {
         VStack(alignment: .leading, spacing: 0) {
             LibraryWelcomeHeader()
                 .padding(.horizontal, LibraryTokens.contentInset)
-                .padding(.top, 32)
+                .padding(.top, headerTopInset)
                 .padding(.bottom, LibraryTokens.contentInset)
 
             if let issue = viewModel.captureIssue {
@@ -223,6 +223,15 @@ private struct CaptureLibraryView: View {
                 }
             }
         }
+    }
+
+    /// The pane starts `paneInset` below the window's top edge, under the title
+    /// bar, so the header clears whatever part of the title bar overlaps it.
+    private var headerTopInset: CGFloat {
+        max(
+            LibraryTokens.headerTopInset,
+            titleBarInset - Tokens.AppLayout.paneInset + Tokens.Spacing.small
+        )
     }
 
     private func historyHeader(count: Int) -> some View {
@@ -637,12 +646,13 @@ private struct CaptureSettingsPane: View {
             subtitle: "Shortcuts used by the capture island."
         ) {
             SettingsSection("Shortcuts") {
-                SettingsRow("Annotate screenshot", detail: "Hold and move the pointer to draw.") {
-                    AssistKeycapRow(keys: ["Option"])
-                }
-                RowDivider()
-                SettingsRow("Clean screenshot", detail: "Capture the active display without annotation.") {
-                    AssistKeycapRow(keys: ["Control", "Option"])
+                ForEach(Array(CaptureShortcut.all.enumerated()), id: \.element.id) { index, shortcut in
+                    if index > 0 {
+                        RowDivider()
+                    }
+                    SettingsRow(shortcut.title, detail: shortcut.detail) {
+                        AssistKeycapRow(keys: shortcut.keys)
+                    }
                 }
             }
 
@@ -940,18 +950,9 @@ private struct AboutSettingsPane: View {
                 }
                 RowDivider()
                 SettingsRow("Privacy") {
-                    // Styled as a link, since it opens a web page.
-                    Button {
-                        NSWorkspace.shared.open(AppIdentity.privacyPolicyURL)
-                    } label: {
-                        Text("View policy")
-                            .font(Tokens.Typography.label())
-                            .underline()
-                            .foregroundStyle(theme.accent)
-                    }
-                    .buttonStyle(.plain)
-                    .help("View policy")
-                    .pointingHandCursor()
+                    Link("View policy", destination: AppIdentity.privacyPolicyURL)
+                        .font(Tokens.Typography.label())
+                        .foregroundStyle(theme.accent)
                 }
                 RowDivider()
                 SettingsRow("Support") {

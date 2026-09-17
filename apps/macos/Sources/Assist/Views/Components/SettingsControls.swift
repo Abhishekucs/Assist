@@ -1,7 +1,5 @@
 import SwiftUI
 
-private typealias Tokens = AssistDesignTokens
-
 /// A settings page: a fixed header, then scrolling content. The header keeps
 /// clear of the dialog's close button, and content scrolls beneath the header
 /// rather than under the button. The page draws no background; the settings
