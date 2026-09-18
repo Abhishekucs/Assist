@@ -320,7 +320,7 @@ p {
 
 .hero-title {
   max-width: 960px;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
   color: #050505;
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: clamp(58px, 6.5vw, 88px);
@@ -332,17 +332,6 @@ p {
 
 .hero-title span {
   display: block;
-}
-
-.hero-subline {
-  max-width: 560px;
-  margin: 0 0 14px;
-  color: rgba(0, 0, 0, 0.72);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.45;
-  text-wrap: pretty;
 }
 
 .hero-copy {
@@ -519,16 +508,6 @@ p {
   color: #050505;
   background: #ffffff;
   text-align: center;
-}
-
-.built-for-coding {
-  width: min(760px, 100%);
-  margin: 0 0 36px;
-  color: rgba(0, 0, 0, 0.48);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
 }
 
 .trusted-by {
@@ -2164,14 +2143,6 @@ p {
     font-size: 17px;
   }
 
-  .hero-subline {
-    font-size: 17px;
-  }
-
-  .built-for-coding {
-    margin-bottom: 28px;
-  }
-
   .capability-section {
     padding-top: 32px;
   }
@@ -2415,14 +2386,9 @@ p {
   }
 
   .hero-title {
-    margin-bottom: 12px;
+    margin-bottom: 18px;
     font-size: clamp(44px, 12vw, 58px);
     line-height: 0.94;
-  }
-
-  .hero-subline {
-    margin-bottom: 12px;
-    font-size: 16px;
   }
 
   .hero-copy {

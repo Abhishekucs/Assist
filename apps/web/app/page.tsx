@@ -148,12 +148,10 @@ export default function Home() {
             <span>Screenshots that</span>
             <span>say more.</span>
           </h1>
-          <p className="hero-subline">
-            Hold Option. Draw. Speak. Paste into Cursor, Claude Code, or Codex.
-          </p>
           <p className="hero-copy">
-            Hold Option to draw on your screen and explain it aloud. Assist saves
-            your annotated screenshot with a local transcript, ready to share.
+            Hold Option to draw and speak. Assist saves an annotated screenshot
+            with a local transcript you can paste into Cursor, Claude Code, or
+            Codex — everything stays on your Mac.
           </p>
           <div className="hero-actions">
             <a className="hero-download-button" href={checkoutHref}>
@@ -181,9 +179,6 @@ export default function Home() {
         <HeroVideo src={marketingVideos.hero} />
       </section>
       <section className="capability-section">
-        <p className="built-for-coding">
-          Built for AI coding — Cursor, Claude Code, and Codex
-        </p>
         <div className="trusted-by" aria-label="Companies where Assist users work">
           <p>Trusted by people at</p>
           <div className="trusted-companies">
