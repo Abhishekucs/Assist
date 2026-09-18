@@ -11,10 +11,11 @@ const inter = Inter({
 });
 
 const siteUrl = "https://assistapp.dev";
-const siteTitle = "Assist for Mac: Voice Annotation, Screenshots & Clipboard";
+const siteTitle =
+  "Assist for Mac — Voice Screenshots for Cursor & Claude Code";
 const socialImageUrl = `${siteUrl}/og-image.png`;
 const siteDescription =
-  "Annotate your Mac screen with voice, capture full-screen screenshots, and keep copied text ready to reuse from the notch.";
+  "Hold Option to draw and speak. Paste an annotated screenshot + local transcript into Cursor, Claude Code, or Codex. $20 one-time Mac app.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -29,10 +30,12 @@ export const metadata: Metadata = {
     "Mac screenshot app",
     "crop and blur screenshots on Mac",
     "screen annotation Mac",
-    "voice annotation",
     "Mac clipboard history",
     "macOS productivity app",
-    "Mac notch app"
+    "Mac notch app",
+    "Cursor screenshot workflow",
+    "Claude Code screenshot",
+    "AI coding agent Mac"
   ],
   alternates: {
     canonical: "/"
