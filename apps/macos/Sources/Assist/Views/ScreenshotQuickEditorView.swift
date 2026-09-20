@@ -6,10 +6,6 @@ private typealias EditorTokens = AssistDesignTokens.ScreenshotEditor
 struct ScreenshotQuickEditorView: View {
     @ObservedObject var viewModel: ScreenshotEditorViewModel
 
-    private var cardShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: ScreenshotEditorMetrics.cornerRadius, style: .continuous)
-    }
-
     var body: some View {
         GeometryReader { geometry in
             let previewHeight = ScreenshotEditorMetrics.previewAreaHeight(
@@ -40,21 +36,6 @@ struct ScreenshotQuickEditorView: View {
                     .frame(height: controlsHeight)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
-        }
-        .background { EditorCardBackground() }
-        .clipShape(cardShape)
-        .overlay {
-            cardShape.strokeBorder(
-                LinearGradient(
-                    colors: [
-                        EditorTokens.foreground.opacity(EditorTokens.Opacity.cardBorderTop),
-                        EditorTokens.foreground.opacity(EditorTokens.Opacity.cardBorderBottom)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                lineWidth: EditorTokens.Layout.cardStroke
-            )
         }
         .preferredColorScheme(.dark)
         .onExitCommand {
@@ -109,15 +90,6 @@ private struct ScreenshotEditorHeader: View {
         return viewModel.hasPointerEntered
             ? "Screenshot editor"
             : "Screenshot saved · Hover to edit"
-    }
-}
-
-private struct EditorCardBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThickMaterial)
-            EditorTokens.surface.opacity(EditorTokens.Opacity.surface)
-        }
     }
 }
 

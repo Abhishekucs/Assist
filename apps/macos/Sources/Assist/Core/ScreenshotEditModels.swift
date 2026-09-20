@@ -269,7 +269,8 @@ enum ScreenshotEditorMetrics {
     static let headerHeight: CGFloat = 34
     static let canvasInset: CGFloat = 16
     static let canvasTopInset = canvasInset
-    static let islandGap: CGFloat = 8
+    /// The editor's shoulders sit below the island, joined by the surface's curved neck.
+    static let shoulderInset: CGFloat = 8
     static let screenMargin: CGFloat = 16
     static let cornerRadius: CGFloat = 18
     static let previewMaxDimension: CGFloat = 768
@@ -278,6 +279,20 @@ enum ScreenshotEditorMetrics {
     static let entryWindow: TimeInterval = 5
     /// How long the pointer may sit outside the editor before it closes.
     static let exitGracePeriod: TimeInterval = 0.45
+
+    static func attachmentHeight(for collapsedSize: CGSize) -> CGFloat {
+        collapsedSize.height + shoulderInset
+    }
+
+    /// Include the neck up to the island's top edge without changing the preview/tool allocation.
+    static func surfaceFrame(bodyFrame: CGRect, attachedTo pillChromeFrame: CGRect) -> CGRect {
+        CGRect(
+            x: bodyFrame.minX,
+            y: bodyFrame.minY,
+            width: bodyFrame.width,
+            height: pillChromeFrame.maxY - bodyFrame.minY
+        )
+    }
 
     static func previewAreaHeight(forCardHeight cardHeight: CGFloat) -> CGFloat {
         cardHeight * previewAreaFraction
@@ -294,7 +309,7 @@ enum ScreenshotEditorMetrics {
     ) -> CGRect {
         let available = CGSize(
             width: max(0, screenFrame.width - screenMargin * 2),
-            height: max(0, pillChromeFrame.minY - islandGap - screenFrame.minY - screenMargin)
+            height: max(0, pillChromeFrame.minY - shoulderInset - screenFrame.minY - screenMargin)
         )
         let size = expanded
             ? fittedSize(preferredExpandedSize, available: available)
@@ -306,7 +321,7 @@ enum ScreenshotEditorMetrics {
 
         return CGRect(
             x: x,
-            y: pillChromeFrame.minY - islandGap - size.height,
+            y: pillChromeFrame.minY - shoulderInset - size.height,
             width: size.width,
             height: size.height
         )
