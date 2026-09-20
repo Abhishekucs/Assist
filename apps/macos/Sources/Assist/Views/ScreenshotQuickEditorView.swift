@@ -532,7 +532,7 @@ private struct EditorToolChip: View {
 
     private var foregroundColor: Color {
         if isSelected {
-            return EditorTokens.inverseForeground.opacity(AssistDesignTokens.Opacity.primary)
+            return AssistDesignTokens.DarkSurface.selectionForeground
         }
         return EditorTokens.foreground.opacity(
             isHovered
@@ -543,7 +543,7 @@ private struct EditorToolChip: View {
 
     private var backgroundColor: Color {
         if isSelected {
-            return EditorTokens.foreground
+            return AssistDesignTokens.DarkSurface.selectionFill
         }
         return isHovered
             ? EditorTokens.foreground.opacity(AssistDesignTokens.Opacity.hoverSurface)
@@ -704,7 +704,7 @@ private struct EditorChip: View {
                 .font(EditorTokens.Typography.chip)
                 .foregroundStyle(
                     isSelected
-                        ? EditorTokens.inverseForeground
+                        ? AssistDesignTokens.DarkSurface.selectionForeground
                         : EditorTokens.foreground.opacity(
                             isHovered
                                 ? AssistDesignTokens.Opacity.primary
@@ -716,7 +716,7 @@ private struct EditorChip: View {
                 .frame(height: EditorTokens.Layout.chipHeight)
                 .background(
                     isSelected
-                        ? EditorTokens.foreground
+                        ? AssistDesignTokens.DarkSurface.selectionFill
                         : (isHovered
                             ? EditorTokens.foreground.opacity(
                                 AssistDesignTokens.Opacity.hoverSurface
@@ -1058,26 +1058,22 @@ private struct SaveButton: View {
                 HugeIcon(
                     .check,
                     size: AssistDesignTokens.Icon.small,
-                    color: EditorTokens.inverseForeground
+                    color: AssistDesignTokens.DarkSurface.primaryForeground
                 )
                 Text(isSaving ? "Saving" : "Save")
                     .font(EditorTokens.Typography.action)
-                    .foregroundStyle(EditorTokens.inverseForeground)
+                    .foregroundStyle(AssistDesignTokens.DarkSurface.primaryForeground)
                     .lineLimit(1)
             }
             .padding(.horizontal, EditorTokens.Layout.saveHorizontalInset)
             .frame(height: EditorTokens.Layout.saveHeight)
-            .background(
-                EditorTokens.foreground.opacity(
-                    isSaving ? AssistDesignTokens.Opacity.secondary : 1
-                ),
-                in: Capsule()
-            )
+            // While saving, the disabled plain button dims itself.
+            .background(AssistDesignTokens.DarkSurface.primaryFill, in: Capsule())
             .scaleEffect(
                 isHovered && !isSaving ? EditorTokens.Scale.saveHover : 1
             )
             .shadow(
-                color: EditorTokens.foreground.opacity(
+                color: AssistDesignTokens.DarkSurface.primaryFill.opacity(
                     isHovered && !isSaving ? EditorTokens.Opacity.saveGlow : 0
                 ),
                 radius: AssistDesignTokens.Spacing.small

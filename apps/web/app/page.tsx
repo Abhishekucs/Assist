@@ -149,8 +149,9 @@ export default function Home() {
             <span>say more.</span>
           </h1>
           <p className="hero-copy">
-            Hold Option to draw on your screen and explain it aloud. Assist saves
-            your annotated screenshot with a local transcript, ready to share.
+            Hold Option to draw and speak. Assist saves an annotated screenshot
+            with a local transcript you can paste into Cursor, Claude Code, or
+            Codex — everything stays on your Mac.
           </p>
           <div className="hero-actions">
             <a className="hero-download-button" href={checkoutHref}>

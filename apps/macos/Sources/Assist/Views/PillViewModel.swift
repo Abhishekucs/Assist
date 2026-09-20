@@ -7,12 +7,15 @@ final class PillViewModel: ObservableObject {
     let voiceContextService: VoiceContextService
 
     @Published var latestItem: CaptureItem?
-    @Published var items: [CaptureItem] = []
-    @Published var textItems: [TextClipItem] = []
+    // Changed only through the history methods below, which rebuild the
+    // newest-first cache once per change.
+    @Published private(set) var items: [CaptureItem] = []
+    @Published private(set) var textItems: [TextClipItem] = []
     @Published var selectedHistoryItem: ClipboardHistoryItem?
     @Published private(set) var thumbnailImages: [UUID: NSImage] = [:]
     @Published private(set) var captureContextMarkdown: [UUID: String] = [:]
-    @Published var statusText = "Hold Opt / Ctrl+Opt"
+    private var contextModificationDates: [UUID: Date] = [:]
+    @Published var statusText = CaptureShortcut.idleStatus
     @Published var isExpanded = false
     @Published var isExpandedContentVisible = false
     @Published var isCollapsedContentVisible = true
@@ -29,6 +32,7 @@ final class PillViewModel: ObservableObject {
     private let updateService = AppUpdateService()
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
+    private static let previewCacheLimit = 40
     private static let copyFeedbackDisplayDuration: TimeInterval = 1.6
 
     var onTestScreenshot: (() -> Void)?
@@ -83,7 +87,7 @@ final class PillViewModel: ObservableObject {
 
     func clearCaptureIssue() {
         if statusText == "Capture failed" || statusText == "Capture fallback" {
-            statusText = "Hold Opt / Ctrl+Opt"
+            statusText = CaptureShortcut.idleStatus
         }
 
         captureIssue = nil
@@ -257,9 +261,17 @@ final class PillViewModel: ObservableObject {
             && captureContextMarkdown[item.id] != nil
     }
 
+    /// Screenshots and text clips, newest first, per filter; rebuilt whenever
+    /// `items` or `textItems` change, so views can read it on every render.
+    private var historyByFilter: [ClipboardHistoryFilter: [ClipboardHistoryItem]] = [:]
+
     var historyItems: [ClipboardHistoryItem] {
-        (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
-            .sorted { $0.createdAt > $1.createdAt }
+        historyItems(matching: .all)
+    }
+
+    /// The cached history a filter includes, newest first.
+    func historyItems(matching filter: ClipboardHistoryFilter) -> [ClipboardHistoryItem] {
+        historyByFilter[filter, default: []]
     }
 
     var selectedItem: ClipboardHistoryItem? {
@@ -269,6 +281,14 @@ final class PillViewModel: ObservableObject {
         }
 
         return historyItems.first
+    }
+
+    private func rebuildHistory() {
+        let newestFirst = (items.map(ClipboardHistoryItem.screenshot) + textItems.map(ClipboardHistoryItem.text))
+            .sorted { $0.createdAt > $1.createdAt }
+        historyByFilter = Dictionary(uniqueKeysWithValues: ClipboardHistoryFilter.allCases.map { filter in
+            (filter, newestFirst.filter(filter.includes))
+        })
     }
 
     var canCopySelectedImage: Bool {
@@ -427,12 +447,14 @@ final class PillViewModel: ObservableObject {
             items.removeAll { $0.id == capture.id }
             thumbnailImages.removeValue(forKey: capture.id)
             captureContextMarkdown.removeValue(forKey: capture.id)
+            contextModificationDates.removeValue(forKey: capture.id)
             if latestItem?.id == capture.id {
                 latestItem = items.first
             }
         case let .text(textClip):
             textItems.removeAll { $0.id == textClip.id }
         }
+        rebuildHistory()
 
         if selectedHistoryItem?.id == item.id {
             selectedHistoryItem = historyItems.first
@@ -445,25 +467,35 @@ final class PillViewModel: ObservableObject {
         }
     }
 
+    /// Called on every history sync (each island expansion and library open).
+    /// Syncs usually find nothing new, so every property is assigned only when
+    /// its value changes, and an unchanged sync publishes nothing.
     func replaceHistory(screenshots: [CaptureItem], textClips: [TextClipItem]) {
-        items = screenshots
-        textItems = textClips
+        let screenshotsChanged = items != screenshots
+        let textClipsChanged = textItems != textClips
+        if screenshotsChanged {
+            items = screenshots
+        }
+        if textClipsChanged {
+            textItems = textClips
+        }
+        if screenshotsChanged || textClipsChanged {
+            rebuildHistory()
+        }
 
-        if let selectedHistoryItem,
-           !historyItems.contains(selectedHistoryItem) {
-            self.selectedHistoryItem = historyItems.first
-        } else if selectedHistoryItem == nil {
+        let keepsSelection = selectedHistoryItem.map(historyItems.contains) ?? false
+        if !keepsSelection, selectedHistoryItem != historyItems.first {
             selectedHistoryItem = historyItems.first
         }
 
-        if let latestItem,
-           !screenshots.contains(where: { $0.id == latestItem.id }) {
-            self.latestItem = screenshots.first
-        } else if latestItem == nil {
+        let keepsLatest = latestItem.map { latest in screenshots.contains { $0.id == latest.id } } ?? false
+        if !keepsLatest, latestItem != screenshots.first {
             latestItem = screenshots.first
         }
 
+        // Both pick up files that appeared or changed on disk, and publish only on change.
         cacheThumbnails(for: screenshots)
+        cacheContextMarkdown(for: screenshots)
     }
 
     func replaceScreenshot(_ item: CaptureItem) {
@@ -471,14 +503,17 @@ final class PillViewModel: ObservableObject {
         var nextItems = items.filter { $0.id != item.id }
         nextItems.insert(item, at: 0)
         items = nextItems
+        rebuildHistory()
         latestItem = item
         selectedHistoryItem = .screenshot(item)
         cacheThumbnails(for: nextItems)
+        cacheContextMarkdown(for: nextItems)
     }
 
     func updateScreenshot(_ item: CaptureItem) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[index] = item
+        rebuildHistory()
 
         if latestItem?.id == item.id {
             latestItem = item
@@ -486,7 +521,7 @@ final class PillViewModel: ObservableObject {
         if selectedHistoryItem?.id == item.id {
             selectedHistoryItem = .screenshot(item)
         }
-        cacheContextMarkdown(for: item)
+        cacheContextMarkdown(for: items)
     }
 
     func refreshScreenshotPixels(for item: CaptureItem) {
@@ -564,28 +599,63 @@ final class PillViewModel: ObservableObject {
         var nextItems = textItems.filter { $0.id != item.id }
         nextItems.insert(item, at: 0)
         textItems = Array(nextItems.prefix(80))
+        rebuildHistory()
         selectedHistoryItem = .text(item)
     }
 
-    func cacheThumbnails(for items: [CaptureItem]) {
+    /// Loads thumbnails not cached yet for the newest captures and drops ones
+    /// for removed captures, publishing only when the cache changes.
+    private func cacheThumbnails(for items: [CaptureItem]) {
         let validIDs = Set(items.map(\.id))
         var nextImages = thumbnailImages.filter { validIDs.contains($0.key) }
-        var nextMarkdown: [UUID: String] = [:]
+        var didChange = nextImages.count != thumbnailImages.count
 
-        for item in items.prefix(40) where nextImages[item.id] == nil {
+        for item in items.prefix(Self.previewCacheLimit) where nextImages[item.id] == nil {
             if let image = warmedImage(at: item.thumbnailPath) {
                 nextImages[item.id] = image
+                didChange = true
             }
         }
 
-        for item in items.prefix(40) {
-            if let markdown = readContextMarkdown(for: item) {
+        if didChange {
+            thumbnailImages = nextImages
+        }
+    }
+
+    /// Keeps context.md text for the newest captures, in step with the files:
+    /// a file is read only when it is new to the cache or its modification date
+    /// changed (for example, edited in Finder), and a deleted file drops its
+    /// entry. Checking a date is far cheaper than reading the file. Publishes
+    /// only on change.
+    private func cacheContextMarkdown(for items: [CaptureItem]) {
+        var nextMarkdown: [UUID: String] = [:]
+        var nextModificationDates: [UUID: Date] = [:]
+        var didChange = false
+
+        for item in items.prefix(Self.previewCacheLimit) {
+            guard let fileURL = item.contextFileURL,
+                  let modified = modificationDate(of: fileURL) else { continue }
+
+            if contextModificationDates[item.id] == modified, let cached = captureContextMarkdown[item.id] {
+                nextMarkdown[item.id] = cached
+                nextModificationDates[item.id] = modified
+            } else if let markdown = try? String(contentsOf: fileURL, encoding: .utf8) {
                 nextMarkdown[item.id] = markdown
+                nextModificationDates[item.id] = modified
+                didChange = didChange || captureContextMarkdown[item.id] != markdown
             }
         }
 
-        thumbnailImages = nextImages
-        captureContextMarkdown = nextMarkdown
+        contextModificationDates = nextModificationDates
+        // With no new or changed text, the entries kept are a subset of the
+        // current ones, so a different count means some were dropped.
+        if didChange || nextMarkdown.count != captureContextMarkdown.count {
+            captureContextMarkdown = nextMarkdown
+        }
+    }
+
+    private func modificationDate(of fileURL: URL) -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.modificationDate] as? Date
     }
 
     func thumbnail(for item: CaptureItem) -> NSImage? {
@@ -600,19 +670,6 @@ final class PillViewModel: ObservableObject {
         _ = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil)
 
         return image
-    }
-
-    private func cacheContextMarkdown(for item: CaptureItem) {
-        if let markdown = readContextMarkdown(for: item) {
-            captureContextMarkdown[item.id] = markdown
-        } else {
-            captureContextMarkdown.removeValue(forKey: item.id)
-        }
-    }
-
-    private func readContextMarkdown(for item: CaptureItem) -> String? {
-        guard let contextFileURL = item.contextFileURL else { return nil }
-        return try? String(contentsOf: contextFileURL, encoding: .utf8)
     }
 
     private func openSystemSettingsPane(_ urlString: String) {

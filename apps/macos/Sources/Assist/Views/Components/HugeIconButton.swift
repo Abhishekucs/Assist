@@ -3,30 +3,30 @@ import SwiftUI
 struct HugeIconButton: View {
     let kind: HugeIconKind
     let tooltip: String
-    var isSelected = false
     let action: () -> Void
     @Environment(\.assistTheme) private var theme
+    @Environment(\.isEnabled) private var isEnabled
     @State private var isHovered = false
 
     var body: some View {
         Button(action: action) {
-            HugeIcon(kind, size: 18, color: iconColor)
-                .frame(width: 34, height: 34)
-                .background(backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            HugeIcon(kind, size: AssistDesignTokens.Icon.feedback, color: theme.muted)
+                .frame(width: AssistDesignTokens.Control.largeIconButton, height: AssistDesignTokens.Control.largeIconButton)
+                .background(
+                    backgroundColor,
+                    in: RoundedRectangle(cornerRadius: AssistDesignTokens.Radius.iconButton, style: .continuous)
+                )
         }
+        // The plain style already dims disabled content.
         .buttonStyle(.plain)
         .help(tooltip)
         .accessibilityLabel(tooltip)
-        .pointingHandCursor()
+        .pointingHandCursor(isEnabled: isEnabled)
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .animation(AssistDesignTokens.Motion.quick, value: isHovered)
     }
 
     private var backgroundColor: Color {
-        isHovered ? theme.selected.opacity(theme.isDark ? 0.62 : 0.78) : .clear
-    }
-
-    private var iconColor: Color {
-        isSelected ? theme.foreground : theme.muted
+        isHovered && isEnabled ? theme.hoverFill : .clear
     }
 }

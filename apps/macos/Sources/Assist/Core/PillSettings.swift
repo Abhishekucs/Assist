@@ -9,6 +9,9 @@ enum AppAppearance: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// UI preferences. Main-actor isolated because windows and views observe them,
+/// and AppKit changes (such as a window's appearance) must happen on main.
+@MainActor
 final class PillSettings: ObservableObject {
     enum Defaults {
         static let collapsedSize = CGSize(width: 268, height: 30)

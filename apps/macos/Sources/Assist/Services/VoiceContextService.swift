@@ -297,7 +297,8 @@ final class LockedAudioBuffer: @unchecked Sendable {
 final class VoiceContextService: ObservableObject {
     nonisolated static let modelIdentifier = "argmaxinc/whisperkit-coreml/openai_whisper-small.en"
     nonisolated static let modelRevision = "97a5bf9bbc74c7d9c12c755d04dea59e672e3808"
-    nonisolated static let modelDownloadSizeDescription = "approximately 487 MB"
+    nonisolated static let modelDownloadMegabytes = 487
+    nonisolated static let modelDownloadSizeDescription = "approximately \(modelDownloadMegabytes) MB"
 
     @Published private(set) var modelState: VoiceModelState
     @Published private(set) var microphoneAccessState: MicrophoneAccessState
@@ -309,7 +310,8 @@ final class VoiceContextService: ObservableObject {
     private static let sampleRate = 16_000
     private static let maximumSampleCount = sampleRate * 90
 
-    private let modelsDirectory: URL
+    /// Where the downloaded voice model is stored; shown in setup text.
+    let modelsDirectory: URL
     private let manifestURL: URL
     private let transcriber = WhisperTranscriber()
     private let audioRecorder: any VoiceAudioRecording

@@ -14,47 +14,50 @@ struct KeyboardVisualizerSettingsSection: View {
         SettingsSection("Keyboard visualizer") {
             SettingToggleRow(title: "Show keyboard while typing", detail: "Appears as you type and hides after one second of inactivity.",
                              isOn: $settings.configuration.visualizerEnabled)
-            HStack {
-                Text("Keyboard design").font(.footnote.weight(.semibold))
-                Spacer()
+            pickerRow("Keyboard design") {
                 Picker("Keyboard design", selection: $settings.configuration.visualizerStyle) {
                     ForEach(KeyboardVisualizerStyle.allCases) { style in
                         Text(style.title).tag(style)
                     }
                 }
-                .labelsHidden()
-                .frame(width: 166)
-                .controlSize(.small)
             }
-            .padding(.horizontal, 14)
-            .frame(height: 36)
 
             KeyboardVisualizerView(state: controller.visualizer, style: settings.configuration.visualizerStyle)
                 .frame(width: KeyboardVisualizerLayout.size.width)
-                .padding(.vertical, 8)
+                // The Assist style shares this group's card color, so the
+                // preview needs its own edge.
+                .overlay {
+                    RoundedRectangle(cornerRadius: Tokens.Radius.medium)
+                        .strokeBorder(theme.border, lineWidth: Tokens.Control.borderWidth)
+                }
+                .padding(.vertical, Tokens.Spacing.small)
+                // The preview is centered in the group on purpose.
+                .frame(maxWidth: .infinity)
 
             if settings.configuration.visualizerEnabled {
-                HStack {
-                    Text("Position").font(.footnote.weight(.semibold))
-                    Spacer()
+                pickerRow("Position") {
                     Picker("Visualizer position", selection: $settings.configuration.visualizerPosition) {
                         ForEach(KeyboardVisualizerPosition.allCases) { position in
                             Text(position.title).tag(position)
                         }
                     }
-                    .labelsHidden()
-                    .frame(width: 166)
-                    .controlSize(.small)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 36)
             }
             Text("US keyboard layout. Works with sounds off. Clicks pass through to the app underneath.")
-                .font(.caption)
+                .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Tokens.Settings.rowInset)
+                .padding(.bottom, Tokens.Spacing.small)
+        }
+    }
+
+    private func pickerRow<Control: View>(_ title: String, @ViewBuilder picker: () -> Control) -> some View {
+        SettingsRow(title) {
+            picker()
+                .labelsHidden()
+                .frame(width: Tokens.Settings.pickerWidth)
+                .controlSize(.small)
         }
     }
 }
