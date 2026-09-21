@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 export default function KeyboardSoundTesterPage() {
   return (
     <main>
-      <SiteHeader funMode />
+      <SiteHeader activePath="/keyboard-sound-tester" />
       <KeyboardPlayground />
     </main>
   );

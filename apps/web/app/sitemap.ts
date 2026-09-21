@@ -1,66 +1,69 @@
 import type { MetadataRoute } from "next";
-import { marketingVideos } from "./marketingMedia";
 
-const siteUrl = "https://assistapp.dev";
-const productLastModified = "2026-09-13";
+import { heroVideo } from "./marketingMedia";
+import { PRODUCT_FEATURES, SITE_URL } from "./productContent";
+
+const productLastModified = "2026-09-21";
 const legalLastModified = "2026-08-27";
-const absoluteMarketingVideoUrl = (path: string) => new URL(path, siteUrl).href;
+const absoluteUrl = (path: string) => new URL(path, SITE_URL).href;
+
+const featurePages: MetadataRoute.Sitemap = PRODUCT_FEATURES.map((feature) => ({
+  url: absoluteUrl(feature.path),
+  lastModified: productLastModified,
+  changeFrequency: "monthly",
+  priority: 0.9,
+  images: [`${SITE_URL}/og-image.png`],
+  videos: [
+    {
+      title: `${feature.name} in Assist for Mac`,
+      description: feature.metadataDescription,
+      thumbnail_loc: `${SITE_URL}/og-image.png`,
+      content_loc: absoluteUrl(feature.video),
+      family_friendly: "yes"
+    }
+  ]
+}));
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: `${siteUrl}/`,
+      url: `${SITE_URL}/`,
       lastModified: productLastModified,
+      changeFrequency: "monthly",
+      priority: 1,
       images: [
-        `${siteUrl}/og-image.png`,
-        `${siteUrl}/assist-icon.png`
+        `${SITE_URL}/og-image.png`,
+        `${SITE_URL}/assist-icon.png`
       ],
       videos: [
         {
           title: "Assist for Mac workflow demonstration",
           description:
-            "An overview of Assist workflows in the Mac notch, including capture, annotation, and clipboard history.",
-          thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: absoluteMarketingVideoUrl(marketingVideos.hero),
-          family_friendly: "yes"
-        },
-        {
-          title: "Voice-powered screen annotation in Assist for Mac",
-          description:
-            "A demonstration of drawing over the Mac screen and saving the annotation with a local voice transcript.",
-          thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: absoluteMarketingVideoUrl(marketingVideos.annotation),
-          family_friendly: "yes"
-        },
-        {
-          title: "Full-screen screenshot capture and editing in Assist for Mac",
-          description:
-            "A demonstration of capturing a Mac display and using the quick editor to crop, blur, or frame the screenshot.",
-          thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: absoluteMarketingVideoUrl(marketingVideos.screenshot),
-          family_friendly: "yes"
-        },
-        {
-          title: "Clipboard history in Assist for Mac",
-          description:
-            "A demonstration of copying an item once and reusing it from the Assist clipboard history.",
-          thumbnail_loc: `${siteUrl}/og-image.png`,
-          content_loc: absoluteMarketingVideoUrl(marketingVideos.clipboard),
+            "An overview of Assist screenshot capture, voice annotation, and clipboard history workflows in the Mac notch.",
+          thumbnail_loc: `${SITE_URL}/og-image.png`,
+          content_loc: absoluteUrl(heroVideo),
           family_friendly: "yes"
         }
       ]
     },
+    ...featurePages,
     {
-      url: `${siteUrl}/keyboard-sound-tester`,
-      lastModified: productLastModified
+      url: `${SITE_URL}/keyboard-sound-tester`,
+      lastModified: productLastModified,
+      changeFrequency: "monthly",
+      priority: 0.5
     },
     {
-      url: `${siteUrl}/privacy`,
-      lastModified: legalLastModified
+      url: `${SITE_URL}/privacy`,
+      lastModified: legalLastModified,
+      changeFrequency: "yearly",
+      priority: 0.3
     },
     {
-      url: `${siteUrl}/terms`,
-      lastModified: legalLastModified
+      url: `${SITE_URL}/terms`,
+      lastModified: legalLastModified,
+      changeFrequency: "yearly",
+      priority: 0.3
     }
   ];
 }

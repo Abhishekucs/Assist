@@ -1,17 +1,27 @@
 import type { MetadataRoute } from "next";
 
-const siteUrl = "https://assistapp.dev";
+import { SITE_URL } from "./productContent";
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
+        userAgent: [
+          "OAI-SearchBot",
+          "ChatGPT-User",
+          "Claude-SearchBot",
+          "Claude-User"
+        ],
+        allow: "/",
+        disallow: "/api/"
+      },
+      {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/purchase/"]
+        disallow: "/api/"
       }
     ],
-    sitemap: `${siteUrl}/sitemap.xml`,
-    host: siteUrl
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL
   };
 }

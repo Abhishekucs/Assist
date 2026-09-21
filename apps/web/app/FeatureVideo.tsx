@@ -89,6 +89,8 @@ export default function FeatureVideo({ src }: FeatureVideoProps) {
       loop
       playsInline
       preload={shouldLoad ? "metadata" : "none"}
+      aria-hidden="true"
+      tabIndex={-1}
     />
   );
 }

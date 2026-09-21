@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { HOME_DESCRIPTION, HOME_TITLE, SITE_NAME, SITE_URL } from "./productContent";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,36 +11,17 @@ const inter = Inter({
   variable: "--font-sans"
 });
 
-const siteUrl = "https://assistapp.dev";
-const siteTitle =
-  "Assist for Mac — Voice Screenshots for Cursor & Claude Code";
-const socialImageUrl = `${siteUrl}/og-image.png`;
-const siteDescription =
-  "Hold Option to draw and speak. Paste an annotated screenshot + local transcript into Cursor, Claude Code, or Codex. $20 one-time Mac app.";
+const socialImageUrl = `${SITE_URL}/og-image.png`;
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: siteTitle,
+    default: HOME_TITLE,
     template: "%s | Assist"
   },
-  description: siteDescription,
-  applicationName: "Assist",
+  description: HOME_DESCRIPTION,
+  applicationName: SITE_NAME,
   category: "Productivity",
-  keywords: [
-    "Mac screenshot app",
-    "crop and blur screenshots on Mac",
-    "screen annotation Mac",
-    "Mac clipboard history",
-    "macOS productivity app",
-    "Mac notch app",
-    "Cursor screenshot workflow",
-    "Claude Code screenshot",
-    "AI coding agent Mac"
-  ],
-  alternates: {
-    canonical: "/"
-  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "48x48" },
@@ -48,10 +30,10 @@ export const metadata: Metadata = {
     apple: "/assist-icon.png"
   },
   openGraph: {
-    title: siteTitle,
-    description: siteDescription,
-    url: siteUrl,
-    siteName: "Assist",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
     locale: "en_US",
     type: "website",
     images: [
@@ -65,8 +47,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteTitle,
-    description: siteDescription,
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
     images: [
       {
         url: socialImageUrl,

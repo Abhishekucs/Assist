@@ -2,18 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
-
-const menuItems = [
-  { hash: "#features", label: "Features" },
-  { hash: "#faq", label: "FAQ" },
-  { hash: "#pricing", label: "Pricing" },
-];
+import { CHECKOUT_HREF, PRODUCT_FEATURES, type SitePath } from "./productContent";
 
 type MobileMenuProps = {
-  sectionPrefix?: string;
+  activePath?: SitePath;
 };
 
-export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
+export default function MobileMenu({ activePath }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -28,19 +23,27 @@ export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
         <Image src={`/icons/${isOpen ? "cancel-01" : "menu-01"}.svg`} width={18} height={18} alt="" aria-hidden="true" />
       </button>
       <div className="mobile-menu-panel" aria-hidden={!isOpen}>
-        {menuItems.map((item) => (
+        {PRODUCT_FEATURES.map((feature) => (
           <a
-            key={item.hash}
-            href={`${sectionPrefix}${item.hash}`}
+            key={feature.path}
+            href={feature.path}
+            aria-current={activePath === feature.path ? "page" : undefined}
             onClick={() => setIsOpen(false)}
           >
-            {item.label}
+            {feature.navigationLabel}
           </a>
         ))}
-        <a href="/keyboard-sound-tester" onClick={() => setIsOpen(false)}>Fun mode</a>
+        <a href="/#pricing" onClick={() => setIsOpen(false)}>Pricing</a>
+        <a
+          href="/keyboard-sound-tester"
+          aria-current={activePath === "/keyboard-sound-tester" ? "page" : undefined}
+          onClick={() => setIsOpen(false)}
+        >
+          Fun mode
+        </a>
         <a
           className="mobile-menu-download"
-          href="/api/checkout"
+          href={CHECKOUT_HREF}
           onClick={() => setIsOpen(false)}
         >
           <span aria-hidden="true"></span>

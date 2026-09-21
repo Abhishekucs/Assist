@@ -45,16 +45,16 @@ export default function LocalizedPrice() {
     return () => controller.abort();
   }, []);
 
-  const displayPrice = quote ? formatPriceQuote(quote) : "—";
+  const displayPrice = quote ? formatPriceQuote(quote) : "Regional price";
   const accessiblePrice = quote
     ? displayPrice
     : isLoading
-      ? "Loading price"
-      : "Price unavailable";
+      ? "Loading regional price"
+      : "Regional price shown at checkout";
 
   return (
     <div
-      className="pricing-price"
+      className={`pricing-price${quote ? "" : " is-placeholder"}`}
       aria-label={accessiblePrice}
       aria-live="polite"
     >
