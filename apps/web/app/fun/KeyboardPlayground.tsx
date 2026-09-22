@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import Link from "next/link";
 import catalog from "./catalog.json";
 import { KeyboardAudio } from "./KeyboardAudio";
 import { keyboardKeys, keyboardRows, keyColors, type DemoKey } from "./keyboard";
@@ -176,7 +177,7 @@ export default function KeyboardPlayground() {
       <div className={styles.getAssist}>
         <p>Bring this feeling to every app on your Mac.</p>
         <a className="hero-download-button" href="/api/checkout">Get Assist for Mac</a>
-        <a href="/" className={styles.back}>Back to Assist</a>
+        <Link href="/" className={styles.back}>Back to Assist</Link>
       </div>
     </section>
   );

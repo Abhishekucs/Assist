@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
   extractLicenseKeyFromSuccessParams,
   getPaymentIdFromParams,
@@ -38,7 +40,6 @@ function getReturnStatusFromParams(
 function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
   if (state === "ready" && purchase) {
     return {
-      kicker: "Payment complete",
       title: "Your download is ready.",
       body: "Thanks for purchasing Assist. Copy your license key, then download the macOS app below. Assist will ask for this key the first time it opens.",
     };
@@ -46,7 +47,6 @@ function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
 
   if (state === "attention" && purchase) {
     return {
-      kicker: "Payment complete",
       title: "Your license key was not issued.",
       body: "We confirmed your purchase, but Dodo did not return a license key for this payment. Keep the payment ID below for support.",
     };
@@ -54,14 +54,12 @@ function getCopy(state: PurchaseState, purchase: PurchaseRecord | null) {
 
   if (state === "failed") {
     return {
-      kicker: "Payment failed",
       title: "Payment did not complete.",
       body: "Please try again, or use a different payment method if the checkout keeps failing.",
     };
   }
 
   return {
-    kicker: "Purchase needs attention",
     title: "We could not finish setup.",
     body: "We could not match this checkout to a completed Assist purchase yet. If you were charged, keep your payment confirmation and try again in a few minutes.",
   };
@@ -120,18 +118,17 @@ export default async function PurchaseResultPage({
         className={`purchase-card purchase-card-${state}`}
         aria-labelledby="purchase-title"
       >
-        <a className="purchase-brand" href="/" aria-label="Assist home">
+        <Link className="purchase-brand" href="/" aria-label="Assist home">
           <span className="brand-mark">
             <img src="/assist-icon.png" alt="" width="30" height="30" />
           </span>
           <span>Assist</span>
-        </a>
+        </Link>
 
         <div className="purchase-status-mark" aria-hidden="true">
           <span></span>
         </div>
 
-        <p className="purchase-kicker">{copy.kicker}</p>
         <h1 id="purchase-title">{copy.title}</h1>
         <p>{copy.body}</p>
 
@@ -172,9 +169,9 @@ export default async function PurchaseResultPage({
           </div>
         )}
 
-        <a className="purchase-back-link" href={state === "failed" ? "/#pricing" : "/"}>
+        <Link className="purchase-back-link" href={state === "failed" ? "/#pricing" : "/"}>
           {state === "failed" ? "Back to pricing" : "Back to home"}
-        </a>
+        </Link>
       </section>
     </main>
   );

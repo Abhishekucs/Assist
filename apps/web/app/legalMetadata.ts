@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 
-const siteUrl = "https://assistapp.dev";
-const socialImageUrl = `${siteUrl}/og-image.png`;
+import { SITE_URL } from "./productContent";
+
+const socialImageUrl = `${SITE_URL}/og-image.png`;
 
 export function createLegalMetadata(
   title: string,
   description: string,
   path: "/privacy" | "/terms"
 ): Metadata {
-  const url = `${siteUrl}${path}`;
+  const url = `${SITE_URL}${path}`;
 
   return {
     title,

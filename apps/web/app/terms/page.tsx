@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import LegalDocument from "../LegalDocument";
 import { createLegalMetadata } from "../legalMetadata";
 
@@ -45,7 +47,7 @@ export default function TermsPage() {
         </p>
         <p>
           By purchasing, downloading, activating, or using the Services, you agree to these
-          terms and the <a href="/privacy">Privacy Policy</a>. If you do not agree, do not use
+          terms and the <Link href="/privacy">Privacy Policy</Link>. If you do not agree, do not use
           the Services. You must be legally able to enter into this agreement. If you use Assist
           for an organization, you represent that you have authority to bind it to these terms.
         </p>
@@ -192,7 +194,7 @@ export default function TermsPage() {
       <section id="privacy">
         <h2>9. Privacy</h2>
         <p>
-          The <a href="/privacy">Privacy Policy</a> explains how Assist handles local app data,
+          The <Link href="/privacy">Privacy Policy</Link> explains how Assist handles local app data,
           license and purchase records, website analytics, service-provider disclosures, and
           privacy choices. By using the Services, you acknowledge those practices.
         </p>

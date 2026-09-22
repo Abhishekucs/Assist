@@ -1,127 +1,83 @@
+import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
+
 import FeatureVideo from "./FeatureVideo";
 import HeroVideo from "./HeroVideo";
+import JsonLd from "./JsonLd";
 import LocalizedPrice from "./LocalizedPrice";
-import { marketingVideos } from "./marketingMedia";
+import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
+import { heroVideo } from "./marketingMedia";
+import {
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  PRODUCT_FAQS,
+  PRODUCT_FEATURES,
+  SITE_URL
+} from "./productContent";
+import { CHECKOUT_HREF } from "./siteNavigation";
+import { createPageMetadata } from "./siteMetadata";
 
-const checkoutHref = "/api/checkout";
-const siteUrl = "https://assistapp.dev";
 const productHuntHref =
   "https://www.producthunt.com/products/assist-4?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-assist-4";
 const productHuntBadgeSrc =
   "https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1242727&theme=light&t=1788689369583";
 
-const faqItems = [
-  {
-    question: "Can I try the keyboard sounds before buying?",
-    answer:
-      "Yes. Open Fun mode to try all 14 sound packs and seven keyboard designs in your browser. In the Mac app, sounds and the typing-only keyboard work across apps, with quick controls in the menu bar. Both are optional."
-  },
-  {
-    question: "What does Assist for Mac do?",
-    answer:
-      "Assist combines three Mac workflows in the notch: voice-powered screen annotation, clean full-screen screenshots, and clipboard history. Recent screenshots, annotations, transcripts, and copied text stay ready to reuse."
-  },
-  {
-    question: "How does voice-powered screen annotation work?",
-    answer:
-      "Hold Option anywhere on macOS, draw over the screen, and speak while you point things out. Release Option to save the annotated screenshot with its optional local transcript, ready to copy together."
-  },
-  {
-    question: "Does Assist send my voice recording to the cloud?",
-    answer:
-      "No. Voice transcription runs locally with WhisperKit on Apple silicon. Raw audio stays in memory only while transcription finishes and is never saved; Assist stores only the resulting transcript and its status."
-  },
-  {
-    question: "How do I take a full-screen screenshot?",
-    answer:
-      "Press Control + Option to capture the full display immediately without entering annotation mode. The screenshot is saved right away and appears in your history under All, where you can preview, copy, or drag it into another app."
-  },
-  {
-    question: "Can I crop or blur a screenshot after taking it?",
-    answer:
-      "Yes. A quick editor appears under the notch after each Control + Option capture. Hover it to crop to a free or fixed aspect ratio, blur anything private with three brush sizes, or add a gradient or wallpaper backdrop with padding, rounded corners, and a shadow. Expand the card for a closer look, save to replace the capture, or close it to keep the original."
-  },
-  {
-    question: "What happens if I ignore the quick editor?",
-    answer:
-      "Nothing is lost. The original screenshot is already saved, so the editor closes after about five seconds if you never hover it. Once you hover, it stays visible while your pointer is over it; leaving closes the editor and discards any unsaved draft, while saving first replaces the original capture with your edits."
-  },
-  {
-    question: "How does clipboard history work?",
-    answer:
-      "Copy text as usual and Assist keeps it in your local history alongside your screenshots. Hover the notch, then use All, Text, or Images to filter what you need, copy it again, or drag it into another app. You can delete individual items whenever you want."
-  },
-  {
-    question: "Where does Assist store my screenshots and history?",
-    answer:
-      "Screenshots, copied text, history, and optional transcripts are stored locally on your Mac. Assist does not OCR or interpret screenshots; you choose when to copy or drag the original capture into another app."
-  },
-  {
-    question: "What are the Mac requirements?",
-    answer:
-      "Assist requires macOS 14 Sonoma or later. Screenshots and clipboard history work on supported Macs; optional local voice transcription requires Apple silicon and a one-time Whisper model download."
-  },
-  {
-    question: "Which macOS permissions does Assist need?",
-    answer:
-      "Screen Recording is required for screenshots. Accessibility or Input Monitoring lets Assist detect the Option and Control + Option shortcuts. Microphone access is optional and requested only when you enable voice transcription."
-  },
-  {
-    question: "Is Assist a subscription?",
-    answer:
-      "No. Assist is a one-time purchase for one Mac. The price shown above reflects regional pricing when available. There is no recurring subscription."
-  }
-];
+export const metadata: Metadata = createPageMetadata({
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  path: "/",
+  absoluteTitle: true
+});
 
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "SoftwareApplication",
-      "@id": `${siteUrl}/#app`,
+      "@id": `${SITE_URL}/#app`,
       name: "Assist",
       operatingSystem: "macOS 14 or later",
       applicationCategory: "UtilitiesApplication",
       description:
-        "Assist is a native Mac app for voice-powered screen annotation, full-screen screenshots, and clipboard history from the notch.",
-      url: siteUrl,
-      image: `${siteUrl}/og-image.png`,
+        "Assist is a native, local-first Mac app for full-screen screenshot capture and editing, voice-powered screen annotation, and clipboard history from the notch.",
+      url: SITE_URL,
+      image: `${SITE_URL}/og-image.png`,
+      publisher: { "@id": `${SITE_URL}/#organization` },
       softwareRequirements:
-        "macOS 14 or later; Apple silicon is required for local voice transcription",
+        "macOS 14 or later; Apple silicon is required for optional local voice transcription",
       featureList: [
-        "Voice-powered screen annotation",
-        "Local Whisper transcription on Apple silicon",
         "Full-screen screenshot capture with Control and Option",
         "Quick screenshot editing with crop, blur, and backdrops",
+        "Voice-powered screen annotation",
+        "Local Whisper transcription on Apple silicon",
         "Local clipboard text history",
-        "Screenshot and copied-text history",
-        "Drag and drop from the notch",
-        "Local-first storage",
-        "14 offline keyboard sound packs",
-        "Seven typing-only keyboard visualizer designs",
-        "Keyboard controls in the macOS menu bar"
+        "Screenshot, annotation, transcript, and copied-text history",
+        "Copy and drag from the Mac notch",
+        "Local-first storage"
       ]
     },
     {
       "@type": "Organization",
-      "@id": `${siteUrl}/#organization`,
+      "@id": `${SITE_URL}/#organization`,
       name: "Assist",
-      url: siteUrl,
-      logo: `${siteUrl}/assist-icon.png`
+      legalName: "Thinking Sound Lab Private Limited",
+      url: SITE_URL,
+      logo: `${SITE_URL}/assist-icon.png`
     },
     {
       "@type": "WebSite",
-      "@id": `${siteUrl}/#website`,
+      "@id": `${SITE_URL}/#website`,
       name: "Assist",
-      url: siteUrl,
-      publisher: { "@id": `${siteUrl}/#organization` }
+      url: SITE_URL,
+      publisher: { "@id": `${SITE_URL}/#organization` },
+      inLanguage: "en"
     },
     {
       "@type": "FAQPage",
-      "@id": `${siteUrl}/#faq`,
-      mainEntity: faqItems.map((item) => ({
+      "@id": `${SITE_URL}/#faq`,
+      mainEntity: PRODUCT_FAQS.map((item) => ({
         "@type": "Question",
         name: item.question,
         acceptedAnswer: {
@@ -134,31 +90,32 @@ const structuredData = {
 };
 
 export default function Home() {
-  return (
-    <main>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-      />
-      <SiteHeader />
+  const screenshots = PRODUCT_FEATURES[0];
+  const voiceAnnotation = PRODUCT_FEATURES[1];
+  const clipboard = PRODUCT_FEATURES[2];
 
-      <section id="top" className="hero">
+  return (
+    <main id="top">
+      <JsonLd data={structuredData} />
+      <SiteHeader activePath="/" />
+
+      <section className="hero">
         <div className="hero-content">
           <h1 className="hero-title">
-            <span>Screenshots that</span>
-            <span>say more.</span>
+            <span>Capture it.</span>
+            <span>Say what matters.</span>
           </h1>
           <p className="hero-copy">
-            Hold Option to draw and speak. Assist saves an annotated screenshot
-            with a local transcript you can paste into Cursor, Claude Code, or
-            Codex — everything stays on your Mac.
+            Assist brings screenshot capture and editing, local voice annotation,
+            and clipboard history to your Mac notch. Your captures and copied text
+            stay on your Mac until you choose where they go.
           </p>
           <div className="hero-actions">
-            <a className="hero-download-button" href={checkoutHref}>
+            <a className="hero-download-button" href={CHECKOUT_HREF}>
               <span aria-hidden="true"></span>
               <span>Download for Mac</span>
             </a>
-            <a className="hero-fun-link" href="/keyboard-sound-tester">Try Fun mode</a>
+            <Link className="hero-fun-link" href="/keyboard-sound-tester">Try Fun mode</Link>
           </div>
           <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
           <a
@@ -176,8 +133,9 @@ export default function Home() {
             />
           </a>
         </div>
-        <HeroVideo src={marketingVideos.hero} />
+        <HeroVideo src={heroVideo} />
       </section>
+
       <section className="capability-section">
         <div className="trusted-by" aria-label="Companies where Assist users work">
           <p>Trusted by people at</p>
@@ -195,21 +153,7 @@ export default function Home() {
       </section>
 
       <section id="features" className="feature-showcase" aria-label="Assist features">
-        <article id="voice-annotation" className="workflow-section workflow-split">
-          <div className="workflow-copy">
-            <h2>Point. Speak. Done.</h2>
-            <p className="workflow-description">
-              Hold Option anywhere on macOS to draw over what you see. Speak while
-              you annotate and Assist adds a local transcript to the same capture,
-              so the image and your intent stay together.
-            </p>
-          </div>
-          <div className="workflow-media workflow-media-video" aria-hidden="true">
-            <FeatureVideo src={marketingVideos.annotation} />
-          </div>
-        </article>
-
-        <article id="screenshots" className="workflow-section workflow-split workflow-split-reverse">
+        <article id={screenshots.id} className="workflow-section workflow-split">
           <div className="workflow-copy">
             <h2>Capture. Edit.</h2>
             <p className="workflow-description">
@@ -217,13 +161,33 @@ export default function Home() {
               It saves immediately, and a quick editor drops under the notch in
               case you want to crop, blur, or frame it before using it.
             </p>
+            <Link className="workflow-link" href={screenshots.path}>
+              Explore {screenshots.name} <span aria-hidden="true">→</span>
+            </Link>
           </div>
-          <div className="workflow-media workflow-media-video" aria-hidden="true">
-            <FeatureVideo src={marketingVideos.screenshot} />
+          <div className="workflow-media workflow-media-video" role="img" aria-label={screenshots.videoLabel}>
+            <FeatureVideo src={screenshots.video} />
           </div>
         </article>
 
-        <article id="clipboard" className="workflow-section workflow-split">
+        <article id={voiceAnnotation.id} className="workflow-section workflow-split workflow-split-reverse">
+          <div className="workflow-copy">
+            <h2>Point. Speak. Done.</h2>
+            <p className="workflow-description">
+              Hold Option anywhere on macOS to draw over what you see. Speak while
+              you annotate and Assist adds a local transcript to the same capture,
+              so the image and your intent stay together.
+            </p>
+            <Link className="workflow-link" href={voiceAnnotation.path}>
+              Explore {voiceAnnotation.name} <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+          <div className="workflow-media workflow-media-video" role="img" aria-label={voiceAnnotation.videoLabel}>
+            <FeatureVideo src={voiceAnnotation.video} />
+          </div>
+        </article>
+
+        <article id={clipboard.id} className="workflow-section workflow-split">
           <div className="workflow-copy">
             <h2>Copy once. Reuse anytime.</h2>
             <p className="workflow-description">
@@ -231,9 +195,12 @@ export default function Home() {
               Open the notch, narrow the view to All, Text, or Images, and put an
               item back into your workflow in a click.
             </p>
+            <Link className="workflow-link" href={clipboard.path}>
+              Explore {clipboard.name} <span aria-hidden="true">→</span>
+            </Link>
           </div>
-          <div className="workflow-media workflow-media-video" aria-hidden="true">
-            <FeatureVideo src={marketingVideos.clipboard} />
+          <div className="workflow-media workflow-media-video" role="img" aria-label={clipboard.videoLabel}>
+            <FeatureVideo src={clipboard.video} />
           </div>
         </article>
       </section>
@@ -246,22 +213,17 @@ export default function Home() {
 
         <div className="pricing-card">
           <h3>Assist License</h3>
-
           <LocalizedPrice />
-
           <p className="pricing-license-note">1 Mac · one-time purchase · regional pricing</p>
-
           <ul className="pricing-features" aria-label="Included features">
-            <li>Voice-powered screen annotation</li>
             <li>Full-screen screenshot capture</li>
             <li>Quick crop, blur, and backdrop editing</li>
+            <li>Voice-powered screen annotation</li>
             <li>Local clipboard history</li>
             <li>Recent screenshots and copied text</li>
-            <li>14 keyboard sounds and seven keyboard designs</li>
             <li>Native, local-first macOS app</li>
           </ul>
-
-          <a className="pricing-button" href={checkoutHref}>
+          <a className="pricing-button" href={CHECKOUT_HREF}>
             <span>Get Assist</span>
           </a>
         </div>
@@ -271,13 +233,13 @@ export default function Home() {
         <div className="faq-intro">
           <h2>Frequently asked questions</h2>
           <p>
-            Voice annotation, screenshots, clipboard history, privacy, Mac
+            Screenshots, voice annotation, clipboard history, privacy, Mac
             requirements, and licensing.
           </p>
         </div>
 
         <div className="faq-list">
-          {faqItems.map((item, index) => (
+          {PRODUCT_FAQS.map((item, index) => (
             <details className="faq-item" key={item.question} open={index === 0}>
               <summary>
                 <span>{item.question}</span>
@@ -289,60 +251,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="site-footer">
-        <div className="footer-cta">
-          <Image className="footer-cta-icon" src="/assist-icon.png" alt="" width={72} height={72} />
-          <h2>Keep every capture one gesture away.</h2>
-          <p>Voice annotation, clean screenshots, and clipboard history, built for your Mac.</p>
-          <a className="footer-cta-button" href={checkoutHref}>
-            <span aria-hidden="true"></span>
-            <span>Get Assist for Mac</span>
-          </a>
-        </div>
-
-        <div className="footer-links-wrap">
-          <div className="footer-brand-block">
-            <a className="footer-brand" href="#top" aria-label="Assist home">
-              <span className="brand-mark">
-                <Image src="/assist-icon.png" alt="" width={30} height={30} />
-              </span>
-              <span>Assist</span>
-            </a>
-            <p>Voice annotation, screenshots, and clipboard history, right from your Mac notch.</p>
-          </div>
-
-          <nav className="footer-link-grid" aria-label="Footer navigation">
-            <div>
-              <h3>Product</h3>
-              <a href="#voice-annotation">Voice annotation</a>
-              <a href="#screenshots">Screenshots</a>
-              <a href="#clipboard">Clipboard</a>
-              <a href="/keyboard-sound-tester">Fun mode</a>
-            </div>
-            <div>
-              <h3>Buy</h3>
-              <a href="#pricing">Pricing</a>
-              <a href="#faq">FAQ</a>
-              <a href={checkoutHref}>Download</a>
-            </div>
-            <div>
-              <h3>Company</h3>
-              <a href="mailto:abhishek@thinkingsoundlab.com">Contact</a>
-              <a href="/llms.txt">LLM.txt</a>
-            </div>
-            <div>
-              <h3>Legal</h3>
-              <a href="/privacy">Privacy policy</a>
-              <a href="/terms">Terms of use</a>
-            </div>
-          </nav>
-        </div>
-
-        <div className="footer-bottom">
-          <p>© 2026 Assist. All rights reserved.</p>
-          <a href="#top">Back to top</a>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

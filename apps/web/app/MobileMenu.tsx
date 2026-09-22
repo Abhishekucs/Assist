@@ -2,18 +2,19 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
-const menuItems = [
-  { hash: "#features", label: "Features" },
-  { hash: "#faq", label: "FAQ" },
-  { hash: "#pricing", label: "Pricing" },
-];
+import {
+  CHECKOUT_HREF,
+  PRODUCT_NAV_ITEMS,
+  type SitePath
+} from "./siteNavigation";
 
 type MobileMenuProps = {
-  sectionPrefix?: string;
+  activePath?: SitePath;
 };
 
-export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
+export default function MobileMenu({ activePath }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -28,19 +29,30 @@ export default function MobileMenu({ sectionPrefix = "" }: MobileMenuProps) {
         <Image src={`/icons/${isOpen ? "cancel-01" : "menu-01"}.svg`} width={18} height={18} alt="" aria-hidden="true" />
       </button>
       <div className="mobile-menu-panel" aria-hidden={!isOpen}>
-        {menuItems.map((item) => (
-          <a
-            key={item.hash}
-            href={`${sectionPrefix}${item.hash}`}
-            onClick={() => setIsOpen(false)}
-          >
-            {item.label}
-          </a>
-        ))}
-        <a href="/keyboard-sound-tester" onClick={() => setIsOpen(false)}>Fun mode</a>
+        <div className="mobile-feature-group">
+          <span>Features</span>
+          {PRODUCT_NAV_ITEMS.map((feature) => (
+            <Link
+              key={feature.path}
+              href={feature.path}
+              aria-current={activePath === feature.path ? "page" : undefined}
+              onClick={() => setIsOpen(false)}
+            >
+              {feature.label}
+            </Link>
+          ))}
+        </div>
+        <Link href="/#pricing" onClick={() => setIsOpen(false)}>Pricing</Link>
+        <Link
+          href="/keyboard-sound-tester"
+          aria-current={activePath === "/keyboard-sound-tester" ? "page" : undefined}
+          onClick={() => setIsOpen(false)}
+        >
+          Fun mode
+        </Link>
         <a
           className="mobile-menu-download"
-          href="/api/checkout"
+          href={CHECKOUT_HREF}
           onClick={() => setIsOpen(false)}
         >
           <span aria-hidden="true"></span>
