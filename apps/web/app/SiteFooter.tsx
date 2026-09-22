@@ -1,6 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 
-import { CHECKOUT_HREF, PRODUCT_FEATURES } from "./productContent";
+import { CHECKOUT_HREF, PRODUCT_NAV_ITEMS } from "./siteNavigation";
 
 type SiteFooterProps = {
   showCallToAction?: boolean;
@@ -31,12 +32,12 @@ export default function SiteFooter({ showCallToAction = true }: SiteFooterProps)
 
       <div className="footer-links-wrap">
         <div className="footer-brand-block">
-          <a className="footer-brand" href="/" aria-label="Assist home">
+          <Link className="footer-brand" href="/" aria-label="Assist home">
             <span className="brand-mark">
               <Image src="/assist-icon.png" alt="" width={30} height={30} />
             </span>
             <span>Assist</span>
-          </a>
+          </Link>
           <p>
             Screenshots, voice annotation, and clipboard history, right from your Mac notch.
           </p>
@@ -45,17 +46,17 @@ export default function SiteFooter({ showCallToAction = true }: SiteFooterProps)
         <nav className="footer-link-grid" aria-label="Footer navigation">
           <div>
             <h3>Product</h3>
-            {PRODUCT_FEATURES.map((feature) => (
-              <a key={feature.path} href={feature.path}>
-                {feature.navigationLabel}
-              </a>
+            {PRODUCT_NAV_ITEMS.map((feature) => (
+              <Link key={feature.path} href={feature.path}>
+                {feature.label}
+              </Link>
             ))}
-            <a href="/keyboard-sound-tester">Fun mode</a>
+            <Link href="/keyboard-sound-tester">Fun mode</Link>
           </div>
           <div>
             <h3>Buy</h3>
-            <a href="/#pricing">Pricing</a>
-            <a href="/#faq">FAQ</a>
+            <Link href="/#pricing">Pricing</Link>
+            <Link href="/#faq">FAQ</Link>
             <a href={CHECKOUT_HREF}>Download</a>
           </div>
           <div>
@@ -64,15 +65,15 @@ export default function SiteFooter({ showCallToAction = true }: SiteFooterProps)
           </div>
           <div>
             <h3>Legal</h3>
-            <a href="/privacy">Privacy policy</a>
-            <a href="/terms">Terms of use</a>
+            <Link href="/privacy">Privacy policy</Link>
+            <Link href="/terms">Terms of use</Link>
           </div>
         </nav>
       </div>
 
       <div className="footer-bottom">
         <p>© 2026 Assist. All rights reserved.</p>
-        <a href="#top">Back to top</a>
+        <Link href="#top">Back to top</Link>
       </div>
     </footer>
   );

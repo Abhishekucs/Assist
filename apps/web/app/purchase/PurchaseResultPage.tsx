@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
   extractLicenseKeyFromSuccessParams,
   getPaymentIdFromParams,
@@ -116,12 +118,12 @@ export default async function PurchaseResultPage({
         className={`purchase-card purchase-card-${state}`}
         aria-labelledby="purchase-title"
       >
-        <a className="purchase-brand" href="/" aria-label="Assist home">
+        <Link className="purchase-brand" href="/" aria-label="Assist home">
           <span className="brand-mark">
             <img src="/assist-icon.png" alt="" width="30" height="30" />
           </span>
           <span>Assist</span>
-        </a>
+        </Link>
 
         <div className="purchase-status-mark" aria-hidden="true">
           <span></span>
@@ -167,9 +169,9 @@ export default async function PurchaseResultPage({
           </div>
         )}
 
-        <a className="purchase-back-link" href={state === "failed" ? "/#pricing" : "/"}>
+        <Link className="purchase-back-link" href={state === "failed" ? "/#pricing" : "/"}>
           {state === "failed" ? "Back to pricing" : "Back to home"}
-        </a>
+        </Link>
       </section>
     </main>
   );

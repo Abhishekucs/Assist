@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 
 import FeatureVideo from "./FeatureVideo";
 import HeroVideo from "./HeroVideo";
@@ -9,13 +10,13 @@ import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 import { heroVideo } from "./marketingMedia";
 import {
-  CHECKOUT_HREF,
   HOME_DESCRIPTION,
   HOME_TITLE,
   PRODUCT_FAQS,
   PRODUCT_FEATURES,
   SITE_URL
 } from "./productContent";
+import { CHECKOUT_HREF } from "./siteNavigation";
 import { createPageMetadata } from "./siteMetadata";
 
 const productHuntHref =
@@ -114,7 +115,7 @@ export default function Home() {
               <span aria-hidden="true"></span>
               <span>Download for Mac</span>
             </a>
-            <a className="hero-fun-link" href="/keyboard-sound-tester">Try Fun mode</a>
+            <Link className="hero-fun-link" href="/keyboard-sound-tester">Try Fun mode</Link>
           </div>
           <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
           <a
@@ -160,9 +161,9 @@ export default function Home() {
               It saves immediately, and a quick editor drops under the notch in
               case you want to crop, blur, or frame it before using it.
             </p>
-            <a className="workflow-link" href={screenshots.path}>
+            <Link className="workflow-link" href={screenshots.path}>
               Explore {screenshots.name} <span aria-hidden="true">→</span>
-            </a>
+            </Link>
           </div>
           <div className="workflow-media workflow-media-video" role="img" aria-label={screenshots.videoLabel}>
             <FeatureVideo src={screenshots.video} />
@@ -177,9 +178,9 @@ export default function Home() {
               you annotate and Assist adds a local transcript to the same capture,
               so the image and your intent stay together.
             </p>
-            <a className="workflow-link" href={voiceAnnotation.path}>
+            <Link className="workflow-link" href={voiceAnnotation.path}>
               Explore {voiceAnnotation.name} <span aria-hidden="true">→</span>
-            </a>
+            </Link>
           </div>
           <div className="workflow-media workflow-media-video" role="img" aria-label={voiceAnnotation.videoLabel}>
             <FeatureVideo src={voiceAnnotation.video} />
@@ -194,9 +195,9 @@ export default function Home() {
               Open the notch, narrow the view to All, Text, or Images, and put an
               item back into your workflow in a click.
             </p>
-            <a className="workflow-link" href={clipboard.path}>
+            <Link className="workflow-link" href={clipboard.path}>
               Explore {clipboard.name} <span aria-hidden="true">→</span>
-            </a>
+            </Link>
           </div>
           <div className="workflow-media workflow-media-video" role="img" aria-label={clipboard.videoLabel}>
             <FeatureVideo src={clipboard.video} />

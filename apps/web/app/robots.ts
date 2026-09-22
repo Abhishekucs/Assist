@@ -13,12 +13,12 @@ export default function robots(): MetadataRoute.Robots {
           "Claude-User"
         ],
         allow: "/",
-        disallow: "/api/"
+        disallow: ["/api/", "/purchase/"]
       },
       {
         userAgent: "*",
         allow: "/",
-        disallow: "/api/"
+        disallow: ["/api/", "/purchase/"]
       }
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

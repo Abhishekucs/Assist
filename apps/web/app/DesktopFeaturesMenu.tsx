@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
-import { PRODUCT_FEATURES, type SitePath } from "./productContent";
+import { PRODUCT_NAV_ITEMS, type SitePath } from "./siteNavigation";
 
 type DesktopFeaturesMenuProps = {
   activePath?: SitePath;
@@ -12,7 +13,7 @@ export default function DesktopFeaturesMenu({ activePath }: DesktopFeaturesMenuP
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const hasActiveFeature = PRODUCT_FEATURES.some(
+  const hasActiveFeature = PRODUCT_NAV_ITEMS.some(
     (feature) => feature.path === activePath
   );
 
@@ -62,14 +63,15 @@ export default function DesktopFeaturesMenu({ activePath }: DesktopFeaturesMenuP
         className="nav-feature-menu-panel"
         aria-hidden={!isOpen}
       >
-        {PRODUCT_FEATURES.map((feature) => (
-          <a
+        {PRODUCT_NAV_ITEMS.map((feature) => (
+          <Link
             key={feature.path}
             href={feature.path}
             aria-current={activePath === feature.path ? "page" : undefined}
+            onClick={() => setIsOpen(false)}
           >
-            {feature.navigationLabel}
-          </a>
+            {feature.label}
+          </Link>
         ))}
       </div>
     </div>

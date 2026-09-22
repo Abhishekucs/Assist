@@ -1,14 +1,16 @@
+import Link from "next/link";
+
 import FeatureVideo from "./FeatureVideo";
 import JsonLd from "./JsonLd";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 import {
-  CHECKOUT_HREF,
   PRODUCT_FEATURES,
   SITE_NAME,
   SITE_URL,
   type ProductFeature
 } from "./productContent";
+import { CHECKOUT_HREF } from "./siteNavigation";
 
 type ProductFeaturePageProps = {
   feature: ProductFeature;
@@ -79,9 +81,9 @@ export default function ProductFeaturePage({ feature }: ProductFeaturePageProps)
               <span aria-hidden="true"></span>
               <span>Get Assist for Mac</span>
             </a>
-            <a className="feature-page-secondary-link" href="/#pricing">
+            <Link className="feature-page-secondary-link" href="/#pricing">
               View pricing
-            </a>
+            </Link>
           </div>
           <p className="hero-platform-note">macOS 14+ · Apple silicon for voice</p>
         </div>
@@ -148,10 +150,10 @@ export default function ProductFeaturePage({ feature }: ProductFeaturePageProps)
         <h2 id={`${feature.id}-related`}>Explore the other workflows.</h2>
         <div className="related-feature-links">
           {relatedFeatures.map((item) => (
-            <a href={item.path} key={item.path}>
+            <Link href={item.path} key={item.path}>
               <span>{item.name}</span>
               <span aria-hidden="true">→</span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>

@@ -1,6 +1,7 @@
+import type { ProductFeaturePath } from "./siteNavigation";
+
 export const SITE_URL = "https://assistapp.dev";
 export const SITE_NAME = "Assist";
-export const CHECKOUT_HREF = "/api/checkout";
 
 export const HOME_TITLE =
   "Assist for Mac — Screenshots, Voice Annotation & Clipboard";
@@ -14,9 +15,8 @@ export type ProductFaq = {
 
 export type ProductFeature = {
   id: "screenshots" | "voice-annotation" | "clipboard";
-  path: "/screenshots" | "/voice-annotation" | "/clipboard";
+  path: ProductFeaturePath;
   name: string;
-  navigationLabel: string;
   metadataTitle: string;
   metadataDescription: string;
   title: string;
@@ -36,17 +36,11 @@ export type ProductFeature = {
   faqs: ReadonlyArray<ProductFaq>;
 };
 
-export type SitePath =
-  | "/"
-  | ProductFeature["path"]
-  | "/keyboard-sound-tester";
-
 export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
   {
     id: "screenshots",
     path: "/screenshots",
     name: "Screenshots",
-    navigationLabel: "Screenshots",
     metadataTitle: "Screenshot App for Mac — Capture, Crop & Blur",
     metadataDescription:
       "Capture a full Mac display with Control + Option, then crop, blur, or frame it in Assist's quick editor. The original is saved locally first.",
@@ -111,7 +105,6 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
     id: "voice-annotation",
     path: "/voice-annotation",
     name: "Voice Annotation",
-    navigationLabel: "Voice annotate",
     metadataTitle: "Voice Annotation for Mac Screenshots",
     metadataDescription:
       "Hold Option to draw over your Mac screen and speak. Assist saves the annotated screenshot with an optional transcript created locally on Apple silicon.",
@@ -176,7 +169,6 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
     id: "clipboard",
     path: "/clipboard",
     name: "Clipboard",
-    navigationLabel: "Clipboard",
     metadataTitle: "Local Clipboard History for Mac",
     metadataDescription:
       "Keep recently copied text beside your Assist screenshots in a local Mac history. Filter, copy again, drag into another app, or delete individual items.",

@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { CHECKOUT_HREF, PRODUCT_FEATURES, type SitePath } from "./productContent";
+import Link from "next/link";
+
+import {
+  CHECKOUT_HREF,
+  PRODUCT_NAV_ITEMS,
+  type SitePath
+} from "./siteNavigation";
 
 type MobileMenuProps = {
   activePath?: SitePath;
@@ -25,25 +31,25 @@ export default function MobileMenu({ activePath }: MobileMenuProps) {
       <div className="mobile-menu-panel" aria-hidden={!isOpen}>
         <div className="mobile-feature-group">
           <span>Features</span>
-          {PRODUCT_FEATURES.map((feature) => (
-            <a
+          {PRODUCT_NAV_ITEMS.map((feature) => (
+            <Link
               key={feature.path}
               href={feature.path}
               aria-current={activePath === feature.path ? "page" : undefined}
               onClick={() => setIsOpen(false)}
             >
-              {feature.navigationLabel}
-            </a>
+              {feature.label}
+            </Link>
           ))}
         </div>
-        <a href="/#pricing" onClick={() => setIsOpen(false)}>Pricing</a>
-        <a
+        <Link href="/#pricing" onClick={() => setIsOpen(false)}>Pricing</Link>
+        <Link
           href="/keyboard-sound-tester"
           aria-current={activePath === "/keyboard-sound-tester" ? "page" : undefined}
           onClick={() => setIsOpen(false)}
         >
           Fun mode
-        </a>
+        </Link>
         <a
           className="mobile-menu-download"
           href={CHECKOUT_HREF}
