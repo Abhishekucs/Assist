@@ -19,7 +19,6 @@ export type ProductFeature = {
   navigationLabel: string;
   metadataTitle: string;
   metadataDescription: string;
-  kicker?: string;
   title: string;
   summary: string;
   video: string;
@@ -116,7 +115,6 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
     metadataTitle: "Voice Annotation for Mac Screenshots",
     metadataDescription:
       "Hold Option to draw over your Mac screen and speak. Assist saves the annotated screenshot with an optional transcript created locally on Apple silicon.",
-    kicker: "Voice annotation for Mac",
     title: "Point at the problem. Say what you mean.",
     summary:
       "Hold Option anywhere on macOS, draw over what matters, and speak while you point it out. Release Option to save the annotation with its optional local transcript.",
@@ -182,7 +180,6 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
     metadataTitle: "Local Clipboard History for Mac",
     metadataDescription:
       "Keep recently copied text beside your Assist screenshots in a local Mac history. Filter, copy again, drag into another app, or delete individual items.",
-    kicker: "Clipboard history for Mac",
     title: "Keep copied text and screenshots close.",
     summary:
       "Assist keeps recently copied text in local history beside your screenshots. Open the notch, filter the shelf, and copy or drag an item back into your workflow.",

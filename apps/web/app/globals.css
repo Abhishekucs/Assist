@@ -143,12 +143,14 @@ input:disabled {
 }
 
 .nav-links > a,
-.nav-feature-menu > summary {
+.nav-feature-menu > button {
   display: inline-flex;
   align-items: center;
   height: 28px;
   padding: 0 10px;
   color: rgba(0, 0, 0, 0.6);
+  background: transparent;
+  border: 0;
   border-radius: 7px;
   font-size: 12px;
   font-weight: 500;
@@ -158,14 +160,14 @@ input:disabled {
 }
 
 .nav-links > a:hover,
-.nav-feature-menu > summary:hover {
+.nav-feature-menu > button:hover {
   color: #050505;
   background: #f5f5f5;
 }
 
 .nav-links > a[aria-current="page"],
-.nav-feature-menu.is-active > summary,
-.nav-feature-menu[open] > summary {
+.nav-feature-menu.is-active > button,
+.nav-feature-menu.is-open > button {
   color: #050505;
   background: #f5f5f5;
 }
@@ -174,13 +176,8 @@ input:disabled {
   position: relative;
 }
 
-.nav-feature-menu > summary {
+.nav-feature-menu > button {
   cursor: pointer;
-  list-style: none;
-}
-
-.nav-feature-menu > summary::-webkit-details-marker {
-  display: none;
 }
 
 .nav-feature-menu-panel {
@@ -205,7 +202,7 @@ input:disabled {
     visibility 0ms linear 140ms;
 }
 
-.nav-feature-menu[open] .nav-feature-menu-panel {
+.nav-feature-menu.is-open .nav-feature-menu-panel {
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
@@ -365,7 +362,7 @@ input:disabled {
 
 .site-header a:focus-visible,
 .download-button:focus-visible,
-.nav-feature-menu > summary:focus-visible,
+.nav-feature-menu > button:focus-visible,
 .mobile-menu-button:focus-visible,
 .mobile-menu-panel a:focus-visible {
   outline: 2px solid #050505;
@@ -753,34 +750,38 @@ p {
 }
 
 .feature-page-hero {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.86fr) minmax(0, 1.14fr);
-  gap: clamp(48px, 7vw, 86px);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  width: min(1120px, calc(100% - 48px));
-  min-height: 760px;
-  margin: 0 auto;
-  padding: 136px 0 88px;
+  width: 100%;
+  padding: 132px 28px 88px;
 }
 
 .feature-page-hero-copy {
-  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(760px, 100%);
+  margin: 0 auto;
+  text-align: center;
 }
 
 .feature-page-hero h1 {
-  margin: 0;
-  font-size: clamp(48px, 6vw, 76px);
-  font-weight: 500;
+  max-width: 960px;
+  margin: 0 0 20px;
+  font-size: clamp(58px, 6.5vw, 88px);
+  font-weight: 600;
   letter-spacing: -0.055em;
-  line-height: 0.96;
+  line-height: 0.92;
   text-wrap: balance;
 }
 
 .feature-page-summary {
-  margin: 26px 0 0;
+  max-width: 600px;
+  margin: 0;
   color: rgba(0, 0, 0, 0.6);
   font-size: 17px;
-  line-height: 1.6;
+  line-height: 1.55;
   text-wrap: pretty;
 }
 
@@ -789,7 +790,8 @@ p {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  margin-top: 30px;
+  justify-content: center;
+  margin-top: 28px;
 }
 
 .feature-page-secondary-link {
@@ -807,16 +809,17 @@ p {
 
 .feature-page-video {
   aspect-ratio: 16 / 9;
-  min-width: 0;
-  padding: 7px;
+  width: min(1080px, 100%);
+  margin: 58px auto 0;
+  padding: 8px;
   overflow: hidden;
-  background: #09090b;
-  border-radius: 22px;
-  box-shadow: 0 28px 80px rgba(9, 9, 11, 0.16);
+  background: #050505;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .feature-page-video .feature-video {
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 .feature-answer-section {
@@ -1950,14 +1953,7 @@ p {
   }
 
   .feature-page-hero {
-    grid-template-columns: 1fr;
-    gap: 46px;
-    min-height: 0;
-    padding: 120px 0 76px;
-  }
-
-  .feature-page-hero-copy {
-    max-width: 720px;
+    padding: 112px 24px 76px;
   }
 
   .feature-page-video {
@@ -2204,18 +2200,16 @@ p {
   }
 
   .feature-page-hero {
-    width: calc(100% - 28px);
-    gap: 38px;
-    padding: 104px 0 60px;
+    padding: 100px 18px 60px;
   }
 
   .feature-page-hero h1 {
-    font-size: clamp(42px, 12vw, 56px);
-    line-height: 0.98;
+    margin-bottom: 18px;
+    font-size: clamp(44px, 12vw, 58px);
+    line-height: 0.94;
   }
 
   .feature-page-summary {
-    margin-top: 20px;
     font-size: 15px;
   }
 
@@ -2229,6 +2223,7 @@ p {
   }
 
   .feature-page-video {
+    margin-top: 46px;
     padding: 5px;
     border-radius: 14px;
   }

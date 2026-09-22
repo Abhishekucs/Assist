@@ -72,9 +72,6 @@ export default function ProductFeaturePage({ feature }: ProductFeaturePageProps)
 
       <section className="feature-page-hero">
         <div className="feature-page-hero-copy">
-          {feature.kicker ? (
-            <p className="feature-page-kicker">{feature.kicker}</p>
-          ) : null}
           <h1>{feature.title}</h1>
           <p className="feature-page-summary">{feature.summary}</p>
           <div className="feature-page-actions">
