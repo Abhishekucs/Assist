@@ -61,7 +61,6 @@ export default function SiteFooter({ showCallToAction = true }: SiteFooterProps)
           <div>
             <h3>Company</h3>
             <a href="mailto:abhishek@thinkingsoundlab.com">Contact</a>
-            <a href="/llms.txt">Product facts</a>
           </div>
           <div>
             <h3>Legal</h3>

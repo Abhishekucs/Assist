@@ -19,7 +19,7 @@ export type ProductFeature = {
   navigationLabel: string;
   metadataTitle: string;
   metadataDescription: string;
-  kicker: string;
+  kicker?: string;
   title: string;
   summary: string;
   video: string;
@@ -51,7 +51,6 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
     metadataTitle: "Screenshot App for Mac — Capture, Crop & Blur",
     metadataDescription:
       "Capture a full Mac display with Control + Option, then crop, blur, or frame it in Assist's quick editor. The original is saved locally first.",
-    kicker: "Screenshots for Mac",
     title: "Take cleaner Mac screenshots without breaking your flow.",
     summary:
       "Press Control + Option to capture the full display. Assist saves the original immediately, then opens a compact editor under the notch for optional crop, blur, and backdrop changes.",

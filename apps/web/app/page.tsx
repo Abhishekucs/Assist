@@ -154,7 +154,6 @@ export default function Home() {
       <section id="features" className="feature-showcase" aria-label="Assist features">
         <article id={screenshots.id} className="workflow-section workflow-split">
           <div className="workflow-copy">
-            <p className="workflow-kicker">{screenshots.name}</p>
             <h2>Capture. Edit.</h2>
             <p className="workflow-description">
               Press Control + Option for a clean screenshot of the full display.

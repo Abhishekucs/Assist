@@ -142,7 +142,8 @@ input:disabled {
   min-width: 0;
 }
 
-.nav-links a {
+.nav-links > a,
+.nav-feature-menu > summary {
   display: inline-flex;
   align-items: center;
   height: 28px;
@@ -156,12 +157,75 @@ input:disabled {
     background-color 160ms ease;
 }
 
-.nav-links a:hover {
+.nav-links > a:hover,
+.nav-feature-menu > summary:hover {
   color: #050505;
   background: #f5f5f5;
 }
 
-.nav-links a[aria-current="page"] {
+.nav-links > a[aria-current="page"],
+.nav-feature-menu.is-active > summary,
+.nav-feature-menu[open] > summary {
+  color: #050505;
+  background: #f5f5f5;
+}
+
+.nav-feature-menu {
+  position: relative;
+}
+
+.nav-feature-menu > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.nav-feature-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-feature-menu-panel {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  z-index: 10;
+  display: grid;
+  width: 176px;
+  padding: 6px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+  transform: translate(-50%, -5px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 0ms linear 140ms;
+}
+
+.nav-feature-menu[open] .nav-feature-menu-panel {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+  transition-delay: 0ms;
+}
+
+.nav-feature-menu-panel a {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 10px;
+  color: rgba(0, 0, 0, 0.64);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.nav-feature-menu-panel a:hover,
+.nav-feature-menu-panel a[aria-current="page"] {
   color: #050505;
   background: #f5f5f5;
 }
@@ -276,6 +340,17 @@ input:disabled {
   background: #f5f5f5;
 }
 
+.mobile-feature-group {
+  display: grid;
+}
+
+.mobile-feature-group > span {
+  padding: 8px 12px 4px;
+  color: rgba(0, 0, 0, 0.42);
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .mobile-menu-download {
   gap: 8px;
   justify-content: flex-start !important;
@@ -290,6 +365,7 @@ input:disabled {
 
 .site-header a:focus-visible,
 .download-button:focus-visible,
+.nav-feature-menu > summary:focus-visible,
 .mobile-menu-button:focus-visible,
 .mobile-menu-panel a:focus-visible {
   outline: 2px solid #050505;
@@ -2012,9 +2088,9 @@ p {
     left: 10px;
     z-index: 90;
     width: auto;
-    max-height: 320px;
+    max-height: min(380px, calc(100vh - 76px));
     padding: 8px;
-    overflow: hidden;
+    overflow-y: auto;
     background: #ffffff;
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 16px;

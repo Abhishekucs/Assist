@@ -8,6 +8,9 @@ type SiteHeaderProps = {
 
 export default function SiteHeader({ activePath }: SiteHeaderProps) {
   const isHome = activePath === "/";
+  const hasActiveFeature = PRODUCT_FEATURES.some(
+    (feature) => feature.path === activePath
+  );
 
   return (
     <header className="site-header" aria-label="Site header">
@@ -17,15 +20,20 @@ export default function SiteHeader({ activePath }: SiteHeaderProps) {
           <span>Assist</span>
         </a>
         <div className="nav-links">
-          {PRODUCT_FEATURES.map((feature) => (
-            <a
-              key={feature.path}
-              href={feature.path}
-              aria-current={activePath === feature.path ? "page" : undefined}
-            >
-              {feature.navigationLabel}
-            </a>
-          ))}
+          <details className={`nav-feature-menu${hasActiveFeature ? " is-active" : ""}`}>
+            <summary>Features</summary>
+            <div className="nav-feature-menu-panel">
+              {PRODUCT_FEATURES.map((feature) => (
+                <a
+                  key={feature.path}
+                  href={feature.path}
+                  aria-current={activePath === feature.path ? "page" : undefined}
+                >
+                  {feature.navigationLabel}
+                </a>
+              ))}
+            </div>
+          </details>
           <a href="/#pricing">Pricing</a>
           <a
             href="/keyboard-sound-tester"

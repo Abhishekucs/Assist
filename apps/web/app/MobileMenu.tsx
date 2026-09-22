@@ -23,16 +23,19 @@ export default function MobileMenu({ activePath }: MobileMenuProps) {
         <Image src={`/icons/${isOpen ? "cancel-01" : "menu-01"}.svg`} width={18} height={18} alt="" aria-hidden="true" />
       </button>
       <div className="mobile-menu-panel" aria-hidden={!isOpen}>
-        {PRODUCT_FEATURES.map((feature) => (
-          <a
-            key={feature.path}
-            href={feature.path}
-            aria-current={activePath === feature.path ? "page" : undefined}
-            onClick={() => setIsOpen(false)}
-          >
-            {feature.navigationLabel}
-          </a>
-        ))}
+        <div className="mobile-feature-group">
+          <span>Features</span>
+          {PRODUCT_FEATURES.map((feature) => (
+            <a
+              key={feature.path}
+              href={feature.path}
+              aria-current={activePath === feature.path ? "page" : undefined}
+              onClick={() => setIsOpen(false)}
+            >
+              {feature.navigationLabel}
+            </a>
+          ))}
+        </div>
         <a href="/#pricing" onClick={() => setIsOpen(false)}>Pricing</a>
         <a
           href="/keyboard-sound-tester"
