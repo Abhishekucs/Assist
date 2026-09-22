@@ -92,14 +92,12 @@ export default function ProductFeaturePage({ feature }: ProductFeaturePageProps)
       </section>
 
       <section className="feature-answer-section" aria-labelledby={`${feature.id}-answer`}>
-        <p className="feature-page-kicker">At a glance</p>
         <h2 id={`${feature.id}-answer`}>{feature.directQuestion}</h2>
         <p>{feature.directAnswer}</p>
       </section>
 
       <section className="feature-benefit-section" aria-labelledby={`${feature.id}-benefits`}>
         <div className="feature-section-heading">
-          <p className="feature-page-kicker">What you get</p>
           <h2 id={`${feature.id}-benefits`}>{feature.name}, without the extra steps.</h2>
         </div>
         <div className="feature-benefit-grid">
@@ -114,7 +112,6 @@ export default function ProductFeaturePage({ feature }: ProductFeaturePageProps)
 
       <section className="feature-steps-section" aria-labelledby={`${feature.id}-steps`}>
         <div className="feature-section-heading">
-          <p className="feature-page-kicker">How it works</p>
           <h2 id={`${feature.id}-steps`}>Three steps, start to finish.</h2>
         </div>
         <ol className="feature-step-list">
@@ -132,7 +129,6 @@ export default function ProductFeaturePage({ feature }: ProductFeaturePageProps)
 
       <section className="feature-faq-section" aria-labelledby={`${feature.id}-faq`}>
         <div className="feature-section-heading">
-          <p className="feature-page-kicker">Questions</p>
           <h2 id={`${feature.id}-faq`}>About {feature.name.toLowerCase()}</h2>
         </div>
         <div className="faq-list">
@@ -149,7 +145,6 @@ export default function ProductFeaturePage({ feature }: ProductFeaturePageProps)
       </section>
 
       <section className="related-features" aria-labelledby={`${feature.id}-related`}>
-        <p className="feature-page-kicker">Also in Assist</p>
         <h2 id={`${feature.id}-related`}>Explore the other workflows.</h2>
         <div className="related-feature-links">
           {relatedFeatures.map((item) => (

@@ -28,7 +28,6 @@ export default function LegalDocument({
 
       <section className="legal-hero">
         <div className="legal-hero-content">
-          <p className="legal-kicker">Legal</p>
           <h1>{title}</h1>
           <p className="legal-description">{description}</p>
           <p className="legal-date">Last updated: {lastUpdated}</p>

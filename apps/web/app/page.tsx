@@ -171,7 +171,6 @@ export default function Home() {
 
         <article id={voiceAnnotation.id} className="workflow-section workflow-split workflow-split-reverse">
           <div className="workflow-copy">
-            <p className="workflow-kicker">{voiceAnnotation.name}</p>
             <h2>Point. Speak. Done.</h2>
             <p className="workflow-description">
               Hold Option anywhere on macOS to draw over what you see. Speak while
@@ -189,7 +188,6 @@ export default function Home() {
 
         <article id={clipboard.id} className="workflow-section workflow-split">
           <div className="workflow-copy">
-            <p className="workflow-kicker">{clipboard.name}</p>
             <h2>Copy once. Reuse anytime.</h2>
             <p className="workflow-description">
               Assist keeps copied text beside your screenshots in one local shelf.
