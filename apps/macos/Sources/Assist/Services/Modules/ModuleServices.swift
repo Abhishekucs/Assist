@@ -15,6 +15,8 @@ final class ModuleServices {
     let stats: SystemStatsService
     let screenTime: ScreenTimeTracker
     let converter: ImageConversionService
+    let revenue: RevenueService
+    let aiUsage: AIUsageService
 
     private var settingsCancellable: AnyCancellable?
     /// Background modules that are currently running.
@@ -30,6 +32,8 @@ final class ModuleServices {
         stats = SystemStatsService()
         screenTime = ScreenTimeTracker(directory: directory)
         converter = ImageConversionService(defaults: defaults)
+        revenue = RevenueService()
+        aiUsage = AIUsageService()
     }
 
     func start() {

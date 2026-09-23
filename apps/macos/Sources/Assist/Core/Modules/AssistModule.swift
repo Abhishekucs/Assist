@@ -13,6 +13,8 @@ enum AssistModule: String, CaseIterable, Identifiable, Codable, Sendable {
     case stats
     case screenTime
     case converter
+    case revenue
+    case aiUsage
 
     var id: String { rawValue }
 
@@ -27,6 +29,8 @@ enum AssistModule: String, CaseIterable, Identifiable, Codable, Sendable {
         case .stats: "System"
         case .screenTime: "Screen Time"
         case .converter: "Convert"
+        case .revenue: "Revenue"
+        case .aiUsage: "AI Usage"
         }
     }
 
@@ -51,6 +55,10 @@ enum AssistModule: String, CaseIterable, Identifiable, Codable, Sendable {
             "Where today went, app by app. Tracked only on this Mac."
         case .converter:
             "Drop images to convert and shrink them to JPEG, PNG, HEIC, or PDF."
+        case .revenue:
+            "Today, 7-day, and 30-day sales from Stripe, Polar, or Dodo Payments, using read-only keys you add below."
+        case .aiUsage:
+            "Claude Code and Codex tokens, rate-limit windows, and context, read from their logs on this Mac."
         }
     }
 

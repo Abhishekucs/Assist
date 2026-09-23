@@ -94,6 +94,10 @@ struct ModuleIslandView: View {
             ScreenTimeModuleView(tracker: modules.screenTime)
         case .converter:
             ConverterModuleView(service: modules.converter, viewModel: viewModel)
+        case .revenue:
+            RevenueModuleView(service: modules.revenue, viewModel: viewModel)
+        case .aiUsage:
+            AIUsageModuleView(service: modules.aiUsage)
         }
     }
 }

@@ -101,7 +101,11 @@ struct ControlPanelView: View {
         case .appearance:
             AppearanceSettingsPane(settings: settings)
         case .modules:
-            ModulesSettingsPane(settings: modules.settings, screenTime: modules.screenTime)
+            ModulesSettingsPane(
+                settings: modules.settings,
+                screenTime: modules.screenTime,
+                revenue: modules.revenue
+            )
         case .capture:
             CaptureSettingsPane(viewModel: viewModel)
         case .sounds:

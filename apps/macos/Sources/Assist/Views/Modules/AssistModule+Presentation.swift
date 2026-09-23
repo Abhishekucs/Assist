@@ -13,6 +13,8 @@ extension AssistModule {
         case .stats: .stats
         case .screenTime: .hourglass
         case .converter: .convert
+        case .revenue: .revenue
+        case .aiUsage: .aiUsage
         }
     }
 }

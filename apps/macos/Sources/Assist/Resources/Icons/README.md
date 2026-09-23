@@ -33,6 +33,9 @@ under short names (bundled name ← package name):
 | `battery-charging.svg` | `battery-charging-01.svg` |
 | `file.svg` | `file-01.svg` |
 | `drop.svg` | `drag-drop.svg` |
+| `revenue.svg` | `money-bag-02.svg` |
+| `ai-usage.svg` | `ai-brain-01.svg` |
+| `key.svg` | `key-01.svg` |
 
 Source package:
 - `@hugeicons/static`

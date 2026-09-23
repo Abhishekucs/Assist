@@ -17,7 +17,7 @@ The first version is intentionally small:
 - Built-in diagnostic actions help isolate overlay and capture issues.
 - Optional keyboard sounds with four Assist presets and ten recorded switch packs, previews, volume, and stereo positioning.
 - Optional floating keyboard visualizer that lights up keys as you type.
-- Black-and-white notch modules: Shelf, Notes, Timers, Calendar, Media, System stats, Screen Time, and an image converter, alongside the clipboard shelf. See [Notch modules](#notch-modules).
+- Black-and-white notch modules: Shelf, Notes, Timers, Calendar, Media, System stats, Screen Time, an image converter, Revenue (Stripe, Polar, Dodo Payments), and AI Usage (Claude Code, Codex), alongside the clipboard shelf. See [Notch modules](#notch-modules).
 
 ## Notch modules
 
@@ -25,7 +25,7 @@ Hovering the notch opens a black-and-white island with one tab per module.
 Tabs sit on both sides of the camera housing; when more modules are turned
 on than fit beside it, the island widens. Choose modules in Settings → Modules.
 Clipboard is always on; the rest start with Shelf, Notes, Timers, and System
-enabled.
+enabled. Revenue and AI Usage are off until you turn them on.
 
 | Module | What it does |
 | --- | --- |
@@ -38,6 +38,8 @@ enabled.
 | System | CPU, memory, disk, network (Wi-Fi/Ethernet), and battery charge, health, and cycles. Samples every two seconds, only while visible. |
 | Screen Time | Time per frontmost app today. Counting pauses while the display or Mac sleeps, the session is switched away, or there is no input for five minutes. Seven days are kept. |
 | Convert | Drop images to convert to JPEG, PNG, HEIC, or PDF, optionally shrinking the longest side. Results are written beside the originals and never replace a file. |
+| Revenue | Today, 7-day, and 30-day sales from Stripe (charges), Polar (orders, net of tax and refunds), and Dodo Payments (payments), per currency with no conversion. Refreshes every five minutes, only while visible. |
+| AI Usage | Claude Code and Codex usage read from their session logs: Claude's current five-hour window, today's tokens, and context size; Codex's reported rate-limit windows with reset times, today's tokens, and context size. Refreshes every 30 seconds, only while visible. |
 
 Drop files on the notch to open the island on the module that takes them:
 Convert when it is selected, otherwise Shelf. The pin button keeps the island
@@ -47,8 +49,24 @@ Module data lives in `~/Library/Application Support/Assist/Modules/`
 (`shelf.json`, `scratchpad.md`, `screen-time.json`). An unreadable file is left
 untouched rather than overwritten. Calendar asks for Calendars and Reminders
 access the first time it is used; Media controls use the Accessibility access
-already granted for capture shortcuts. Nothing from these modules is sent off
-the Mac.
+already granted for capture shortcuts. Apart from Revenue, nothing from these
+modules is sent off the Mac.
+
+Revenue keys are entered in Settings → Modules and stored only in the login
+Keychain (service `<bundle id>.revenue`), never in preferences or logs. Each key
+is sent only to its own provider over HTTPS: `api.stripe.com/v1/charges`,
+`api.polar.sh/v1/orders/`, and `live.dodopayments.com/payments`. Use the
+narrowest key each provider offers: a Stripe restricted key with Charges read
+access, a Polar organization token with `orders:read`, or a Dodo live-mode key.
+Up to 2,000 sales per provider are read for the 30-day window.
+
+AI Usage only reads files. Claude Code transcripts come from
+`~/.claude/projects` and `~/.config/claude/projects`; Codex logs come from
+`~/.codex/sessions`. Only logs changed since the start of the current window are
+opened, and only their usage lines are decoded. Claude's five-hour windows are
+estimated the same way as ccusage (starting on the hour of the first request);
+Codex windows use the limits Codex itself reports. Assist installs nothing into
+either tool.
 
 ## Keyboard sounds
 
@@ -294,7 +312,9 @@ active sockets and unrelated files are left alone.
 Old hook command-line arguments only exit without starting the app or making an
 approval or answer decision. This protects upgrades where a provider invokes an
 old saved command before the first normal launch. There is no hook listener,
-installer, activity monitoring, usage polling, or agent UI.
+installer, or activity monitoring. The optional AI Usage notch module reads
+Claude Code and Codex session logs; it installs no hooks and never changes their
+configuration.
 
 ## License Activation
 

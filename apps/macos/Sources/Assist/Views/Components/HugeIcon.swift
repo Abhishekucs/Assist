@@ -54,6 +54,9 @@ enum HugeIconKind: String {
     case batteryCharging = "battery-charging"
     case file
     case drop
+    case revenue
+    case aiUsage = "ai-usage"
+    case key
 
     var assetName: String { rawValue }
 }

@@ -4,12 +4,13 @@ import SwiftUI
 struct ModulesSettingsPane: View {
     @ObservedObject var settings: ModuleSettings
     let screenTime: ScreenTimeTracker
+    @ObservedObject var revenue: RevenueService
     @State private var isConfirmingScreenTimeReset = false
 
     var body: some View {
         SettingsDetailPage(
             title: "Modules",
-            subtitle: "Choose what the notch island shows. Every module keeps its data on this Mac."
+            subtitle: "Choose what the notch island shows. Module data stays on this Mac; Revenue contacts only the providers you connect."
         ) {
             SettingsSection("Island modules") {
                 ForEach(Array(AssistModule.allCases.enumerated()), id: \.element.id) { index, module in
@@ -17,6 +18,15 @@ struct ModulesSettingsPane: View {
                         RowDivider()
                     }
                     ModuleToggleRow(module: module, settings: settings)
+                }
+            }
+
+            SettingsSection("Revenue keys") {
+                ForEach(Array(RevenueProvider.allCases.enumerated()), id: \.element.id) { index, provider in
+                    if index > 0 {
+                        RowDivider()
+                    }
+                    RevenueKeyRow(provider: provider, revenue: revenue)
                 }
             }
 
@@ -71,5 +81,56 @@ private struct ModuleToggleRow: View {
             get: { settings.isEnabled(module) },
             set: { settings.setEnabled(module, $0) }
         )
+    }
+}
+
+/// Adds or removes one provider's API key. A saved key is never shown again;
+/// it lives only in the Keychain.
+private struct RevenueKeyRow: View {
+    let provider: RevenueProvider
+    @ObservedObject var revenue: RevenueService
+    @State private var key = ""
+    @State private var errorMessage: String?
+    @Environment(\.assistTheme) private var theme
+
+    var body: some View {
+        SettingsRow(provider.title, detail: errorMessage ?? provider.keyHint) {
+            if revenue.isConnected(provider) {
+                HStack(spacing: Tokens.Spacing.medium) {
+                    HStack(spacing: Tokens.Spacing.xxSmall) {
+                        HugeIcon(.check, size: Tokens.Icon.small, color: theme.foreground)
+                        Text("Connected")
+                            .font(Tokens.Typography.small(.medium))
+                            .foregroundStyle(theme.foreground)
+                    }
+                    Button("Remove") {
+                        revenue.removeKey(for: provider)
+                    }
+                    .buttonStyle(AssistButtonStyle(height: Tokens.Control.mediumHeight))
+                    .help("Delete the \(provider.title) key from the Keychain")
+                }
+            } else {
+                HStack(spacing: Tokens.Spacing.small) {
+                    SecureField(provider.keyPlaceholder, text: $key)
+                        .assistTextField(height: Tokens.Control.mediumHeight)
+                        .frame(width: 190)
+                        .accessibilityLabel("\(provider.title) API key")
+                        .onSubmit(save)
+                    Button("Save", action: save)
+                        .buttonStyle(AssistButtonStyle(emphasis: .primary, height: Tokens.Control.mediumHeight))
+                        .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    private func save() {
+        do {
+            try revenue.saveKey(key, for: provider)
+            key = ""
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
