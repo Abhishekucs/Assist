@@ -17,6 +17,38 @@ The first version is intentionally small:
 - Built-in diagnostic actions help isolate overlay and capture issues.
 - Optional keyboard sounds with four Assist presets and ten recorded switch packs, previews, volume, and stereo positioning.
 - Optional floating keyboard visualizer that lights up keys as you type.
+- Black-and-white notch modules: Shelf, Notes, Timers, Calendar, Media, System stats, Screen Time, and an image converter, alongside the clipboard shelf. See [Notch modules](#notch-modules).
+
+## Notch modules
+
+Hovering the notch opens a black-and-white island with one tab per module.
+Tabs sit on both sides of the camera housing; when more modules are turned
+on than fit beside it, the island widens. Choose modules in Settings → Modules.
+Clipboard is always on; the rest start with Shelf, Notes, Timers, and System
+enabled.
+
+| Module | What it does |
+| --- | --- |
+| Clipboard | The original capture shelf: screenshots and copied text, filters, copy, and reveal. |
+| Shelf | Drop files on the notch, then drag them into any app. Only references are kept; files are never copied, moved, or deleted. Trashed or deleted files leave the shelf. |
+| Notes | A scratchpad saved to disk on every edit. While it has focus the island stays open until you click elsewhere. |
+| Timers | Pomodoro (25/5, a 15-minute break every fourth session), countdown presets, a stopwatch, and a hydration reminder. A running timer shows on the collapsed island. |
+| Calendar | The next seven days of events and open reminders through EventKit. Clicking a reminder marks it done. |
+| Media | Now playing from Music or Spotify through their public playback notifications, with previous, play/pause, and next sent as system media keys. |
+| System | CPU, memory, disk, network (Wi-Fi/Ethernet), and battery charge, health, and cycles. Samples every two seconds, only while visible. |
+| Screen Time | Time per frontmost app today. Counting pauses while the display or Mac sleeps, the session is switched away, or there is no input for five minutes. Seven days are kept. |
+| Convert | Drop images to convert to JPEG, PNG, HEIC, or PDF, optionally shrinking the longest side. Results are written beside the originals and never replace a file. |
+
+Drop files on the notch to open the island on the module that takes them:
+Convert when it is selected, otherwise Shelf. The pin button keeps the island
+open after the pointer leaves.
+
+Module data lives in `~/Library/Application Support/Assist/Modules/`
+(`shelf.json`, `scratchpad.md`, `screen-time.json`). An unreadable file is left
+untouched rather than overwritten. Calendar asks for Calendars and Reminders
+access the first time it is used; Media controls use the Accessibility access
+already granted for capture shortcuts. Nothing from these modules is sent off
+the Mac.
 
 ## Keyboard sounds
 
@@ -293,7 +325,9 @@ Sources/Assist
 ├── AppDelegate.swift
 ├── Core
 │   ├── AppCoordinator.swift
-│   └── Models.swift
+│   ├── Models.swift
+│   └── Modules/            module registry, settings, tab layout, pure models
+
 ├── Services
 │   ├── CaptureService.swift
 │   ├── CaptureStore.swift
@@ -302,11 +336,15 @@ Sources/Assist
 │   ├── ContextPasteboardWriter.swift
 │   ├── DebugLogger.swift
 │   ├── VoiceContextService.swift
-│   └── WindowManager.swift
+│   ├── WindowManager.swift
+│   └── Modules/            one service per module, owned by ModuleServices
+
 └── Views
     ├── AnnotationOverlayView.swift
     ├── PillView.swift
-    └── PillViewModel.swift
+    ├── PillViewModel.swift
+    └── Modules/            the tabbed island and one view per module
+
 ```
 
 The main flow is:

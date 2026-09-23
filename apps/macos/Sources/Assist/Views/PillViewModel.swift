@@ -26,6 +26,15 @@ final class PillViewModel: ObservableObject {
     @Published var isCopyFeedbackVisible = false
     @Published var isCheckingForUpdates = false
     @Published var updateStatusText: String?
+    /// Keeps the expanded island open after the pointer leaves.
+    @Published var isIslandPinned = false
+    /// A module's text field has focus, so the island stays open while its
+    /// panel is key and closes once the user clicks elsewhere.
+    @Published var isEditingText = false
+    /// Files are being dragged over the island.
+    @Published var isFileDropTargeted = false
+    /// A card is being dragged out of the island, so the island ignores it as a drop.
+    var isDraggingFromIsland = false
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
     private var copyFeedbackClearWorkItem: DispatchWorkItem?
@@ -187,6 +196,10 @@ final class PillViewModel: ObservableObject {
 
     func willShowHistory() {
         onWillShowHistory?()
+    }
+
+    func toggleIslandPinned() {
+        isIslandPinned.toggle()
     }
 
     func copyLatestImage() {

@@ -6,6 +6,8 @@ private typealias HistoryShelfTokens = AssistDesignTokens.HistoryShelf
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var settings: PillSettings
+    @ObservedObject var moduleSettings: ModuleSettings
+    let modules: ModuleServices
     let onHoverChanged: (Bool) -> Void
     let onIslandDragChanged: (Bool) -> Void
 
@@ -22,7 +24,10 @@ struct PillView: View {
     }
 
     private var expandedSize: CGSize {
-        PillChromeMetrics.expandedSize(settings: settings)
+        PillChromeMetrics.expandedSize(
+            settings: settings,
+            enabledModuleCount: moduleSettings.enabledModules.count
+        )
     }
 
     private var chromeTopCornerRadius: CGFloat {
@@ -45,7 +50,11 @@ struct PillView: View {
         ZStack(alignment: .top) {
             ZStack(alignment: .top) {
                 if viewModel.isCollapsedContentVisible {
-                    CollapsedIslandHeader(viewModel: viewModel)
+                    CollapsedIslandHeader(
+                        viewModel: viewModel,
+                        moduleSettings: moduleSettings,
+                        timers: modules.timers
+                    )
                         .frame(
                             width: collapsedSize.width,
                             height: collapsedSize.height
@@ -54,9 +63,12 @@ struct PillView: View {
                 }
 
                 if viewModel.isExpandedContentVisible {
-                    ExpandedIslandView(
+                    ModuleIslandView(
                         viewModel: viewModel,
-                        onDragChanged: onIslandDragChanged
+                        moduleSettings: moduleSettings,
+                        modules: modules,
+                        islandWidth: expandedSize.width,
+                        onDragChanged: islandDragChanged
                     )
                         .frame(
                             width: expandedSize.width,
@@ -114,19 +126,64 @@ struct PillView: View {
                 )
             )
             .onHover(perform: onHoverChanged)
+            .dropDestination(for: URL.self) { urls, _ in
+                acceptDroppedFiles(urls)
+            } isTargeted: { isTargeted in
+                fileDropTargetChanged(isTargeted)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .preferredColorScheme(.dark)
     }
+
+    private func islandDragChanged(_ isDragging: Bool) {
+        viewModel.isDraggingFromIsland = isDragging
+        onIslandDragChanged(isDragging)
+    }
+
+    /// Files dragged onto the notch open the island on the module that takes
+    /// them: the selected one when it accepts files, otherwise the shelf.
+    private func fileDropTargetChanged(_ isTargeted: Bool) {
+        guard !viewModel.isDraggingFromIsland,
+              let target = moduleSettings.fileDropTarget,
+              viewModel.isFileDropTargeted != isTargeted else { return }
+
+        if isTargeted, moduleSettings.selectedModule != target {
+            moduleSettings.selectedModule = target
+        }
+        viewModel.isFileDropTargeted = isTargeted
+        onIslandDragChanged(isTargeted)
+    }
+
+    private func acceptDroppedFiles(_ urls: [URL]) -> Bool {
+        let fileURLs = urls.filter(\.isFileURL)
+        guard !viewModel.isDraggingFromIsland,
+              !fileURLs.isEmpty,
+              let target = moduleSettings.fileDropTarget else { return false }
+
+        switch target {
+        case .converter:
+            modules.converter.convert(fileURLs)
+        default:
+            modules.shelf.add(fileURLs)
+        }
+        return true
+    }
 }
 
 // The idle island is deliberately quiet. Short-lived feedback is text-led and
-// anchored to the leading edge; navigation and branding live in expanded UI.
+// anchored to the leading edge; a running timer shows on the trailing edge.
 private struct CollapsedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
+    @ObservedObject var moduleSettings: ModuleSettings
+    @ObservedObject var timers: FocusTimerService
 
     private var feedbackAnimation: Animation {
         AssistDesignTokens.Motion.feedback
+    }
+
+    private var showsTimer: Bool {
+        moduleSettings.isEnabled(.timers) && timers.clock.hasStarted
     }
 
     var body: some View {
@@ -143,11 +200,25 @@ private struct CollapsedIslandHeader: View {
             }
 
             Spacer(minLength: 0)
+
+            if showsTimer {
+                Text(timers.displayTime)
+                    .font(AssistDesignTokens.Typography.footnote(.semibold).monospacedDigit())
+                    .foregroundStyle(
+                        AssistDesignTokens.Mono.ink.opacity(
+                            timers.isRunning ? AssistDesignTokens.Opacity.strong : AssistDesignTokens.Opacity.muted
+                        )
+                    )
+                    .lineLimit(1)
+                    .transition(.opacity)
+                    .accessibilityLabel("\(timers.mode.title) \(timers.displayTime)")
+            }
         }
         .padding(.horizontal, AssistDesignTokens.Spacing.xLarge)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .animation(feedbackAnimation, value: viewModel.copyFeedback)
         .animation(feedbackAnimation, value: viewModel.isCopyFeedbackVisible)
+        .animation(feedbackAnimation, value: showsTimer)
     }
 
     private func feedbackForeground(for kind: CopyFeedback.Kind) -> Color {
@@ -263,7 +334,8 @@ private struct LoadingNotchBorderShape: Shape {
     }
 }
 
-struct ExpandedIslandView: View {
+/// The Clipboard module: the original capture shelf of screenshots and copied text.
+struct ClipboardModuleView: View {
     @ObservedObject var viewModel: PillViewModel
     let onDragChanged: (Bool) -> Void
     @State private var selectedFilter: ClipboardHistoryFilter = .all
@@ -276,14 +348,12 @@ struct ExpandedIslandView: View {
             ?? historyItems.first
         let selectedID = visibleSelectedItem?.id
 
-        VStack(alignment: .leading, spacing: AssistDesignTokens.Spacing.medium) {
-            ExpandedIslandHeader(
+        VStack(alignment: .leading, spacing: AssistDesignTokens.ModuleIsland.toolbarSpacing) {
+            ClipboardModuleToolbar(
                 viewModel: viewModel,
                 selectedFilter: $selectedFilter,
                 selectedItem: visibleSelectedItem
             )
-                .frame(height: AssistDesignTokens.Control.regularHeight)
-                .zIndex(1)
 
             if let issue = viewModel.captureIssue {
                 CaptureIssuePanel(issue: issue, viewModel: viewModel)
@@ -352,9 +422,7 @@ struct ExpandedIslandView: View {
                 )
             }
         }
-        .padding(.horizontal, AssistDesignTokens.Spacing.shelfInset)
-        .padding(.top, AssistDesignTokens.Spacing.xSmall)
-        .padding(.bottom, AssistDesignTokens.Spacing.xLarge)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func alignGalleryToLeadingEdge(
@@ -371,20 +439,25 @@ struct ExpandedIslandView: View {
     }
 }
 
-private struct ExpandedIslandHeader: View {
+private struct ClipboardModuleToolbar: View {
     @ObservedObject var viewModel: PillViewModel
     @Binding var selectedFilter: ClipboardHistoryFilter
     let selectedItem: ClipboardHistoryItem?
 
+    private let actionSize = AssistDesignTokens.Control.compactHeight
+
     var body: some View {
-        HStack(spacing: AssistDesignTokens.Spacing.medium) {
+        IslandModuleToolbar {
             if viewModel.captureIssue == nil {
                 HStack(spacing: AssistDesignTokens.Spacing.xxSmall) {
                     ForEach(ClipboardHistoryFilter.allCases) { filter in
-                        IslandHistoryFilterChip(
-                            filter: filter,
-                            selectedFilter: $selectedFilter
-                        )
+                        IslandChip(
+                            title: filter.title,
+                            isSelected: filter == selectedFilter,
+                            accessibilityLabel: "Show \(filter.title.lowercased())"
+                        ) {
+                            selectedFilter = filter
+                        }
                     }
                 }
             } else {
@@ -392,73 +465,34 @@ private struct ExpandedIslandHeader: View {
                     .font(AssistDesignTokens.Typography.headline)
                     .foregroundStyle(.white.opacity(AssistDesignTokens.Opacity.strong))
             }
-
-            Spacer()
-
-            IslandIconButton(icon: .grid, tooltip: "Open Assist") {
-                viewModel.openControls()
-            }
-
+        } trailing: {
             if case let .screenshot(capture) = selectedItem {
-                if viewModel.showsCopyContext(for: capture) {
-                    IslandIconButton(
-                        icon: .copy,
-                        tooltip: viewModel.canCopyContext(for: capture)
-                            ? "Copy saved Markdown context and screenshot"
-                            : "Context is still transcribing",
-                        isEnabled: viewModel.canCopyContext(for: capture)
-                    ) {
-                        viewModel.selectScreenshot(capture)
-                        viewModel.copyLatestContext()
+                HStack(spacing: AssistDesignTokens.Spacing.xxSmall) {
+                    if viewModel.showsCopyContext(for: capture) {
+                        IslandIconButton(
+                            icon: .copy,
+                            tooltip: viewModel.canCopyContext(for: capture)
+                                ? "Copy saved Markdown context and screenshot"
+                                : "Context is still transcribing",
+                            isEnabled: viewModel.canCopyContext(for: capture),
+                            size: actionSize
+                        ) {
+                            viewModel.selectScreenshot(capture)
+                            viewModel.copyLatestContext()
+                        }
                     }
-                }
 
-                IslandIconButton(icon: .image, tooltip: "Copy selected screenshot image") {
-                    viewModel.copyImageItem(capture)
-                }
+                    IslandIconButton(icon: .image, tooltip: "Copy selected screenshot image", size: actionSize) {
+                        viewModel.copyImageItem(capture)
+                    }
 
-                IslandIconButton(icon: .folder, tooltip: "Reveal selected screenshot in Finder") {
-                    viewModel.revealScreenshotInFinder(capture)
+                    IslandIconButton(icon: .folder, tooltip: "Reveal selected screenshot in Finder", size: actionSize) {
+                        viewModel.revealScreenshotInFinder(capture)
+                    }
                 }
             }
         }
         .foregroundStyle(.white)
-    }
-}
-
-private struct IslandHistoryFilterChip: View {
-    let filter: ClipboardHistoryFilter
-    @Binding var selectedFilter: ClipboardHistoryFilter
-
-    private var isSelected: Bool {
-        filter == selectedFilter
-    }
-
-    var body: some View {
-        Button {
-            selectedFilter = filter
-        } label: {
-            Text(filter.title)
-                .font(AssistDesignTokens.Typography.footnote(isSelected ? .semibold : .medium))
-                .foregroundStyle(
-                    isSelected
-                        ? AssistDesignTokens.DarkSurface.selectionForeground
-                        : AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.secondary)
-                )
-                .lineLimit(1)
-                .padding(.horizontal, AssistDesignTokens.Spacing.medium)
-                .frame(height: AssistDesignTokens.Control.compactHeight)
-                .background(
-                    isSelected ? AssistDesignTokens.DarkSurface.selectionFill : .clear,
-                    in: Capsule()
-                )
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .pointingHandCursor()
-        .accessibilityLabel("Show \(filter.title.lowercased())")
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .animation(AssistDesignTokens.Motion.quick, value: isSelected)
     }
 }
 
@@ -578,77 +612,19 @@ private struct CaptureIssueActionButton: View {
             Text(title)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(
-                    isPrimary ? AssistDesignTokens.DarkSurface.primaryForeground : Color.white.opacity(0.9)
+                    isPrimary ? AssistDesignTokens.Mono.selectedForeground : Color.white.opacity(0.9)
                 )
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
                 .background(
-                    isPrimary ? AssistDesignTokens.DarkSurface.primaryFill : Color.white.opacity(0.12),
+                    isPrimary ? AssistDesignTokens.Mono.selectedFill : Color.white.opacity(0.12),
                     in: Capsule()
                 )
         }
         .buttonStyle(.plain)
         .pointingHandCursor()
     }
-}
-
-private struct IslandIconButton: View {
-    let icon: HugeIconKind
-    let tooltip: String
-    var isEnabled = true
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HugeIcon(
-                icon,
-                size: AssistDesignTokens.Icon.regular,
-                color: .white.opacity(
-                    isEnabled
-                        ? (isHovered ? AssistDesignTokens.Opacity.primary : AssistDesignTokens.Opacity.secondary)
-                        : AssistDesignTokens.Opacity.disabled
-                )
-            )
-                .frame(
-                    width: AssistDesignTokens.Control.iconButton,
-                    height: AssistDesignTokens.Control.iconButton
-                )
-                .background(
-                    Color.white.opacity(
-                        isEnabled && isHovered ? AssistDesignTokens.Opacity.hoverSurface : 0
-                    ),
-                    in: RoundedRectangle(
-                        cornerRadius: AssistDesignTokens.Radius.control,
-                        style: .continuous
-                    )
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .accessibilityLabel(tooltip)
-        .pointingHandCursor(isEnabled: isEnabled)
-        .overlay(alignment: .bottomTrailing) {
-            if isHovered {
-                Text(tooltip)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(AssistDesignTokens.Palette.ink)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .padding(.horizontal, AssistDesignTokens.Spacing.small)
-                    .frame(height: AssistDesignTokens.Control.tooltipHeight)
-                    .background(AssistDesignTokens.Palette.paper, in: Capsule())
-                    .offset(y: AssistDesignTokens.Spacing.xxxLarge + AssistDesignTokens.Spacing.xxxSmall)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
-                    .allowsHitTesting(false)
-            }
-        }
-        .zIndex(isHovered ? 20 : 0)
-        .onHover { isHovered = $0 }
-        .animation(AssistDesignTokens.Motion.quick, value: isHovered)
-    }
-
-    @State private var isHovered = false
 }
 
 private struct DebugActionsView: View {
@@ -1047,172 +1023,6 @@ private struct IslandSelectionRing: View {
             }
             .allowsHitTesting(false)
         }
-    }
-}
-
-private struct IslandDraggableCard<Content: View>: View {
-    let pasteboardWriter: () -> (any NSPasteboardWriting)?
-    let dragImage: () -> NSImage?
-    let onClick: () -> Void
-    let onDragChanged: (Bool) -> Void
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        content
-            .overlay {
-                IslandDragSourceOverlay(
-                    pasteboardWriter: pasteboardWriter,
-                    dragImage: dragImage,
-                    onClick: onClick,
-                    onDragChanged: onDragChanged
-                )
-            }
-            .accessibilityAction {
-                onClick()
-            }
-    }
-}
-
-private struct IslandDragSourceOverlay: NSViewRepresentable {
-    let pasteboardWriter: () -> (any NSPasteboardWriting)?
-    let dragImage: () -> NSImage?
-    let onClick: () -> Void
-    let onDragChanged: (Bool) -> Void
-
-    func makeNSView(context: Context) -> IslandDragSourceView {
-        let view = IslandDragSourceView()
-        view.pasteboardWriter = pasteboardWriter
-        view.dragImage = dragImage
-        view.onClick = onClick
-        view.onDragChanged = onDragChanged
-        return view
-    }
-
-    func updateNSView(_ view: IslandDragSourceView, context: Context) {
-        view.pasteboardWriter = pasteboardWriter
-        view.dragImage = dragImage
-        view.onClick = onClick
-        view.onDragChanged = onDragChanged
-    }
-}
-
-private final class IslandDragSourceView: NSView, NSDraggingSource {
-    var pasteboardWriter: (() -> (any NSPasteboardWriting)?)?
-    var dragImage: (() -> NSImage?)?
-    var onClick: (() -> Void)?
-    var onDragChanged: ((Bool) -> Void)?
-
-    private var mouseDownEvent: NSEvent?
-    private var mouseDownPoint = NSPoint.zero
-    private var hasStartedDrag = false
-
-    override var acceptsFirstResponder: Bool { true }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
-        true
-    }
-
-    override var mouseDownCanMoveWindow: Bool {
-        false
-    }
-
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .openHand)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        mouseDownEvent = event
-        mouseDownPoint = convert(event.locationInWindow, from: nil)
-        hasStartedDrag = false
-        NSCursor.closedHand.set()
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard !hasStartedDrag,
-              dragDistance(from: mouseDownPoint, to: convert(event.locationInWindow, from: nil)) >= 3,
-              let writer = pasteboardWriter?() else { return }
-
-        hasStartedDrag = true
-        onDragChanged?(true)
-
-        let draggingItem = NSDraggingItem(pasteboardWriter: writer)
-        let previewImage = dragImage?() ?? fallbackDragImage()
-        draggingItem.setDraggingFrame(draggingFrame(for: previewImage), contents: previewImage)
-
-        let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
-        session.animatesToStartingPositionsOnCancelOrFail = true
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        if !hasStartedDrag {
-            onClick?()
-        }
-
-        mouseDownEvent = nil
-        setOpenHandIfPointerIsInside(localPoint: convert(event.locationInWindow, from: nil))
-    }
-
-    func draggingSession(
-        _ session: NSDraggingSession,
-        sourceOperationMaskFor context: NSDraggingContext
-    ) -> NSDragOperation {
-        [.copy]
-    }
-
-    func draggingSession(
-        _ session: NSDraggingSession,
-        endedAt screenPoint: NSPoint,
-        operation: NSDragOperation
-    ) {
-        onDragChanged?(false)
-        mouseDownEvent = nil
-        hasStartedDrag = false
-        setOpenHandIfPointerIsInside(screenPoint: screenPoint)
-    }
-
-    private func dragDistance(from start: NSPoint, to end: NSPoint) -> CGFloat {
-        hypot(end.x - start.x, end.y - start.y)
-    }
-
-    private func setOpenHandIfPointerIsInside(screenPoint: NSPoint) {
-        guard let window else { return }
-
-        let windowPoint = window.convertPoint(fromScreen: screenPoint)
-        setOpenHandIfPointerIsInside(localPoint: convert(windowPoint, from: nil))
-    }
-
-    private func setOpenHandIfPointerIsInside(localPoint: NSPoint) {
-        if bounds.contains(localPoint) {
-            NSCursor.openHand.set()
-        }
-    }
-
-    private func draggingFrame(for image: NSImage) -> NSRect {
-        let size = image.size.width > 0 && image.size.height > 0 ? image.size : bounds.size
-
-        return NSRect(
-            x: bounds.midX - size.width / 2,
-            y: bounds.midY - size.height / 2,
-            width: size.width,
-            height: size.height
-        )
-    }
-
-    private func fallbackDragImage() -> NSImage {
-        let size = bounds.size.width > 0 && bounds.size.height > 0
-            ? bounds.size
-            : IslandDragPreview.cardSize
-
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSColor.white.withAlphaComponent(0.16).setFill()
-        NSBezierPath(
-            roundedRect: NSRect(origin: .zero, size: size),
-            xRadius: IslandDragPreview.cornerRadius,
-            yRadius: IslandDragPreview.cornerRadius
-        ).fill()
-        image.unlockFocus()
-        return image
     }
 }
 

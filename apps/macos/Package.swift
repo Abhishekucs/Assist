@@ -37,6 +37,8 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("Security"),
+                .linkedFramework("EventKit"),
+                .linkedFramework("IOKit"),
                 .linkedLibrary("sqlite3")
             ]
         ),

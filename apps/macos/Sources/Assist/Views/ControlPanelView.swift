@@ -10,6 +10,7 @@ struct ControlPanelView: View {
     @ObservedObject var settings: PillSettings
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var keyboardSounds: KeyboardSoundController
+    let modules: ModuleServices
     @State private var selectedPage: SettingsPage = .capture
     @State private var isSettingsDialogPresented = false
     @State private var selectedFilter: ClipboardHistoryFilter = .all
@@ -99,6 +100,8 @@ struct ControlPanelView: View {
         switch selectedPage {
         case .appearance:
             AppearanceSettingsPane(settings: settings)
+        case .modules:
+            ModulesSettingsPane(settings: modules.settings, screenTime: modules.screenTime)
         case .capture:
             CaptureSettingsPane(viewModel: viewModel)
         case .sounds:
@@ -115,6 +118,7 @@ struct ControlPanelView: View {
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
     case appearance
+    case modules
     case capture
     case sounds
     case storage
@@ -127,6 +131,8 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .appearance:
             "Appearance"
+        case .modules:
+            "Modules"
         case .capture:
             "Capture"
         case .sounds:
@@ -144,6 +150,8 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .appearance:
             .appearance
+        case .modules:
+            .grid
         case .capture:
             .camera
         case .sounds:
@@ -553,7 +561,7 @@ private struct SettingsSidebar: View {
     }
 }
 
-private struct RowDivider: View {
+struct RowDivider: View {
     @Environment(\.assistTheme) private var theme
 
     var body: some View {

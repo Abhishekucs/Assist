@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyboardSoundController: KeyboardSoundController?
     private var keyboardVisualizerController: KeyboardVisualizerWindowController?
     private var keyboardFeedbackMenuController: KeyboardFeedbackMenuController?
+    private var moduleServices: ModuleServices?
     private var settingsCancellable: AnyCancellable?
     private let settings = PillSettings()
     private let licenseActivationStore = LicenseActivationStore()
@@ -51,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         DebugLogger.log("app.terminate")
         coordinator?.stop()
+        moduleServices?.stop()
         keyboardSoundController?.stop()
         keyboardVisualizerController?.stop()
     }
@@ -125,13 +127,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: settings,
             voiceContextService: voiceContextService
         )
+        let moduleServices = ModuleServices(
+            settings: ModuleSettings(),
+            directory: ModuleStorage.defaultDirectory
+        )
+        moduleServices.timers.onAlert = { [weak pillViewModel] badge, detail in
+            pillViewModel?.showCopyFeedback(badge: badge, preview: detail)
+        }
         let windowManager = WindowManager(
             pillViewModel: pillViewModel,
             screenshotEditorViewModel: screenshotEditorViewModel,
-            settings: settings
+            settings: settings,
+            modules: moduleServices
         )
         let controlPanelController = ControlPanelWindowController(
-            settings: settings, pillViewModel: pillViewModel, keyboardSounds: keyboardSoundController
+            settings: settings,
+            pillViewModel: pillViewModel,
+            keyboardSounds: keyboardSoundController,
+            modules: moduleServices
         )
         let coordinator = AppCoordinator(
             windowManager: windowManager,
@@ -148,12 +161,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         self.pillViewModel = pillViewModel
+        self.moduleServices = moduleServices
         self.controlPanelController = controlPanelController
         self.coordinator = coordinator
         self.keyboardSoundController = keyboardSoundController
         self.keyboardVisualizerController = KeyboardVisualizerWindowController(controller: keyboardSoundController, settings: settings)
         configureStatusItem(settings: settings)
         keyboardSoundController.start(voiceContext: voiceContextService)
+        moduleServices.start()
         coordinator.start()
         controlPanelController.showWindow()
     }
