@@ -18,6 +18,11 @@ enum PillChromeMetrics {
         settings.collapsedSize
     }
 
+    @MainActor
+    static func timerAlertSize(settings: PillSettings) -> CGSize {
+        CGSize(width: max(settings.collapsedSize.width, 380), height: 106)
+    }
+
     /// Every module shares one island height, and the island widens only when
     /// the enabled module tabs need more room beside the notch.
     @MainActor

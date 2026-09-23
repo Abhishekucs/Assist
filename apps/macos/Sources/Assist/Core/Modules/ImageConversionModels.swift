@@ -85,9 +85,27 @@ enum ImageQuality: String, CaseIterable, Identifiable, Codable, Sendable {
 }
 
 struct ImageConversionOptions: Equatable, Codable, Sendable {
+    static let fileSizeRange = 1...20_000
+
     var format: ImageConversionFormat = .jpeg
     var maxDimension: ImageMaxDimension = .original
     var quality: ImageQuality = .high
+    var maxFileSizeKB: Int?
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case format, maxDimension, quality, maxFileSizeKB
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        format = try values.decodeIfPresent(ImageConversionFormat.self, forKey: .format) ?? .jpeg
+        maxDimension = try values.decodeIfPresent(ImageMaxDimension.self, forKey: .maxDimension) ?? .original
+        quality = try values.decodeIfPresent(ImageQuality.self, forKey: .quality) ?? .high
+        let storedSize = try values.decodeIfPresent(Int.self, forKey: .maxFileSizeKB)
+        maxFileSizeKB = storedSize.flatMap { Self.fileSizeRange.contains($0) ? $0 : nil }
+    }
 }
 
 struct ImageConversionResult: Identifiable, Equatable, Sendable {

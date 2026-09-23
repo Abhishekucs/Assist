@@ -12,8 +12,9 @@ struct ControlPanelView: View {
     @ObservedObject var keyboardSounds: KeyboardSoundController
     let modules: ModuleServices
     @State private var selectedPage: SettingsPage = .capture
+    @State private var selectedModule: AssistModule?
     @State private var isSettingsDialogPresented = false
-    @State private var selectedFilter: ClipboardHistoryFilter = .all
+    @State private var selectedFilter: LibraryContentFilter = .all
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -21,23 +22,33 @@ struct ControlPanelView: View {
             ZStack {
                 HStack(spacing: 0) {
                     LibrarySidebar(
-                        selectedFilter: $selectedFilter,
-                        counts: historyCounts,
+                        selectedModule: $selectedModule,
                         openSettings: { isSettingsDialogPresented = true }
                     )
 
                     // The library sits below the title bar; only its pane
                     // surface (behind) reaches up under it.
-                    CaptureLibraryView(viewModel: viewModel, selectedFilter: $selectedFilter)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .clipShape(
-                            UnevenRoundedRectangle(
-                                bottomLeadingRadius: Tokens.Radius.window,
-                                bottomTrailingRadius: Tokens.Radius.window
+                    Group {
+                        if let selectedModule {
+                            ModulesSettingsPane(
+                                module: selectedModule,
+                                viewModel: viewModel,
+                                modules: modules
                             )
+                            .padding(Tokens.Spacing.xxxLarge)
+                        } else {
+                            CaptureLibraryView(viewModel: viewModel, selectedFilter: $selectedFilter)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .clipShape(
+                        UnevenRoundedRectangle(
+                            bottomLeadingRadius: Tokens.Radius.window,
+                            bottomTrailingRadius: Tokens.Radius.window
                         )
-                        .padding(.bottom, Tokens.AppLayout.paneInset)
-                        .padding(.trailing, Tokens.AppLayout.paneInset)
+                    )
+                    .padding(.bottom, Tokens.AppLayout.paneInset)
+                    .padding(.trailing, Tokens.AppLayout.paneInset)
                 }
                 .background {
                     HStack(spacing: 0) {
@@ -78,12 +89,6 @@ struct ControlPanelView: View {
         .onAppear { viewModel.willShowHistory() }
     }
 
-    private var historyCounts: [ClipboardHistoryFilter: Int] {
-        Dictionary(uniqueKeysWithValues: ClipboardHistoryFilter.allCases.map { filter in
-            (filter, viewModel.historyItems(matching: filter).count)
-        })
-    }
-
     private var settingsView: some View {
         HStack(alignment: .top, spacing: Tokens.Settings.columnSpacing) {
             SettingsSidebar(selectedPage: $selectedPage)
@@ -100,12 +105,6 @@ struct ControlPanelView: View {
         switch selectedPage {
         case .appearance:
             AppearanceSettingsPane(settings: settings)
-        case .modules:
-            ModulesSettingsPane(
-                settings: modules.settings,
-                screenTime: modules.screenTime,
-                revenue: modules.revenue
-            )
         case .capture:
             CaptureSettingsPane(viewModel: viewModel)
         case .sounds:
@@ -122,7 +121,6 @@ struct ControlPanelView: View {
 
 private enum SettingsPage: String, CaseIterable, Identifiable {
     case appearance
-    case modules
     case capture
     case sounds
     case storage
@@ -135,8 +133,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .appearance:
             "Appearance"
-        case .modules:
-            "Modules"
         case .capture:
             "Capture"
         case .sounds:
@@ -154,8 +150,6 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .appearance:
             .appearance
-        case .modules:
-            .grid
         case .capture:
             .camera
         case .sounds:
@@ -196,7 +190,7 @@ private extension AppAppearance {
 
 private struct CaptureLibraryView: View {
     @ObservedObject var viewModel: PillViewModel
-    @Binding var selectedFilter: ClipboardHistoryFilter
+    @Binding var selectedFilter: LibraryContentFilter
     @Environment(\.assistTheme) private var theme
 
     private var columns: [GridItem] {
@@ -213,7 +207,7 @@ private struct CaptureLibraryView: View {
     }
 
     var body: some View {
-        let filteredItems = viewModel.historyItems(matching: selectedFilter)
+        let filteredItems = viewModel.historyItems.filter(selectedFilter.includes)
         let selectedID = viewModel.selectedItem?.id
         VStack(alignment: .leading, spacing: 0) {
             LibraryWelcomeHeader()
@@ -227,28 +221,26 @@ private struct CaptureLibraryView: View {
                     .padding(.bottom, Tokens.Spacing.xxLarge)
             }
 
+            historyHeader(count: filteredItems.count)
+
             if viewModel.historyItems.isEmpty {
                 EmptyCaptureLibraryView()
+            } else if filteredItems.isEmpty {
+                EmptyFilteredLibraryView(filter: selectedFilter)
             } else {
-                historyHeader(count: filteredItems.count)
-
-                if filteredItems.isEmpty {
-                    EmptyFilteredLibraryView(filter: selectedFilter)
-                } else {
-                    ScrollView {
-                        LazyVGrid(columns: columns, alignment: .leading, spacing: LibraryTokens.gridSpacing) {
-                            ForEach(filteredItems) { item in
-                                CaptureLibraryCard(
-                                    item: item,
-                                    isSelected: item.id == selectedID,
-                                    thumbnail: thumbnail(for: item),
-                                    selectAction: { select(item) },
-                                    deleteAction: { viewModel.delete(item) }
-                                )
-                            }
+                ScrollView {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: LibraryTokens.gridSpacing) {
+                        ForEach(filteredItems) { item in
+                            CaptureLibraryCard(
+                                item: item,
+                                isSelected: item.id == selectedID,
+                                thumbnail: thumbnail(for: item),
+                                selectAction: { select(item) },
+                                deleteAction: { viewModel.delete(item) }
+                            )
                         }
-                        .padding(LibraryTokens.contentInset)
                     }
+                    .padding(LibraryTokens.contentInset)
                 }
             }
         }
@@ -256,13 +248,21 @@ private struct CaptureLibraryView: View {
 
     private func historyHeader(count: Int) -> some View {
         let countText = count == 1 ? "1 item" : "\(count.formatted()) items"
-        return HStack(alignment: .firstTextBaseline) {
-            Text(selectedFilter == .all ? "History" : selectedFilter.title)
+        return HStack(alignment: .center, spacing: Tokens.Spacing.medium) {
+            Text("History")
                 .font(Tokens.Typography.sectionTitle)
                 .foregroundStyle(theme.foreground)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
-            Text("\(countText) · Newest first")
+            Picker("Content", selection: $selectedFilter) {
+                ForEach(LibraryContentFilter.allCases) { filter in
+                    Text(filter.title).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .fixedSize()
+            .accessibilityLabel("Filter library content")
+            Text(countText)
                 .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
         }
@@ -278,7 +278,7 @@ private struct CaptureLibraryView: View {
     private func select(_ item: ClipboardHistoryItem) {
         switch item {
         case let .screenshot(capture):
-            viewModel.selectScreenshot(capture)
+            viewModel.copyImageItem(capture)
         case let .text(textClip):
             viewModel.copyTextItem(textClip)
         }
@@ -328,7 +328,7 @@ private struct CapturePermissionBanner: View {
 }
 
 private struct EmptyFilteredLibraryView: View {
-    let filter: ClipboardHistoryFilter
+    let filter: LibraryContentFilter
     @Environment(\.assistTheme) private var theme
 
     var body: some View {
@@ -337,7 +337,7 @@ private struct EmptyFilteredLibraryView: View {
                 .font(Tokens.Typography.pageTitle)
                 .foregroundStyle(theme.foreground)
 
-            Text("Select \(ClipboardHistoryFilter.all.navigationTitle) to see every saved item.")
+            Text("Select All to see every saved item.")
                 .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
         }
@@ -358,7 +358,7 @@ private struct EmptyCaptureLibraryView: View {
                 .foregroundStyle(theme.foreground)
 
             // The shortcuts are already shown in the header above.
-            Text("Screenshots and copied text will appear here.")
+            Text("Screenshots, copied images, text, and links will appear here.")
                 .font(Tokens.Typography.caption())
                 .foregroundStyle(theme.muted)
                 .multilineTextAlignment(.center)
@@ -466,7 +466,7 @@ private struct CaptureLibraryCard: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.large) {
-                    HugeIcon(.document, size: Tokens.Icon.feedback, color: theme.muted)
+                    HugeIcon(textClip.linkURL == nil ? .document : .file, size: Tokens.Icon.feedback, color: theme.muted)
                     Text(textClip.preview)
                         .font(Tokens.Typography.label())
                         .lineSpacing(3)
@@ -491,9 +491,9 @@ private struct CaptureLibraryCard: View {
     private var helpText: String {
         switch item {
         case .screenshot:
-            "Select screenshot"
+            "Copy image"
         case .text:
-            "Copy text"
+            "Copy text or link"
         }
     }
 }

@@ -167,6 +167,7 @@ struct ClaudeUsageSummary: Equatable, Sendable {
 
     var today = TokenCounts()
     var todayRequests = 0
+    var dailyTokens: [Date: Int64] = [:]
     /// The five-hour window in progress, if any.
     var activeBlock: UsageBlock?
     var contextTokens: Int64?
@@ -195,6 +196,8 @@ struct ClaudeUsageSummary: Equatable, Sendable {
         var block: UsageBlock?
 
         for entry in unique where entry.timestamp <= now {
+            let day = calendar.startOfDay(for: entry.timestamp)
+            summary.dailyTokens[day, default: 0] += entry.tokens.total
             if entry.timestamp >= startOfToday {
                 summary.today.add(entry.tokens)
                 summary.todayRequests += 1
@@ -257,10 +260,10 @@ struct CodexRateLimitWindow: Equatable, Sendable {
         }
     }
 
-    /// The same window as seen now: once its reset time passes, it is empty.
-    func current(at now: Date) -> CodexRateLimitWindow {
-        guard let resetsAt, resetsAt <= now else { return self }
-        return CodexRateLimitWindow(usedPercent: 0, windowMinutes: windowMinutes, resetsAt: nil)
+    /// Once the reported window resets, its old percentage is no longer current.
+    func current(at now: Date) -> CodexRateLimitWindow? {
+        guard resetsAt.map({ $0 <= now }) != true else { return nil }
+        return self
     }
 }
 
@@ -286,11 +289,8 @@ struct CodexTokenCount: Equatable, Sendable {
 enum CodexUsageLog {
     static let lineMarkers = [Data("\"token_count\"".utf8), Data("\"turn_context\"".utf8)]
 
-    /// Codex writes snake_case keys.
     static func makeDecoder() -> JSONDecoder {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return decoder
+        JSONDecoder()
     }
 
     static func line(
@@ -344,7 +344,8 @@ enum CodexUsageLog {
         let rateLimits: RateLimits?
 
         private enum CodingKeys: String, CodingKey {
-            case type, model, info, rateLimits
+            case type, model, info
+            case rateLimits = "rate_limits"
         }
 
         // Other event payloads reuse these names with other shapes, so each
@@ -362,10 +363,20 @@ enum CodexUsageLog {
         let totalTokenUsage: Usage?
         let lastTokenUsage: Usage?
         let modelContextWindow: Int64?
+
+        private enum CodingKeys: String, CodingKey {
+            case totalTokenUsage = "total_token_usage"
+            case lastTokenUsage = "last_token_usage"
+            case modelContextWindow = "model_context_window"
+        }
     }
 
     private struct Usage: Decodable {
         let totalTokens: Int64?
+
+        private enum CodingKeys: String, CodingKey {
+            case totalTokens = "total_tokens"
+        }
     }
 
     private struct RateLimits: Decodable {
@@ -378,11 +389,19 @@ enum CodexUsageLog {
         let windowMinutes: Int64?
         let resetsAt: Int64?
         let resetsInSeconds: Int64?
+
+        private enum CodingKeys: String, CodingKey {
+            case usedPercent = "used_percent"
+            case windowMinutes = "window_minutes"
+            case resetsAt = "resets_at"
+            case resetsInSeconds = "resets_in_seconds"
+        }
     }
 }
 
 struct CodexUsageSummary: Equatable, Sendable {
     var todayTokens: Int64 = 0
+    var dailyTokens: [Date: Int64] = [:]
     var primary: CodexRateLimitWindow?
     var secondary: CodexRateLimitWindow?
     var contextTokens: Int64?
@@ -390,49 +409,81 @@ struct CodexUsageSummary: Equatable, Sendable {
     var model: String?
     var lastActivity: Date?
 
-    /// Builds the summary from each session's lines in file order.
-    static func make(sessions: [[CodexLogLine]], now: Date, calendar: Calendar) -> CodexUsageSummary {
-        var summary = CodexUsageSummary()
-        let startOfToday = calendar.startOfDay(for: now)
+    struct FileUsage: Sendable {
+        var dailyTokens: [Date: Int64] = [:]
         var latestLimits: CodexTokenCount?
         var latestContext: CodexTokenCount?
+        var contextModel: String?
+        var lastActivity: Date?
+        var nextFuture: Date?
+        private var model: String?
+        private var previousSessionTotal: Int64?
 
-        for lines in sessions {
-            var model: String?
-            var previousSessionTotal: Int64?
-
-            for line in lines {
-                switch line {
-                case let .model(name):
-                    model = name
-                case let .tokenCount(count):
-                    // Prefer the turn's own total; otherwise the change in the session total.
-                    let turnTokens = count.lastTotalTokens
-                        ?? count.sessionTotalTokens.map { max($0 - (previousSessionTotal ?? 0), 0) }
-                        ?? 0
-                    if let total = count.sessionTotalTokens {
-                        previousSessionTotal = total
-                    }
-                    if count.timestamp >= startOfToday, count.timestamp <= now {
-                        summary.todayTokens += turnTokens
-                    }
-
-                    if count.primary != nil || count.secondary != nil,
-                       count.timestamp >= latestLimits?.timestamp ?? .distantPast {
-                        latestLimits = count
-                    }
-                    if count.contextWindow != nil, count.lastTotalTokens != nil,
-                       count.timestamp >= latestContext?.timestamp ?? .distantPast {
-                        latestContext = count
-                        summary.model = model
-                    }
-                    if count.timestamp >= summary.lastActivity ?? .distantPast {
-                        summary.lastActivity = count.timestamp
-                    }
+        mutating func record(_ line: CodexLogLine, calendar: Calendar, from start: Date, through now: Date) {
+            switch line {
+            case let .model(name):
+                model = name
+            case let .tokenCount(count):
+                let turnTokens = count.sessionTotalTokens.map { max($0 - (previousSessionTotal ?? 0), 0) }
+                    ?? count.lastTotalTokens ?? 0
+                if let total = count.sessionTotalTokens {
+                    previousSessionTotal = total
+                }
+                if count.timestamp > now {
+                    nextFuture = min(nextFuture ?? count.timestamp, count.timestamp)
+                } else if count.timestamp >= start {
+                    dailyTokens[calendar.startOfDay(for: count.timestamp), default: 0] += turnTokens
+                }
+                if count.primary != nil || count.secondary != nil,
+                   count.timestamp >= latestLimits?.timestamp ?? .distantPast {
+                    latestLimits = count
+                }
+                if count.contextWindow != nil, count.lastTotalTokens != nil,
+                   count.timestamp >= latestContext?.timestamp ?? .distantPast {
+                    latestContext = count
+                    contextModel = model
+                }
+                if count.timestamp >= lastActivity ?? .distantPast {
+                    lastActivity = count.timestamp
                 }
             }
         }
+    }
 
+    /// Builds the summary from each session's lines in file order.
+    static func make(sessions: [[CodexLogLine]], now: Date, calendar: Calendar) -> CodexUsageSummary {
+        let files = sessions.map { lines in
+            var usage = FileUsage()
+            for line in lines {
+                usage.record(line, calendar: calendar, from: .distantPast, through: now)
+            }
+            return usage
+        }
+        return make(files: files, now: now, calendar: calendar, from: .distantPast)
+    }
+
+    static func make(files: [FileUsage], now: Date, calendar: Calendar, from start: Date) -> CodexUsageSummary {
+        var summary = CodexUsageSummary()
+        var latestLimits: CodexTokenCount?
+        var latestContext: CodexTokenCount?
+
+        for file in files {
+            for (day, tokens) in file.dailyTokens where day >= start {
+                summary.dailyTokens[day, default: 0] += tokens
+            }
+            if let limits = file.latestLimits, limits.timestamp >= latestLimits?.timestamp ?? .distantPast {
+                latestLimits = limits
+            }
+            if let context = file.latestContext, context.timestamp >= latestContext?.timestamp ?? .distantPast {
+                latestContext = context
+                summary.model = file.contextModel
+            }
+            if let activity = file.lastActivity, activity >= summary.lastActivity ?? .distantPast {
+                summary.lastActivity = activity
+            }
+        }
+
+        summary.todayTokens = summary.dailyTokens[calendar.startOfDay(for: now)] ?? 0
         summary.primary = latestLimits?.primary?.current(at: now)
         summary.secondary = latestLimits?.secondary?.current(at: now)
         summary.contextTokens = latestContext?.lastTotalTokens

@@ -4,9 +4,9 @@ export const SITE_URL = "https://assistapp.dev";
 export const SITE_NAME = "Assist";
 
 export const HOME_TITLE =
-  "Assist for Mac — Screenshots, Voice Annotation & Clipboard";
+  "Assist for Mac — Clipboard, Notes, Focus Timers & Notch Modules";
 export const HOME_DESCRIPTION =
-  "Capture and edit Mac screenshots, add local voice annotations, and keep clipboard history close. Assist is a native, local-first app for macOS 14+.";
+  "Keep clipboard history, a file shelf, quick notes, focus timers, calendar, and more in your Mac notch. Capture and annotate screenshots too. Native for macOS 14+.";
 
 export type ProductFaq = {
   question: string;
@@ -171,20 +171,20 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
     name: "Clipboard",
     metadataTitle: "Local Clipboard History for Mac",
     metadataDescription:
-      "Keep recently copied text beside your Assist screenshots in a local Mac history. Filter, copy again, drag into another app, or delete individual items.",
+      "Keep recently copied text, links, and images beside your Assist screenshots in a local Mac history. Filter, copy again, drag into another app, or delete individual items.",
     title: "Keep copied text and screenshots close.",
     summary:
-      "Assist keeps recently copied text in local history beside your screenshots. Open the notch, filter the shelf, and copy or drag an item back into your workflow.",
+      "Assist keeps recently copied text, links, and images in local history beside your screenshots. Open the notch, filter the shelf, and copy or drag an item back into your workflow.",
     video: "/videos/clipboard-history.mp4",
     videoLabel: "Assist clipboard history demonstration",
     directQuestion: "How does clipboard history work in Assist?",
     directAnswer:
-      "Assist watches for copied text and stores it locally on your Mac. The notch shelf combines that text with screenshots and annotations, with All, Text, and Images filters. You can copy an item again, drag it into another app, or delete it from history.",
+      "Assist keeps recently copied text, links, and images locally on your Mac. The notch shelf combines them with screenshots and annotations, with All, Text, and Images filters. You can copy an item again, drag it into another app, or delete it from history.",
     benefits: [
       {
         title: "One local shelf",
         description:
-          "Copied text, screenshots, and voice annotations are available from the same Mac notch surface."
+          "Copied text, links, images, screenshots, and voice annotations are available from the same Mac notch surface."
       },
       {
         title: "Filter quickly",
@@ -200,7 +200,7 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
     steps: [
       {
         title: "Copy text normally",
-        description: "Assist adds the copied text to its local history."
+        description: "Assist adds copied text, links, and images to its local history."
       },
       {
         title: "Open the notch shelf",
@@ -215,7 +215,7 @@ export const PRODUCT_FEATURES: ReadonlyArray<ProductFeature> = [
       {
         question: "What does Assist store in clipboard history?",
         answer:
-          "Assist stores recently copied text. Its combined history also shows screenshots and annotations captured with Assist."
+          "Assist stores recently copied text, links, and images. Its combined history also shows screenshots and annotations captured with Assist."
       },
       {
         question: "Is clipboard history uploaded?",
@@ -235,7 +235,12 @@ export const PRODUCT_FAQS: ReadonlyArray<ProductFaq> = [
   {
     question: "What does Assist for Mac do?",
     answer:
-      "Assist combines three Mac workflows in the notch: full-screen screenshot capture and editing, voice-powered screen annotation, and local clipboard history."
+      "Assist brings screenshot capture and editing, voice-powered screen annotation, clipboard history, and optional notch modules for notes, timers, calendar, media, system stats, screen time, image conversion, revenue, and AI token activity to your Mac."
+  },
+  {
+    question: "Which notch modules can I use?",
+    answer:
+      "Clipboard is always available. You can enable Shelf, Notes, Timers, Calendar, Media, System, Screen Time, Convert, Revenue, and AI Usage in Assist's module settings. Revenue needs your provider keys; AI Usage reads local Claude Code or Codex logs and shows daily token activity, not account quotas."
   },
   {
     question: "How do I take and edit a screenshot?",
@@ -255,7 +260,7 @@ export const PRODUCT_FAQS: ReadonlyArray<ProductFaq> = [
   {
     question: "How does clipboard history work?",
     answer:
-      "Copy text as usual and Assist keeps it in local history alongside your screenshots. Use All, Text, or Images to filter, copy an item again, drag it into another app, or delete it."
+      "Copy text, links, or images as usual and Assist keeps them in local history alongside your screenshots. Use All, Text, or Images to filter, copy an item again, drag it into another app, or delete it."
   },
   {
     question: "Where does Assist store my screenshots and history?",

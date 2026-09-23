@@ -98,6 +98,35 @@ enum ImageConverter {
             FileManager.default.fileExists(atPath: url.path)
         }
 
+        if let maxFileSizeKB = options.maxFileSizeKB, options.format.usesQuality {
+            guard ImageConversionOptions.fileSizeRange.contains(maxFileSizeKB) else {
+                return failure("Target size must be between 1 and 20,000 KB")
+            }
+            let raster = options.format == .jpeg ? flattenedOnWhite(image) ?? image : image
+            guard let data = rasterData(
+                raster,
+                source: source,
+                format: options.format,
+                maximumQuality: options.quality.compression,
+                targetBytes: maxFileSizeKB * 1_024
+            ) else {
+                return failure("Could not fit within \(maxFileSizeKB) KB")
+            }
+            do {
+                try data.write(to: outputURL, options: .atomic)
+            } catch {
+                return failure("Could not write \(options.format.title)")
+            }
+            return ImageConversionResult(
+                id: UUID(),
+                sourceName: sourceName,
+                outputURL: outputURL,
+                originalBytes: originalBytes,
+                outputBytes: Int64(data.count),
+                errorMessage: nil
+            )
+        }
+
         let didWrite: Bool
         switch options.format {
         case .pdf:
@@ -157,6 +186,63 @@ enum ImageConverter {
         }
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         return CGImageDestinationFinalize(destination)
+    }
+
+    private static func rasterData(
+        _ image: CGImage,
+        source: URL,
+        format: ImageConversionFormat,
+        maximumQuality: Double,
+        targetBytes: Int
+    ) -> Data? {
+        var current = image
+        for _ in 0..<8 {
+            if let initial = encode(current, format: format, quality: maximumQuality), initial.count <= targetBytes {
+                return initial
+            }
+
+            let minimumQuality = 0.08
+            if let minimum = encode(current, format: format, quality: minimumQuality) {
+                if minimum.count <= targetBytes {
+                    var best = minimum
+                    var low = minimumQuality
+                    var high = maximumQuality
+                    for _ in 0..<6 {
+                        let midpoint = (low + high) / 2
+                        guard let candidate = encode(current, format: format, quality: midpoint) else { break }
+                        if candidate.count <= targetBytes {
+                            best = candidate
+                            low = midpoint
+                        } else {
+                            high = midpoint
+                        }
+                    }
+                    return best
+                }
+
+                let longestSide = max(current.width, current.height)
+                guard longestSide > 128 else { return nil }
+                let scale = min(0.85, max(0.5, sqrt(Double(targetBytes) / Double(minimum.count)) * 0.9))
+                let nextSide = max(128, Int(Double(longestSide) * scale))
+                guard nextSide < longestSide,
+                      let smaller = loadImage(at: source, maxPixels: nextSide) else { return nil }
+                current = format == .jpeg ? flattenedOnWhite(smaller) ?? smaller : smaller
+            } else {
+                return nil
+            }
+        }
+        return nil
+    }
+
+    private static func encode(_ image: CGImage, format: ImageConversionFormat, quality: Double) -> Data? {
+        guard let data = CFDataCreateMutable(kCFAllocatorDefault, 0),
+              let destination = CGImageDestinationCreateWithData(data, format.contentType.identifier as CFString, 1, nil) else {
+            return nil
+        }
+        CGImageDestinationAddImage(destination, image, [
+            kCGImageDestinationLossyCompressionQuality: quality
+        ] as CFDictionary)
+        return CGImageDestinationFinalize(destination) ? data as Data : nil
     }
 
     private static func writePDF(_ image: CGImage, to url: URL) -> Bool {

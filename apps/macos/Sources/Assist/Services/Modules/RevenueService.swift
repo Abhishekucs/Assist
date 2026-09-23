@@ -123,9 +123,10 @@ final class RevenueService: ObservableObject {
                 }
             }
 
-            self.summary = RevenueSummary.make(from: transactions, now: Date(), calendar: .current)
+            let completedAt = Date()
+            self.summary = RevenueSummary.make(from: transactions, now: completedAt, calendar: .current)
             self.errors = failures
-            self.lastUpdated = Date()
+            self.lastUpdated = completedAt
             self.isRefreshing = false
             self.refreshTask = nil
         }

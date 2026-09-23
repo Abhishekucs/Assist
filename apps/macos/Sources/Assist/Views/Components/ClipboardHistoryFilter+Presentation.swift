@@ -30,3 +30,35 @@ extension ClipboardHistoryFilter {
         }
     }
 }
+
+enum LibraryContentFilter: String, CaseIterable, Identifiable {
+    case all
+    case text
+    case images
+    case links
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+
+    func includes(_ item: ClipboardHistoryItem) -> Bool {
+        switch (self, item) {
+        case (.all, _), (.images, .screenshot):
+            true
+        case let (.text, .text(clip)):
+            clip.linkURL == nil
+        case let (.links, .text(clip)):
+            clip.linkURL != nil
+        default:
+            false
+        }
+    }
+
+    var emptyTitle: String {
+        switch self {
+        case .all: "No captures yet"
+        case .text: "No text yet"
+        case .images: "No images yet"
+        case .links: "No links yet"
+        }
+    }
+}

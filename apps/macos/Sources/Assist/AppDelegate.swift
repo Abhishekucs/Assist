@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let licenseValidationService = LicenseValidationService()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        configureEditingMenu()
         DebugLogger.log("app.launch", [
             "bundle": Bundle.main.bundleIdentifier ?? "unknown",
             "version": appVersion,
@@ -131,15 +132,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: ModuleSettings(),
             directory: ModuleStorage.defaultDirectory
         )
-        moduleServices.timers.onAlert = { [weak pillViewModel] badge, detail in
-            pillViewModel?.showCopyFeedback(badge: badge, preview: detail)
-        }
         let windowManager = WindowManager(
             pillViewModel: pillViewModel,
             screenshotEditorViewModel: screenshotEditorViewModel,
             settings: settings,
             modules: moduleServices
         )
+        moduleServices.timers.onAlert = { [weak pillViewModel, weak windowManager] badge, detail in
+            pillViewModel?.showTimerAlert(badge: badge, detail: detail)
+            windowManager?.presentTimerAlert()
+        }
         let controlPanelController = ControlPanelWindowController(
             settings: settings,
             pillViewModel: pillViewModel,
@@ -199,6 +201,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for fontURL in fontURLs where ["ttf", "otf"].contains(fontURL.pathExtension.lowercased()) {
             CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, nil)
         }
+    }
+
+    private func configureEditingMenu() {
+        let mainMenu = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: AppIdentity.name)
+        let quitItem = NSMenuItem(title: "Quit \(AppIdentity.name)", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        appMenu.addItem(quitItem)
+        appItem.submenu = appMenu
+        mainMenu.addItem(appItem)
+
+        let editMenu = NSMenu(title: "Edit")
+        for (title, action, key) in [
+            ("Cut", #selector(NSText.cut(_:)), "x"),
+            ("Copy", #selector(NSText.copy(_:)), "c"),
+            ("Paste", #selector(NSText.paste(_:)), "v"),
+            ("Select All", #selector(NSText.selectAll(_:)), "a")
+        ] {
+            editMenu.addItem(NSMenuItem(title: title, action: action, keyEquivalent: key))
+        }
+        let editItem = NSMenuItem()
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+        NSApp.mainMenu = mainMenu
     }
 
     private func configureStatusItem(settings: PillSettings) {

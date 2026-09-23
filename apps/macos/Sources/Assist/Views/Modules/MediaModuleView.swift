@@ -8,8 +8,6 @@ private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 struct MediaModuleView: View {
     @ObservedObject var service: NowPlayingService
 
-    private static let artworkSize: CGFloat = 104
-
     var body: some View {
         VStack(alignment: .leading, spacing: ModuleTokens.toolbarSpacing) {
             IslandModuleToolbar {
@@ -20,28 +18,40 @@ struct MediaModuleView: View {
                 }
             }
 
-            HStack(alignment: .center, spacing: Tokens.Spacing.xLarge) {
-                ZStack {
-                    IslandTileBackground()
-                    HugeIcon(.music, size: 34, color: Mono.ink.opacity(Tokens.Opacity.subtle))
-                }
-                .frame(width: Self.artworkSize, height: Self.artworkSize)
-                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
+                Text(service.info?.title ?? "Nothing playing")
+                    .font(.system(size: 21, weight: .semibold))
+                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-                VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
-                    Text(service.info?.title ?? "Nothing playing")
-                        .font(Tokens.Typography.headline)
-                        .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
-                        .lineLimit(2)
+                Text(service.info.map { $0.artist.isEmpty ? "Unknown artist" : $0.artist } ?? "Play a track in Music or Spotify")
+                    .font(Tokens.Typography.footnote(.medium))
+                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                    .lineLimit(1)
 
-                    Text(subtitle)
-                        .font(Tokens.Typography.footnote(.medium))
+                if let album = service.info?.album, !album.isEmpty {
+                    Text(album)
+                        .font(Tokens.Typography.caption())
                         .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
-                        .lineLimit(service.needsAccessibility ? 1 : 2)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: Tokens.Spacing.small)
+
+                HStack(spacing: Tokens.Spacing.small) {
+                    Text(service.needsAccessibility ? "Allow Accessibility to control playback" : playbackStatus)
+                        .font(Tokens.Typography.caption(.medium))
+                        .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
+                        .lineLimit(1)
 
                     Spacer(minLength: Tokens.Spacing.small)
 
-                    HStack(spacing: Tokens.Spacing.small) {
+                    if service.needsAccessibility {
+                        IslandTextButton(title: "Open Settings") {
+                            service.openAccessibilitySettings()
+                        }
+                    } else if service.info != nil {
                         IslandIconButton(icon: .previous, tooltip: "Previous track") {
                             service.send(.previous)
                         }
@@ -55,22 +65,16 @@ struct MediaModuleView: View {
                         IslandIconButton(icon: .next, tooltip: "Next track") {
                             service.send(.next)
                         }
-                    }
-
-                    if service.needsAccessibility {
-                        HStack(spacing: Tokens.Spacing.small) {
-                            Text("Allow Accessibility to control playback.")
-                                .font(Tokens.Typography.caption(.medium))
-                                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
-                                .lineLimit(1)
-                            IslandTextButton(title: "Open Settings") {
-                                service.openAccessibilitySettings()
-                            }
+                    } else {
+                        IslandTextButton(title: "Open Music", icon: .music) {
+                            service.openPlayer()
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
+            .padding(Tokens.Spacing.xLarge)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(IslandTileBackground())
             .frame(height: ModuleTokens.bodyHeight)
         }
     }
@@ -83,12 +87,8 @@ struct MediaModuleView: View {
         service.info?.source.appName ?? NowPlayingInfo.Source.music.appName
     }
 
-    private var subtitle: String {
-        guard let info = service.info else {
-            return "Play something in Music or Spotify. The controls also reach other players."
-        }
-        return [info.artist, info.album]
-            .filter { !$0.isEmpty }
-            .joined(separator: " · ")
+    private var playbackStatus: String {
+        guard service.info != nil else { return "Music or Spotify" }
+        return isPlaying ? "Playing" : "Paused"
     }
 }

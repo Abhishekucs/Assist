@@ -1,15 +1,14 @@
+import Charts
 import SwiftUI
 
 private typealias Mono = AssistDesignTokens.Mono
 private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 
-/// The Revenue module: sales today, over 7 days, and over 30 days from the
-/// payment providers connected in Settings → Modules.
 struct RevenueModuleView: View {
     @ObservedObject var service: RevenueService
     @ObservedObject var viewModel: PillViewModel
-
-    private static let providerColumnWidth: CGFloat = 150
+    @State private var preferredCurrency: String?
+    @State private var showsProviders = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: ModuleTokens.toolbarSpacing) {
@@ -17,6 +16,12 @@ struct RevenueModuleView: View {
                 IslandModuleTitle(title: "Revenue", detail: updatedText)
             } trailing: {
                 HStack(spacing: Tokens.Spacing.xxSmall) {
+                    if !service.connectedProviders.isEmpty {
+                        IslandTextButton(title: showsProviders ? "Totals" : "Providers") {
+                            showsProviders.toggle()
+                        }
+                        .accessibilityLabel(showsProviders ? "Show revenue totals" : "Show provider revenue")
+                    }
                     if service.isRefreshing {
                         ProgressView()
                             .controlSize(.small)
@@ -40,7 +45,7 @@ struct RevenueModuleView: View {
                     IslandEmptyState(
                         icon: .revenue,
                         title: "Connect a payment provider",
-                        message: "Add a read-only Stripe, Polar, or Dodo Payments key in Settings → Modules. Keys stay in your Keychain."
+                        message: "Add a read-only Stripe, Polar, or Dodo Payments key in Assist → Revenue. Keys stay in your Keychain."
                     ) {
                         IslandTextButton(title: "Open Assist", icon: .key) {
                             viewModel.openControls()
@@ -48,11 +53,16 @@ struct RevenueModuleView: View {
                     }
                 } else {
                     HStack(spacing: Tokens.Spacing.small) {
-                        ForEach(RevenueWindow.allCases) { window in
-                            RevenueTile(window: window, totals: service.summary?.totals[window])
+                        trendColumn
+                            .frame(maxWidth: .infinity)
+                        Group {
+                            if showsProviders {
+                                providerDetail
+                            } else {
+                                totalsSummary
+                            }
                         }
-                        providerColumn
-                            .frame(width: Self.providerColumnWidth)
+                        .frame(width: 190)
                     }
                 }
             }
@@ -66,34 +76,167 @@ struct RevenueModuleView: View {
         }
     }
 
-    private var providerColumn: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
-            Text("Last 30 days")
-                .font(Tokens.Typography.caption(.semibold))
-                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
+    private var availableCurrencies: [String] {
+        (service.summary?.totals[.month]?.amounts.keys ?? Dictionary<String, Int64>().keys).sorted()
+    }
 
-            ForEach(service.connectedProviders) { provider in
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(provider.title)
-                        .font(Tokens.Typography.caption(.medium))
-                        .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
-                    if let error = service.errors[provider] {
-                        Text(error)
-                            .font(Tokens.Typography.caption())
-                            .foregroundStyle(AssistDesignTokens.Palette.warning)
-                            .lineLimit(2)
+    private var selectedCurrency: String? {
+        if let preferredCurrency, availableCurrencies.contains(preferredCurrency) {
+            return preferredCurrency
+        }
+        if let local = Locale.current.currency?.identifier, availableCurrencies.contains(local) {
+            return local
+        }
+        return availableCurrencies.first
+    }
+
+    private var trendColumn: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
+            HStack(spacing: Tokens.Spacing.xxSmall) {
+                Text("Daily revenue")
+                    .font(Tokens.Typography.caption(.semibold))
+                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                Spacer(minLength: 0)
+                if let selectedCurrency {
+                    if availableCurrencies.count > 1 {
+                        Menu {
+                            ForEach(availableCurrencies, id: \.self) { currency in
+                                Button(currency) { preferredCurrency = currency }
+                            }
+                        } label: {
+                            Text(selectedCurrency)
+                                .font(Tokens.Typography.caption(.semibold))
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .accessibilityLabel("Revenue currency, \(selectedCurrency)")
                     } else {
-                        Text(amountText(service.summary?.providerTotals[provider]))
-                            .font(Tokens.Typography.footnote(.semibold).monospacedDigit())
-                            .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                        Text(selectedCurrency)
+                            .font(Tokens.Typography.caption(.semibold))
                     }
                 }
-                .accessibilityElement(children: .combine)
             }
 
+            if service.summary == nil {
+                chartMessage("Loading revenue…")
+            } else if service.errors.count == service.connectedProviders.count {
+                chartMessage("Revenue unavailable")
+            } else if let currency = selectedCurrency, let summary = service.summary {
+                let points = summary.dailyAmounts(for: currency, now: service.lastUpdated ?? Date(), calendar: .current)
+                let divisor = pow(10.0, Double(MoneyFormatting.minorUnitDigits(for: currency)))
+                let values = points.map { Double($0.amountMinor) / divisor }
+                let minimum = min(values.min() ?? 0, 0)
+                let maximum = max(values.max() ?? 0, 0)
+                let padding = max((maximum - minimum) * 0.1, 1 / divisor)
+                Chart(points, id: \.day) { point in
+                    LineMark(
+                        x: .value("Day", point.day),
+                        y: .value(currency, Double(point.amountMinor) / divisor)
+                    )
+                    .interpolationMethod(.linear)
+                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
+                }
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .chartYScale(domain: (minimum - padding)...(maximum + padding))
+                .frame(maxHeight: .infinity)
+                .accessibilityLabel("Daily \(currency) revenue over the last 30 days")
+
+                HStack {
+                    Text(points.first?.day.formatted(.dateTime.month(.abbreviated).day()) ?? "")
+                    Spacer()
+                    Text(points.last?.day.formatted(.dateTime.month(.abbreviated).day()) ?? "")
+                }
+                .font(Tokens.Typography.caption())
+                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
+            } else {
+                chartMessage(service.errors.isEmpty ? "No sales in the last 30 days" : "No sales from available providers")
+            }
+
+            if !service.errors.isEmpty, service.errors.count < service.connectedProviders.count {
+                Text("Partial · \(service.errors.count) provider\(service.errors.count == 1 ? "" : "s") unavailable")
+                    .font(Tokens.Typography.caption())
+                    .foregroundStyle(AssistDesignTokens.Palette.warning)
+                    .lineLimit(1)
+                    .help("The chart and totals omit providers that could not be refreshed.")
+            }
+        }
+        .padding(Tokens.Spacing.medium)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(IslandTileBackground())
+    }
+
+    private func chartMessage(_ message: String) -> some View {
+        Text(message)
+            .font(Tokens.Typography.caption())
+            .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private var totalsSummary: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
+            Text("Last 30 days")
+                .font(Tokens.Typography.caption(.medium))
+                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+
+            Text(amountText(service.summary?.totals[.month]))
+                .font(.system(size: 20, weight: .semibold).monospacedDigit())
+                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
             Spacer(minLength: 0)
+
+            ForEach([RevenueWindow.today, .week]) { window in
+                HStack(spacing: Tokens.Spacing.xxSmall) {
+                    Text(window.title)
+                        .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                    Spacer(minLength: 0)
+                    Text(amountText(service.summary?.totals[window]))
+                        .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .font(Tokens.Typography.caption(.medium).monospacedDigit())
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .padding(Tokens.Spacing.medium)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(IslandTileBackground())
+        .accessibilityElement(children: .contain)
+    }
+
+    private var providerDetail: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
+            Text("Providers · 30 days")
+                .font(Tokens.Typography.caption(.semibold))
+                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
+                    ForEach(service.connectedProviders) { provider in
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(provider.title)
+                                .font(Tokens.Typography.caption(.medium))
+                                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                            if let error = service.errors[provider] {
+                                Text(error)
+                                    .font(Tokens.Typography.caption())
+                                    .foregroundStyle(AssistDesignTokens.Palette.warning)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Text(amountText(service.summary?.providerTotals[provider]))
+                                    .font(Tokens.Typography.footnote(.semibold).monospacedDigit())
+                                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(Tokens.Spacing.medium)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -106,59 +249,9 @@ struct RevenueModuleView: View {
     }
 
     private func amountText(_ totals: RevenueTotals?) -> String {
-        guard let totals, let currency = totals.currencies.first else {
-            return service.summary == nil ? "—" : "No sales"
-        }
-        return MoneyFormatting.format(minor: totals.amounts[currency] ?? 0, currency: currency)
-    }
-}
-
-private struct RevenueTile: View {
-    let window: RevenueWindow
-    let totals: RevenueTotals?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
-            Text(window.title)
-                .font(Tokens.Typography.caption(.medium))
-                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
-
-            Text(primaryAmount)
-                .font(.system(size: 18, weight: .semibold).monospacedDigit())
-                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-                .padding(.top, Tokens.Spacing.xxSmall)
-
-            Text(detail)
-                .font(Tokens.Typography.caption())
-                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
-        }
-        .padding(Tokens.Spacing.medium)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(IslandTileBackground())
-        .accessibilityElement(children: .combine)
-    }
-
-    private var primaryAmount: String {
-        guard let totals else { return "—" }
-        guard let currency = totals.currencies.first else {
-            return MoneyFormatting.format(minor: 0, currency: Locale.current.currency?.identifier ?? "USD")
-        }
-        return MoneyFormatting.format(minor: totals.amounts[currency] ?? 0, currency: currency)
-    }
-
-    /// The sale count, and any other currencies, which are never converted.
-    private var detail: String {
-        guard let totals else { return "Loading…" }
-        let sales = totals.count == 1 ? "1 sale" : "\(totals.count) sales"
-        let others = totals.currencies.dropFirst().map { currency in
-            "+ \(MoneyFormatting.format(minor: totals.amounts[currency] ?? 0, currency: currency))"
-        }
-        return ([sales] + others).joined(separator: "\n")
+        if service.summary == nil { return "Loading…" }
+        if service.errors.count == service.connectedProviders.count { return "Unavailable" }
+        guard let selectedCurrency else { return "No sales" }
+        return MoneyFormatting.format(minor: totals?.amounts[selectedCurrency] ?? 0, currency: selectedCurrency)
     }
 }

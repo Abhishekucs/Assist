@@ -1,9 +1,7 @@
 import Combine
 import Foundation
 
-/// Owns every notch module's service and starts or stops the ones that run
-/// in the background (screen time, now playing, timers) as modules are
-/// turned on and off.
+/// Owns notch module services and coordinates their background lifecycle.
 @MainActor
 final class ModuleServices {
     let settings: ModuleSettings
@@ -22,21 +20,30 @@ final class ModuleServices {
     /// Background modules that are currently running.
     private var runningModules: Set<AssistModule> = []
 
-    init(settings: ModuleSettings, directory: URL, defaults: UserDefaults = .standard) {
+    init(
+        settings: ModuleSettings,
+        directory: URL,
+        defaults: UserDefaults = .standard,
+        dateProvider: @escaping () -> Date = Date.init,
+        stats: SystemStatsService? = nil,
+        revenue: RevenueService? = nil,
+        aiUsage: AIUsageService? = nil
+    ) {
         self.settings = settings
         shelf = ShelfStore(directory: directory)
         notes = ScratchpadStore(directory: directory)
-        timers = FocusTimerService(defaults: defaults)
+        timers = FocusTimerService(defaults: defaults, dateProvider: dateProvider)
         calendar = CalendarAgendaService()
         media = NowPlayingService()
-        stats = SystemStatsService()
+        self.stats = stats ?? SystemStatsService()
         screenTime = ScreenTimeTracker(directory: directory)
         converter = ImageConversionService(defaults: defaults)
-        revenue = RevenueService()
-        aiUsage = AIUsageService()
+        self.revenue = revenue ?? RevenueService()
+        self.aiUsage = aiUsage ?? AIUsageService()
     }
 
     func start() {
+        media.start()
         settingsCancellable = settings.$enabledModules
             .removeDuplicates()
             .sink { [weak self] modules in
@@ -46,20 +53,22 @@ final class ModuleServices {
 
     func stop() {
         settingsCancellable = nil
+        timers.suspend()
+        runningModules.remove(.timers)
         apply([])
+        media.stop()
     }
 
     /// Starts modules that were just turned on and stops ones just turned
     /// off, leaving the rest (and, for example, a running hydration
     /// schedule) untouched.
     private func apply(_ modules: [AssistModule]) {
-        let backgroundModules: Set<AssistModule> = [.screenTime, .media, .timers]
+        let backgroundModules: Set<AssistModule> = [.screenTime, .timers]
         let next = Set(modules).intersection(backgroundModules)
 
         for module in next.subtracting(runningModules) {
             switch module {
             case .screenTime: screenTime.start()
-            case .media: media.start()
             case .timers: timers.activate()
             default: break
             }
@@ -67,7 +76,6 @@ final class ModuleServices {
         for module in runningModules.subtracting(next) {
             switch module {
             case .screenTime: screenTime.stop()
-            case .media: media.stop()
             case .timers: timers.deactivate()
             default: break
             }

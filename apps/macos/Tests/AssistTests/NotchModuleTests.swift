@@ -344,6 +344,84 @@ final class ImageConversionTests: XCTestCase {
         XCTAssertNotNil(ImageConverter.convert(notImage, options: options).errorMessage)
     }
 
+    func testExistingConversionOptionsKeepTheirSettingsWithoutAFileSizeTarget() throws {
+        let stored = Data(#"{"format":"heic","maxDimension":1600,"quality":"medium"}"#.utf8)
+        let options = try JSONDecoder().decode(ImageConversionOptions.self, from: stored)
+        XCTAssertEqual(options.format, .heic)
+        XCTAssertEqual(options.maxDimension, .medium)
+        XCTAssertEqual(options.quality, .medium)
+        XCTAssertNil(options.maxFileSizeKB)
+    }
+
+    func testJPEGTargetWritesOnlyFilesWithinTheRequestedSize() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("Noise.png")
+        try writeNoisePNG(to: source, side: 512)
+
+        var options = ImageConversionOptions()
+        options.maxFileSizeKB = 10
+        let result = ImageConverter.convert(source, options: options)
+        let output = try XCTUnwrap(result.outputURL, result.errorMessage ?? "No output")
+        XCTAssertLessThanOrEqual(try Data(contentsOf: output).count, 10 * 1_024)
+        XCTAssertLessThanOrEqual(result.outputBytes ?? .max, 10 * 1_024)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+
+        options.format = .heic
+        let heic = ImageConverter.convert(source, options: options)
+        let heicURL = try XCTUnwrap(heic.outputURL, heic.errorMessage ?? "No HEIC output")
+        XCTAssertLessThanOrEqual(try Data(contentsOf: heicURL).count, 10 * 1_024)
+
+        options.format = .jpeg
+        options.maxFileSizeKB = 1
+        let impossible = ImageConverter.convert(source, options: options)
+        XCTAssertNil(impossible.outputURL)
+        XCTAssertNotNil(impossible.errorMessage)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("Noise 2.jpg").path))
+    }
+
+    func testLosslessFormatKeepsPixelConversionWhenFileSizeTargetIsStored() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("Sample.png")
+        try writeSamplePNG(to: source, width: 400, height: 200)
+
+        var options = ImageConversionOptions()
+        options.format = .png
+        options.maxFileSizeKB = 1
+        XCTAssertNotNil(ImageConverter.convert(source, options: options).outputURL)
+    }
+
+    private func writeNoisePNG(to url: URL, side: Int) throws {
+        let colorSpace = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let context = try XCTUnwrap(CGContext(
+            data: nil,
+            width: side,
+            height: side,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        let pixels = try XCTUnwrap(context.data).assumingMemoryBound(to: UInt8.self)
+        for y in 0..<side {
+            for x in 0..<side {
+                let offset = y * context.bytesPerRow + x * 4
+                let seed = UInt32(truncatingIfNeeded: x &* 73856093 ^ y &* 19349663)
+                pixels[offset] = UInt8(truncatingIfNeeded: seed)
+                pixels[offset + 1] = UInt8(truncatingIfNeeded: seed >> 8)
+                pixels[offset + 2] = UInt8(truncatingIfNeeded: seed >> 16)
+                pixels[offset + 3] = 255
+            }
+        }
+        let image = try XCTUnwrap(context.makeImage())
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+    }
+
     private func writeSamplePNG(to url: URL, width: Int, height: Int) throws {
         let colorSpace = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
         let context = try XCTUnwrap(CGContext(

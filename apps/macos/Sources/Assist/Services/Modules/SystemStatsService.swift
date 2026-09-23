@@ -11,14 +11,23 @@ final class SystemStatsService: ObservableObject {
 
     @Published private(set) var snapshot = SystemStatsSnapshot.empty
 
+    private let previewSnapshot: SystemStatsSnapshot?
     private var timer: Timer?
     private var previousCPU: CPULoadSample?
     private var previousNetwork: [String: InterfaceCounters]?
     private var previousNetworkDate: Date?
     private var viewerCount = 0
 
+    init(previewSnapshot: SystemStatsSnapshot? = nil) {
+        self.previewSnapshot = previewSnapshot
+        if let previewSnapshot {
+            snapshot = previewSnapshot
+        }
+    }
+
     /// Starts sampling for a view that shows the stats. Balanced by `stop()`.
     func start() {
+        guard previewSnapshot == nil else { return }
         viewerCount += 1
         guard timer == nil else { return }
         sample()

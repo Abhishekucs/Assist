@@ -1,10 +1,9 @@
 import type { MetadataRoute } from "next";
 
-import { heroVideo } from "./marketingMedia";
 import { PRODUCT_FEATURES, SITE_URL } from "./productContent";
 
-const productLastModified = "2026-09-21";
-const legalLastModified = "2026-08-27";
+const productLastModified = "2026-09-23";
+const legalLastModified = "2026-09-23";
 const absoluteUrl = (path: string) => new URL(path, SITE_URL).href;
 
 const featurePages: MetadataRoute.Sitemap = PRODUCT_FEATURES.map((feature) => ({
@@ -34,19 +33,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       images: [
         `${SITE_URL}/og-image.png`,
         `${SITE_URL}/assist-icon.png`
-      ],
-      videos: [
-        {
-          title: "Assist for Mac workflow demonstration",
-          description:
-            "An overview of Assist screenshot capture, voice annotation, and clipboard history workflows in the Mac notch.",
-          thumbnail_loc: `${SITE_URL}/og-image.png`,
-          content_loc: absoluteUrl(heroVideo),
-          family_friendly: "yes"
-        }
       ]
     },
     ...featurePages,
+    {
+      url: `${SITE_URL}/modules`,
+      lastModified: productLastModified,
+      changeFrequency: "monthly",
+      priority: 0.9
+    },
     {
       url: `${SITE_URL}/keyboard-sound-tester`,
       lastModified: productLastModified,

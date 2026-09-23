@@ -7,7 +7,7 @@ private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 /// The Shelf module: files dropped on the notch, ready to drag out anywhere.
 struct ShelfModuleView: View {
     @ObservedObject var store: ShelfStore
-    @ObservedObject var viewModel: PillViewModel
+    let isFileDropTargeted: Bool
     let onDragChanged: (Bool) -> Void
 
     var body: some View {
@@ -29,7 +29,7 @@ struct ShelfModuleView: View {
                         icon: .drop,
                         title: "Drop files here",
                         message: "Keep files one hover away, then drag them into any app. Nothing is copied or moved.",
-                        isTargeted: viewModel.isFileDropTargeted
+                        isTargeted: isFileDropTargeted
                     )
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -47,7 +47,7 @@ struct ShelfModuleView: View {
                         }
                     }
                     .overlay {
-                        if viewModel.isFileDropTargeted {
+                        if isFileDropTargeted {
                             RoundedRectangle(cornerRadius: ModuleTokens.tileRadius, style: .continuous)
                                 .strokeBorder(
                                     Mono.dropTargetOutline,
@@ -174,7 +174,13 @@ private struct ShelfTileAction: View {
             )
         }
         .buttonStyle(.plain)
-        .help(tooltip)
+        .overlay(alignment: .bottom) {
+            if isSelfHovered {
+                IslandHoverTooltip(title: tooltip)
+                    .offset(y: 28)
+            }
+        }
+        .zIndex(isSelfHovered ? 2 : 0)
         .accessibilityLabel(tooltip)
         .onHover { hovering in
             isSelfHovered = hovering

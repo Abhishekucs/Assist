@@ -140,6 +140,7 @@ struct IslandToggleIconButton: View {
     let tooltip: String
     let isOn: Bool
     var size: CGFloat = ModuleTabLayout.tabWidth
+    var tooltipAlignment: Alignment = .bottom
     let action: () -> Void
 
     @State private var isHovered = false
@@ -171,14 +172,13 @@ struct IslandToggleIconButton: View {
         .pointingHandCursor()
         .accessibilityLabel(tooltip)
         .accessibilityAddTraits(isOn ? .isSelected : [])
-        .overlay(alignment: .top) {
+        .overlay(alignment: tooltipAlignment) {
             if isHovered {
-                IslandTooltip(text: tooltip)
-                    .offset(y: size + Tokens.Spacing.small)
-                    .transition(.opacity)
+                IslandHoverTooltip(title: tooltip)
+                    .offset(y: 28)
             }
         }
-        .zIndex(isHovered ? 20 : 0)
+        .zIndex(isHovered ? 2 : 0)
         .onHover { isHovered = $0 }
         .animation(Tokens.Motion.quick, value: isHovered)
         .animation(Tokens.Motion.quick, value: isOn)
@@ -220,24 +220,27 @@ struct IslandDropZone: View {
     let title: String
     let message: String
     let isTargeted: Bool
+    var compact = false
 
     var body: some View {
         VStack(spacing: Tokens.Spacing.xSmall) {
             HugeIcon(
                 icon,
-                size: Tokens.Icon.feedback,
+                size: compact ? Tokens.Icon.regular : Tokens.Icon.feedback,
                 color: Mono.ink.opacity(isTargeted ? Tokens.Opacity.primary : Tokens.Opacity.subtle)
             )
             Text(title)
                 .font(Tokens.Typography.footnote(.semibold))
                 .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
-            Text(message)
-                .font(Tokens.Typography.caption(.medium))
-                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
-                .fixedSize(horizontal: false, vertical: true)
+            if !compact {
+                Text(message)
+                    .font(Tokens.Typography.caption(.medium))
+                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .multilineTextAlignment(.center)
-        .padding(Tokens.Spacing.large)
+        .padding(compact ? Tokens.Spacing.small : Tokens.Spacing.large)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             RoundedRectangle(cornerRadius: ModuleTokens.tileRadius, style: .continuous)
@@ -249,6 +252,7 @@ struct IslandDropZone: View {
                     )
                 )
         }
+        .help(message)
         .animation(Tokens.Motion.quick, value: isTargeted)
     }
 }

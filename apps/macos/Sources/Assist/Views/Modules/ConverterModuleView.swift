@@ -8,6 +8,9 @@ private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 struct ConverterModuleView: View {
     @ObservedObject var service: ImageConversionService
     @ObservedObject var viewModel: PillViewModel
+    let isFileDropTargeted: Bool
+    @State private var maxKBInput = ""
+    @FocusState private var isTargetFocused: Bool
 
     private static let dropZoneWidth: CGFloat = 196
 
@@ -53,7 +56,8 @@ struct ConverterModuleView: View {
                         icon: .convert,
                         title: "Drop images here",
                         message: "Saved next to the originals.",
-                        isTargeted: viewModel.isFileDropTargeted
+                        isTargeted: isFileDropTargeted,
+                        compact: true
                     )
 
                     HStack(spacing: 0) {
@@ -70,6 +74,31 @@ struct ConverterModuleView: View {
                             }
                         }
                     }
+
+                    HStack(spacing: Tokens.Spacing.xxSmall) {
+                        Text("Max file")
+                            .font(Tokens.Typography.caption(.medium))
+                            .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                        Spacer(minLength: 0)
+                        TextField("None", text: $maxKBInput)
+                            .textFieldStyle(.plain)
+                            .font(Tokens.Typography.caption(.medium).monospacedDigit())
+                            .foregroundStyle(Mono.ink)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 52, height: Tokens.Control.compactHeight)
+                            .padding(.horizontal, Tokens.Spacing.xSmall)
+                            .background(Mono.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.small))
+                            .focused($isTargetFocused)
+                            .disabled(!service.options.format.usesQuality)
+                            .accessibilityLabel("Maximum converted file size in kilobytes")
+                        Text("KB")
+                            .font(Tokens.Typography.caption(.medium))
+                            .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                    }
+                    .opacity(service.options.format.usesQuality ? 1 : Tokens.Opacity.disabledControl)
+                    .help(service.options.format.usesQuality
+                        ? "Leave blank for no file-size limit. JPEG and HEIC can be compressed to fit."
+                        : "File-size limits are available for JPEG and HEIC only.")
                 }
                 .frame(width: Self.dropZoneWidth)
 
@@ -77,6 +106,36 @@ struct ConverterModuleView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(height: ModuleTokens.bodyHeight)
+        }
+        .onAppear {
+            maxKBInput = service.options.maxFileSizeKB.map(String.init) ?? ""
+        }
+        .onChange(of: maxKBInput) { _, value in
+            let digits = String(value.filter(\.isNumber).prefix(5))
+            if digits != value {
+                maxKBInput = digits
+            } else if digits.isEmpty {
+                service.options.maxFileSizeKB = nil
+            } else if let size = Int(digits) {
+                if size > ImageConversionOptions.fileSizeRange.upperBound {
+                    maxKBInput = String(ImageConversionOptions.fileSizeRange.upperBound)
+                } else if size < ImageConversionOptions.fileSizeRange.lowerBound {
+                    maxKBInput = ""
+                } else {
+                    service.options.maxFileSizeKB = size
+                }
+            }
+        }
+        .onChange(of: isTargetFocused) { _, focused in
+            viewModel.isEditingText = focused
+        }
+        .onChange(of: viewModel.isEditingText) { _, editing in
+            if !editing, isTargetFocused {
+                isTargetFocused = false
+            }
+        }
+        .onDisappear {
+            viewModel.isEditingText = false
         }
     }
 

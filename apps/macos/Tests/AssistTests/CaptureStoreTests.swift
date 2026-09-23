@@ -4,6 +4,34 @@ import XCTest
 @testable import Assist
 
 final class CaptureStoreTests: XCTestCase {
+    @MainActor
+    func testClipboardImageCanBeSavedReloadedAndCopiedAsAnImage() throws {
+        let supportDirectory = makeTemporarySupportDirectory()
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let store = CaptureStore(applicationSupportDirectory: supportDirectory)
+        let original = try makeImage(width: 7, height: 5)
+        let item = try store.save(image: original, context: .saved)
+        let loaded = try XCTUnwrap(store.loadItems().first)
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "Assist.ClipboardImage.\(UUID().uuidString)"))
+        let viewModel = PillViewModel(
+            settings: PillSettings(defaults: defaults),
+            voiceContextService: VoiceContextService(
+                modelStateOverride: .notInstalled,
+                microphoneAccessStateOverride: .notDetermined
+            )
+        )
+        let pasteboard = NSPasteboard(name: .init("AssistTests.\(UUID().uuidString)"))
+
+        XCTAssertEqual(loaded.id, item.id)
+        XCTAssertTrue(viewModel.copyImageItem(loaded, to: pasteboard))
+        let pastedImage = try XCTUnwrap(NSImage(pasteboard: pasteboard))
+        XCTAssertEqual(pastedImage.size, original.size)
+        XCTAssertNotNil(pasteboard.data(forType: .tiff))
+
+        try store.delete(item: loaded)
+        XCTAssertTrue(store.loadItems().isEmpty)
+    }
+
     func testNewCaptureCreatesSelfContainedFolder() throws {
         let supportDirectory = makeTemporarySupportDirectory()
         defer { try? FileManager.default.removeItem(at: supportDirectory) }

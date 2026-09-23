@@ -12,7 +12,7 @@ const socialImage = {
 type PageMetadataOptions = {
   title: string;
   description: string;
-  path: "/" | "/screenshots" | "/voice-annotation" | "/clipboard";
+  path: "/" | "/screenshots" | "/voice-annotation" | "/clipboard" | "/modules";
   absoluteTitle?: boolean;
 };
 

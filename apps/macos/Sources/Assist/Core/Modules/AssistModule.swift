@@ -2,7 +2,7 @@ import Foundation
 
 /// A section of the notch island. Clipboard is the original capture shelf and
 /// always stays available; every other module can be turned on or off in
-/// Settings → Modules.
+/// the Assist app's module sidebar.
 enum AssistModule: String, CaseIterable, Identifiable, Codable, Sendable {
     case clipboard
     case shelf
@@ -34,7 +34,7 @@ enum AssistModule: String, CaseIterable, Identifiable, Codable, Sendable {
         }
     }
 
-    /// The one-line description shown beside the module's toggle in Settings.
+    /// The one-line description shown beside the module's toggle in Assist.
     var detail: String {
         switch self {
         case .clipboard:
@@ -58,7 +58,7 @@ enum AssistModule: String, CaseIterable, Identifiable, Codable, Sendable {
         case .revenue:
             "Today, 7-day, and 30-day sales from Stripe, Polar, or Dodo Payments, using read-only keys you add below."
         case .aiUsage:
-            "Claude Code and Codex tokens, rate-limit windows, and context, read from their logs on this Mac."
+            "Daily Claude Code and Codex token activity, read from their logs on this Mac."
         }
     }
 

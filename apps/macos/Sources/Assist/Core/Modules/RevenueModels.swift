@@ -100,6 +100,7 @@ struct RevenueSummary: Equatable, Sendable {
     var totals: [RevenueWindow: RevenueTotals] = [:]
     /// Each provider's total over `fetchWindow`.
     var providerTotals: [RevenueProvider: RevenueTotals] = [:]
+    var dailyTotals: [Date: RevenueTotals] = [:]
 
     static func make(from transactions: [RevenueTransaction], now: Date, calendar: Calendar) -> RevenueSummary {
         var summary = RevenueSummary()
@@ -115,9 +116,24 @@ struct RevenueSummary: Equatable, Sendable {
         let start = fetchWindow.start(now: now, calendar: calendar)
         for transaction in transactions where transaction.createdAt >= start && transaction.createdAt <= now {
             summary.providerTotals[transaction.provider, default: RevenueTotals()].add(transaction)
+            let day = calendar.startOfDay(for: transaction.createdAt)
+            summary.dailyTotals[day, default: RevenueTotals()].add(transaction)
         }
         return summary
     }
+
+    func dailyAmounts(for currency: String, now: Date, calendar: Calendar) -> [RevenueDailyAmount] {
+        let start = Self.fetchWindow.start(now: now, calendar: calendar)
+        return (0..<Self.fetchWindow.dayCount).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
+            return RevenueDailyAmount(day: day, amountMinor: dailyTotals[day]?.amounts[currency] ?? 0)
+        }
+    }
+}
+
+struct RevenueDailyAmount: Equatable, Sendable {
+    let day: Date
+    let amountMinor: Int64
 }
 
 enum MoneyFormatting {

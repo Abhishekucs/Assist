@@ -8,13 +8,15 @@ export type ProductFeaturePath =
 export type SitePath =
   | "/"
   | ProductFeaturePath
+  | "/modules"
   | "/keyboard-sound-tester";
 
 export const PRODUCT_NAV_ITEMS = [
   { path: "/screenshots", label: "Screenshots" },
   { path: "/voice-annotation", label: "Voice annotate" },
-  { path: "/clipboard", label: "Clipboard" }
+  { path: "/clipboard", label: "Clipboard" },
+  { path: "/modules", label: "Modules" }
 ] as const satisfies ReadonlyArray<{
-  path: ProductFeaturePath;
+  path: SitePath;
   label: string;
 }>;

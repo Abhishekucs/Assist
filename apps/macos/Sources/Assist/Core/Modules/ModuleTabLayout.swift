@@ -2,14 +2,14 @@ import CoreGraphics
 
 /// Places module tabs on both sides of the camera housing, so no tab sits
 /// behind the notch. Tabs fill the leading side first; the rest share the
-/// trailing side with the island's pin and Open Assist actions. When they do
+/// trailing side with the Open Assist action. When they do
 /// not fit, the island grows just enough to hold them.
 struct ModuleTabLayout: Equatable {
     static let tabWidth: CGFloat = 26
     static let tabSpacing: CGFloat = 2
     /// Space between trailing tabs and the island actions.
     static let groupSpacing: CGFloat = 6
-    static let actionCount = 2
+    static let actionCount = 1
     /// Horizontal inset of island content, matching the capture shelf.
     static let sideInset: CGFloat = 30
     /// Wider than the camera housing on current MacBooks, so tabs stay visible.

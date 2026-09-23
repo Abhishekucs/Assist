@@ -18,7 +18,6 @@ under short names (bundled name ← package name):
 | `stats.svg` | `dashboard-speed-01.svg` |
 | `hourglass.svg` | `hourglass.svg` |
 | `convert.svg` | `exchange-01.svg` |
-| `pin.svg` | `pin.svg` |
 | `pause.svg` | `pause.svg` |
 | `next.svg` | `next.svg` |
 | `previous.svg` | `previous.svg` |

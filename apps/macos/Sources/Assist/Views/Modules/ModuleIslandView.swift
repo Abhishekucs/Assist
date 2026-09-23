@@ -2,8 +2,8 @@ import SwiftUI
 
 private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 
-/// The expanded island: module tabs split around the notch, the pin and
-/// Open Assist actions, and the selected module below.
+/// The expanded island: module tabs split around the notch, the Open Assist
+/// action, and the selected module below.
 struct ModuleIslandView: View {
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var moduleSettings: ModuleSettings
@@ -26,32 +26,29 @@ struct ModuleIslandView: View {
                         tabs(Array(enabled.suffix(layout.trailingCount)))
                     }
 
-                    HStack(spacing: ModuleTabLayout.tabSpacing) {
-                        IslandToggleIconButton(
-                            icon: .pin,
-                            tooltip: viewModel.isIslandPinned ? "Unpin island" : "Keep island open",
-                            isOn: viewModel.isIslandPinned
-                        ) {
-                            viewModel.toggleIslandPinned()
-                        }
-
-                        IslandIconButton(
-                            icon: .grid,
-                            tooltip: "Open Assist",
-                            size: ModuleTabLayout.tabWidth
-                        ) {
-                            viewModel.openControls()
-                        }
+                    IslandIconButton(
+                        icon: .grid,
+                        tooltip: "Open Assist",
+                        size: ModuleTabLayout.tabWidth,
+                        tooltipAlignment: .bottomTrailing
+                    ) {
+                        viewModel.openControls()
                     }
                 }
             }
             .frame(height: ModuleTokens.tabRowHeight)
             .zIndex(1)
 
-            moduleContent(moduleSettings.selectedModule)
-                .frame(maxWidth: .infinity)
-                .frame(height: ModuleTokens.contentHeight, alignment: .top)
-                .id(moduleSettings.selectedModule)
+            ModuleContentView(
+                module: moduleSettings.selectedModule,
+                viewModel: viewModel,
+                modules: modules,
+                isFileDropTargeted: viewModel.isFileDropTargeted,
+                onDragChanged: onDragChanged
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: ModuleTokens.contentHeight, alignment: .top)
+            .id(moduleSettings.selectedModule)
         }
         .padding(.horizontal, ModuleTabLayout.sideInset)
         .padding(.top, Tokens.Spacing.xSmall)
@@ -65,21 +62,30 @@ struct ModuleIslandView: View {
                 IslandToggleIconButton(
                     icon: module.icon,
                     tooltip: module.title,
-                    isOn: module == moduleSettings.selectedModule
+                    isOn: module == moduleSettings.selectedModule,
+                    tooltipAlignment: module == .clipboard ? .bottomLeading : .bottom
                 ) {
                     moduleSettings.selectedModule = module
                 }
             }
         }
     }
+}
+
+struct ModuleContentView: View {
+    let module: AssistModule
+    @ObservedObject var viewModel: PillViewModel
+    let modules: ModuleServices
+    let isFileDropTargeted: Bool
+    let onDragChanged: (Bool) -> Void
 
     @ViewBuilder
-    private func moduleContent(_ module: AssistModule) -> some View {
+    var body: some View {
         switch module {
         case .clipboard:
             ClipboardModuleView(viewModel: viewModel, onDragChanged: onDragChanged)
         case .shelf:
-            ShelfModuleView(store: modules.shelf, viewModel: viewModel, onDragChanged: onDragChanged)
+            ShelfModuleView(store: modules.shelf, isFileDropTargeted: isFileDropTargeted, onDragChanged: onDragChanged)
         case .notes:
             NotesModuleView(store: modules.notes, viewModel: viewModel)
         case .timers:
@@ -93,7 +99,7 @@ struct ModuleIslandView: View {
         case .screenTime:
             ScreenTimeModuleView(tracker: modules.screenTime)
         case .converter:
-            ConverterModuleView(service: modules.converter, viewModel: viewModel)
+            ConverterModuleView(service: modules.converter, viewModel: viewModel, isFileDropTargeted: isFileDropTargeted)
         case .revenue:
             RevenueModuleView(service: modules.revenue, viewModel: viewModel)
         case .aiUsage:

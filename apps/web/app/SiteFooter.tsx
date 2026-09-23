@@ -19,9 +19,9 @@ export default function SiteFooter({ showCallToAction = true }: SiteFooterProps)
             width={72}
             height={72}
           />
-          <h2>Keep every capture one gesture away.</h2>
+          <h2>Keep your tools one hover away.</h2>
           <p>
-            Screenshots, voice annotation, and clipboard history, built for your Mac.
+            Capture, annotate, and make your Mac notch work for you.
           </p>
           <a className="footer-cta-button" href={CHECKOUT_HREF}>
             <span aria-hidden="true"></span>
@@ -39,7 +39,7 @@ export default function SiteFooter({ showCallToAction = true }: SiteFooterProps)
             <span>Assist</span>
           </Link>
           <p>
-            Screenshots, voice annotation, and clipboard history, right from your Mac notch.
+            Capture, clipboard history, and useful modules in your Mac notch.
           </p>
         </div>
 

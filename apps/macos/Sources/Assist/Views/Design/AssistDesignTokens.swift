@@ -169,7 +169,6 @@ enum AssistDesignTokens {
         static let heroHeight: CGFloat = 42
         static let iconButton: CGFloat = 30
         static let largeIconButton: CGFloat = 34
-        static let tooltipHeight: CGFloat = 22
         static let borderWidth: CGFloat = 1
         static let focusRingWidth: CGFloat = 2
     }

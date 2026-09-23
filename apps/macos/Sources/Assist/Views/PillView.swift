@@ -12,11 +12,12 @@ struct PillView: View {
     let onIslandDragChanged: (Bool) -> Void
 
     private var isIslandChromeVisible: Bool {
-        viewModel.isExpanded
+        viewModel.isExpanded || viewModel.timerAlert != nil
     }
 
     private var chromeSize: CGSize {
-        viewModel.isExpanded ? expandedSize : collapsedSize
+        if viewModel.isExpanded { return expandedSize }
+        return viewModel.timerAlert == nil ? collapsedSize : PillChromeMetrics.timerAlertSize(settings: settings)
     }
 
     private var collapsedSize: CGSize {
@@ -49,11 +50,17 @@ struct PillView: View {
     var body: some View {
         ZStack(alignment: .top) {
             ZStack(alignment: .top) {
-                if viewModel.isCollapsedContentVisible {
+                if let alert = viewModel.timerAlert {
+                    TimerAlertContent(alert: alert)
+                        .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
+                        .id(alert.id)
+                        .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .top)))
+                } else if viewModel.isCollapsedContentVisible {
                     CollapsedIslandHeader(
                         viewModel: viewModel,
                         moduleSettings: moduleSettings,
-                        timers: modules.timers
+                        timers: modules.timers,
+                        media: modules.media
                     )
                         .frame(
                             width: collapsedSize.width,
@@ -62,7 +69,7 @@ struct PillView: View {
                         .transition(.opacity.animation(.easeOut(duration: 0.08)))
                 }
 
-                if viewModel.isExpandedContentVisible {
+                if viewModel.timerAlert == nil && viewModel.isExpandedContentVisible {
                     ModuleIslandView(
                         viewModel: viewModel,
                         moduleSettings: moduleSettings,
@@ -89,6 +96,7 @@ struct PillView: View {
             }
             .frame(width: chromeSize.width, height: chromeSize.height, alignment: .top)
             .animation(islandAnimation, value: viewModel.isExpanded)
+            .animation(islandAnimation, value: viewModel.timerAlert?.id)
             .background {
                 BoringNotchShape(
                     topCornerRadius: chromeTopCornerRadius,
@@ -171,19 +179,53 @@ struct PillView: View {
     }
 }
 
+private struct TimerAlertContent: View {
+    let alert: TimerAlert
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isPulsing = false
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.large) {
+            HugeIcon(.droplet, size: Tokens.Icon.tile, color: AssistDesignTokens.Mono.ink)
+                .scaleEffect(isPulsing ? 1.18 : 1)
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
+                Text(alert.badge)
+                    .font(Tokens.Typography.footnote(.semibold))
+                    .foregroundStyle(AssistDesignTokens.Mono.ink)
+                Text(alert.detail)
+                    .font(Tokens.Typography.caption(.medium))
+                    .foregroundStyle(AssistDesignTokens.Mono.ink.opacity(Tokens.Opacity.secondary))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Tokens.Spacing.xxxLarge)
+        .padding(.top, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(alert.badge). \(alert.detail)")
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        }
+    }
+}
+
 // The idle island is deliberately quiet. Short-lived feedback is text-led and
-// anchored to the leading edge; a running timer shows on the trailing edge.
+// anchored to the leading edge; started clocks show on the trailing edge.
 private struct CollapsedIslandHeader: View {
     @ObservedObject var viewModel: PillViewModel
     @ObservedObject var moduleSettings: ModuleSettings
     @ObservedObject var timers: FocusTimerService
+    @ObservedObject var media: NowPlayingService
 
     private var feedbackAnimation: Animation {
         AssistDesignTokens.Motion.feedback
     }
 
     private var showsTimer: Bool {
-        moduleSettings.isEnabled(.timers) && timers.clock.hasStarted
+        moduleSettings.isEnabled(.timers) && !timers.activeModes.isEmpty
     }
 
     var body: some View {
@@ -193,6 +235,7 @@ private struct CollapsedIslandHeader: View {
                     .font(AssistDesignTokens.Typography.footnote(.semibold))
                     .foregroundStyle(feedbackForeground(for: feedback.kind))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .opacity(viewModel.isCopyFeedbackVisible ? 1 : 0)
                     .transition(.opacity)
                     .help("\(feedback.badge): \(feedback.preview)")
@@ -201,17 +244,32 @@ private struct CollapsedIslandHeader: View {
 
             Spacer(minLength: 0)
 
-            if showsTimer {
-                Text(timers.displayTime)
-                    .font(AssistDesignTokens.Typography.footnote(.semibold).monospacedDigit())
-                    .foregroundStyle(
-                        AssistDesignTokens.Mono.ink.opacity(
-                            timers.isRunning ? AssistDesignTokens.Opacity.strong : AssistDesignTokens.Opacity.muted
-                        )
-                    )
-                    .lineLimit(1)
+            if media.info?.isPlaying == true {
+                PlaybackActivity()
+                    .padding(.trailing, showsTimer ? AssistDesignTokens.Spacing.small : 0)
                     .transition(.opacity)
-                    .accessibilityLabel("\(timers.mode.title) \(timers.displayTime)")
+            }
+
+            if showsTimer {
+                HStack(spacing: AssistDesignTokens.Spacing.small) {
+                    ForEach(timers.activeModes) { mode in
+                        HStack(spacing: AssistDesignTokens.Spacing.xxxSmall) {
+                            Text(mode == .pomodoro ? "F" : mode == .countdown ? "T" : "S")
+                                .foregroundStyle(AssistDesignTokens.Mono.ink.opacity(AssistDesignTokens.Opacity.muted))
+                            Text(timers.displayTime(for: mode))
+                                .foregroundStyle(
+                                    AssistDesignTokens.Mono.ink.opacity(
+                                        timers.isRunning(mode) ? AssistDesignTokens.Opacity.strong : AssistDesignTokens.Opacity.muted
+                                    )
+                                )
+                        }
+                        .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                        .fixedSize()
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(mode.title) \(timers.displayTime(for: mode))")
+                    }
+                }
+                .transition(.opacity)
             }
         }
         .padding(.horizontal, AssistDesignTokens.Spacing.xLarge)
@@ -219,6 +277,7 @@ private struct CollapsedIslandHeader: View {
         .animation(feedbackAnimation, value: viewModel.copyFeedback)
         .animation(feedbackAnimation, value: viewModel.isCopyFeedbackVisible)
         .animation(feedbackAnimation, value: showsTimer)
+        .animation(feedbackAnimation, value: media.info?.isPlaying)
     }
 
     private func feedbackForeground(for kind: CopyFeedback.Kind) -> Color {
@@ -228,6 +287,30 @@ private struct CollapsedIslandHeader: View {
         case .warning:
             AssistDesignTokens.Palette.warning
         }
+    }
+}
+
+private struct PlaybackActivity: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: reduceMotion)) { context in
+            HStack(alignment: .center, spacing: AssistDesignTokens.Spacing.xxxSmall) {
+                ForEach(0..<3) { index in
+                    Capsule()
+                        .fill(AssistDesignTokens.Palette.paper.opacity(AssistDesignTokens.Opacity.strong))
+                        .frame(width: 2, height: height(at: context.date, index: index))
+                }
+            }
+            .frame(height: 11)
+        }
+        .accessibilityLabel("Music playing")
+    }
+
+    private func height(at date: Date, index: Int) -> CGFloat {
+        guard !reduceMotion else { return CGFloat(5 + index * 2) }
+        let phase = date.timeIntervalSinceReferenceDate * 5 + Double(index) * 1.8
+        return CGFloat(4 + 7 * (0.5 + 0.5 * sin(phase)))
     }
 }
 

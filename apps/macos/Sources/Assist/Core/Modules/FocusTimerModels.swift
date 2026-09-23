@@ -1,5 +1,11 @@
 import Foundation
 
+struct TimerAlert: Identifiable, Equatable {
+    let id: UUID
+    let badge: String
+    let detail: String
+}
+
 enum TimerMode: String, CaseIterable, Identifiable, Codable, Sendable {
     case pomodoro
     case countdown
@@ -62,7 +68,7 @@ struct PomodoroPlan: Equatable, Sendable {
 
 /// A clock measured against wall-clock dates rather than counted ticks, so a
 /// busy main thread or a sleeping Mac never makes it drift.
-struct TimerClock: Equatable, Sendable {
+struct TimerClock: Codable, Equatable, Sendable {
     private(set) var accumulated: TimeInterval = 0
     private(set) var startedAt: Date?
 

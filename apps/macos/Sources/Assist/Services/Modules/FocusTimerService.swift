@@ -10,7 +10,7 @@ final class FocusTimerService: ObservableObject {
     static let hydrationIntervals: [TimeInterval] = [30 * 60, 45 * 60, 60 * 60, 90 * 60]
 
     @Published private(set) var mode: TimerMode
-    @Published private(set) var clock = TimerClock()
+    @Published private var clocks = TimerModeClocks()
     @Published private(set) var phase: PomodoroPhase = .focus
     @Published private(set) var completedFocusSessions = 0
     @Published private(set) var countdownDuration: TimeInterval
@@ -25,11 +25,14 @@ final class FocusTimerService: ObservableObject {
     var onAlert: ((_ badge: String, _ detail: String) -> Void)?
 
     private let defaults: UserDefaults
+    private let dateProvider: () -> Date
     private var ticker: Timer?
     private var hydrationTimer: Timer?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, dateProvider: @escaping () -> Date = Date.init) {
         self.defaults = defaults
+        self.dateProvider = dateProvider
+        now = dateProvider()
         mode = defaults.string(forKey: Keys.mode).flatMap(TimerMode.init(rawValue:)) ?? .pomodoro
         let storedCountdown = defaults.double(forKey: Keys.countdownDuration)
         countdownDuration = storedCountdown > 0
@@ -38,12 +41,31 @@ final class FocusTimerService: ObservableObject {
         isHydrationEnabled = defaults.bool(forKey: Keys.hydrationEnabled)
         let storedInterval = defaults.double(forKey: Keys.hydrationInterval)
         hydrationInterval = Self.hydrationIntervals.contains(storedInterval) ? storedInterval : 45 * 60
+        if let data = defaults.data(forKey: Keys.clockState),
+           let snapshot = try? JSONDecoder().decode(TimerSnapshot.self, from: data),
+           snapshot.isValid {
+            clocks = snapshot.clocks
+            phase = snapshot.phase
+            completedFocusSessions = snapshot.completedFocusSessions
+        }
     }
 
     // MARK: - Timers
 
+    var clock: TimerClock {
+        clocks[mode]
+    }
+
     var isRunning: Bool {
         clock.isRunning
+    }
+
+    var activeModes: [TimerMode] {
+        TimerMode.allCases.filter { clocks[$0].hasStarted }
+    }
+
+    func isRunning(_ mode: TimerMode) -> Bool {
+        clocks[mode].isRunning
     }
 
     /// The length of the current run; the stopwatch has none.
@@ -57,11 +79,19 @@ final class FocusTimerService: ObservableObject {
 
     /// The time the clock shows: remaining for timers, elapsed for the stopwatch.
     var displayTime: String {
-        let elapsed = clock.elapsed(at: now)
-        guard let duration else {
+        displayTime(for: mode)
+    }
+
+    func displayTime(for mode: TimerMode) -> String {
+        let elapsed = clocks[mode].elapsed(at: now)
+        switch mode {
+        case .pomodoro:
+            return TimerFormatting.clock(plan.duration(of: phase) - elapsed, roundingUp: true)
+        case .countdown:
+            return TimerFormatting.clock(countdownDuration - elapsed, roundingUp: true)
+        case .stopwatch:
             return TimerFormatting.clock(elapsed)
         }
-        return TimerFormatting.clock(duration - elapsed, roundingUp: true)
     }
 
     /// How far the current run has gone, from 0 to 1; nil for the stopwatch.
@@ -85,8 +115,7 @@ final class FocusTimerService: ObservableObject {
 
     func select(_ mode: TimerMode) {
         guard mode != self.mode else { return }
-        clock.reset()
-        stopTicker()
+        tick()
         self.mode = mode
         defaults.set(mode.rawValue, forKey: Keys.mode)
     }
@@ -96,25 +125,28 @@ final class FocusTimerService: ObservableObject {
     }
 
     func start() {
-        now = Date()
-        clock.start(at: now)
+        now = dateProvider()
+        clocks[mode].start(at: now)
+        saveClocks()
         startTicker()
     }
 
     func pause() {
-        now = Date()
-        clock.pause(at: now)
-        stopTicker()
+        now = dateProvider()
+        clocks[mode].pause(at: now)
+        saveClocks()
+        updateTicker()
     }
 
     func reset() {
-        clock.reset()
-        now = Date()
-        stopTicker()
+        clocks[mode].reset()
+        now = dateProvider()
+        updateTicker()
         if mode == .pomodoro {
             phase = .focus
             completedFocusSessions = 0
         }
+        saveClocks()
     }
 
     /// Ends the current Pomodoro phase early and moves to the next one.
@@ -128,10 +160,9 @@ final class FocusTimerService: ObservableObject {
         guard clamped != countdownDuration else { return }
         countdownDuration = clamped
         defaults.set(clamped, forKey: Keys.countdownDuration)
-        if mode == .countdown {
-            clock.reset()
-            stopTicker()
-        }
+        clocks[.countdown].reset()
+        saveClocks()
+        updateTicker()
     }
 
     func adjustCountdown(byMinutes minutes: Int) {
@@ -155,17 +186,28 @@ final class FocusTimerService: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Resumes the hydration schedule saved from the last launch.
+    /// Reconciles restored deadlines and resumes the module's background work.
     func activate() {
+        tick()
         scheduleHydration(from: Date())
     }
 
-    /// Stops every timer and reminder, for when the module is turned off or Assist quits.
-    func deactivate() {
-        reset()
+    /// Stops background work without changing saved clocks when Assist quits.
+    func suspend() {
+        stopTicker()
         hydrationTimer?.invalidate()
         hydrationTimer = nil
         nextHydrationAt = nil
+    }
+
+    /// Clears timers when the module is explicitly turned off.
+    func deactivate() {
+        clocks = TimerModeClocks()
+        phase = .focus
+        completedFocusSessions = 0
+        now = dateProvider()
+        defaults.removeObject(forKey: Keys.clockState)
+        suspend()
     }
 
     // MARK: - Private
@@ -187,20 +229,23 @@ final class FocusTimerService: ObservableObject {
         ticker = nil
     }
 
-    private func tick() {
-        now = Date()
-        guard let duration, clock.isRunning, clock.elapsed(at: now) >= duration else { return }
+    private func updateTicker() {
+        clocks.hasRunningClock ? startTicker() : stopTicker()
+    }
 
-        switch mode {
-        case .pomodoro:
+    func tick() {
+        now = dateProvider()
+        if clocks[.pomodoro].isRunning,
+           clocks[.pomodoro].elapsed(at: now) >= plan.duration(of: phase) {
             advancePhase(announce: true)
-        case .countdown:
-            clock.reset()
-            stopTicker()
-            announce(badge: "Time's up", detail: "\(TimerFormatting.minutes(countdownDuration)) timer finished")
-        case .stopwatch:
-            break
         }
+        if clocks[.countdown].isRunning,
+           clocks[.countdown].elapsed(at: now) >= countdownDuration {
+            clocks[.countdown].reset()
+            saveClocks()
+            announce(badge: "Time's up", detail: "\(TimerFormatting.minutes(countdownDuration)) timer finished")
+        }
+        updateTicker()
     }
 
     private func advancePhase(announce shouldAnnounce: Bool) {
@@ -209,9 +254,10 @@ final class FocusTimerService: ObservableObject {
             completedFocusSessions += 1
         }
         phase = plan.phase(after: finished, completedFocusSessions: completedFocusSessions)
-        clock.reset()
-        stopTicker()
-        now = Date()
+        clocks[.pomodoro].reset()
+        saveClocks()
+        updateTicker()
+        now = dateProvider()
 
         guard shouldAnnounce else { return }
         if phase == .focus {
@@ -251,10 +297,59 @@ final class FocusTimerService: ObservableObject {
         onAlert?(badge, detail)
         DebugLogger.log("modules.timers.alert", ["badge": badge])
     }
+
+    private func saveClocks() {
+        let snapshot = TimerSnapshot(clocks: clocks, phase: phase, completedFocusSessions: completedFocusSessions)
+        if let data = try? JSONEncoder().encode(snapshot) {
+            defaults.set(data, forKey: Keys.clockState)
+        }
+    }
+}
+
+private struct TimerSnapshot: Codable {
+    var clocks: TimerModeClocks
+    var phase: PomodoroPhase
+    var completedFocusSessions: Int
+
+    var isValid: Bool {
+        completedFocusSessions >= 0 && completedFocusSessions < Int.max &&
+            [clocks.pomodoro, clocks.countdown, clocks.stopwatch].allSatisfy { clock in
+                clock.accumulated.isFinite && clock.accumulated >= 0 &&
+                    (clock.startedAt?.timeIntervalSinceReferenceDate.isFinite ?? true)
+            }
+    }
+}
+
+private struct TimerModeClocks: Codable {
+    var pomodoro = TimerClock()
+    var countdown = TimerClock()
+    var stopwatch = TimerClock()
+
+    subscript(mode: TimerMode) -> TimerClock {
+        get {
+            switch mode {
+            case .pomodoro: pomodoro
+            case .countdown: countdown
+            case .stopwatch: stopwatch
+            }
+        }
+        set {
+            switch mode {
+            case .pomodoro: pomodoro = newValue
+            case .countdown: countdown = newValue
+            case .stopwatch: stopwatch = newValue
+            }
+        }
+    }
+
+    var hasRunningClock: Bool {
+        pomodoro.isRunning || countdown.isRunning || stopwatch.isRunning
+    }
 }
 
 private enum Keys {
     static let mode = "modules.timers.mode"
+    static let clockState = "modules.timers.clockState"
     static let countdownDuration = "modules.timers.countdownDuration"
     static let hydrationEnabled = "modules.timers.hydrationEnabled"
     static let hydrationInterval = "modules.timers.hydrationInterval"

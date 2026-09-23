@@ -7,15 +7,26 @@ private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 /// logs on this Mac.
 struct AIUsageModuleView: View {
     @ObservedObject var service: AIUsageService
+    @State private var selectedProvider: Provider = .claude
+
+    private enum Provider {
+        case claude, codex
+    }
 
     var body: some View {
         let now = service.lastUpdated ?? Date()
 
         VStack(alignment: .leading, spacing: ModuleTokens.toolbarSpacing) {
             IslandModuleToolbar {
-                IslandModuleTitle(title: "AI Usage", detail: "From local logs")
+                IslandModuleTitle(title: "AI Usage")
             } trailing: {
                 HStack(spacing: Tokens.Spacing.xxSmall) {
+                    IslandChip(title: "Claude Code", isSelected: selectedProvider == .claude, horizontalPadding: Tokens.Spacing.xSmall) {
+                        selectedProvider = .claude
+                    }
+                    IslandChip(title: "Codex", isSelected: selectedProvider == .codex, horizontalPadding: Tokens.Spacing.xSmall) {
+                        selectedProvider = .codex
+                    }
                     if service.isRefreshing {
                         ProgressView()
                             .controlSize(.small)
@@ -32,25 +43,21 @@ struct AIUsageModuleView: View {
                 }
             }
 
-            HStack(spacing: Tokens.Spacing.small) {
-                UsageCard(title: "Claude Code", subtitle: service.claude?.model) {
-                    if service.lastUpdated == nil {
-                        UsageCardMessage(text: "Reading logs…")
-                    } else if let claude = service.claude {
-                        claudeRows(claude, now: now)
-                    } else {
-                        UsageCardMessage(text: "No Claude Code logs in ~/.claude on this Mac.")
-                    }
-                }
-
-                UsageCard(title: "Codex", subtitle: service.codex?.model) {
-                    if service.lastUpdated == nil {
-                        UsageCardMessage(text: "Reading logs…")
-                    } else if let codex = service.codex {
-                        codexRows(codex)
-                    } else {
-                        UsageCardMessage(text: "No Codex logs in ~/.codex on this Mac.")
-                    }
+            Group {
+                if selectedProvider == .claude {
+                    UsageCard(
+                        dailyTokens: service.isHistoryReady ? service.claude?.dailyTokens : nil,
+                        now: now,
+                        isHistoryReady: service.isHistoryReady,
+                        emptyMessage: "No Claude Code logs in ~/.claude on this Mac."
+                    )
+                } else {
+                    UsageCard(
+                        dailyTokens: service.isHistoryReady ? service.codex?.dailyTokens : nil,
+                        now: now,
+                        isHistoryReady: service.isHistoryReady,
+                        emptyMessage: "No Codex logs in ~/.codex on this Mac."
+                    )
                 }
             }
             .frame(height: ModuleTokens.bodyHeight)
@@ -63,148 +70,138 @@ struct AIUsageModuleView: View {
         }
     }
 
-    @ViewBuilder
-    private func claudeRows(_ claude: ClaudeUsageSummary, now: Date) -> some View {
-        if let resetAt = claude.limitResetAt {
-            UsageRow(
-                label: "Limit reached",
-                value: "resets \(resetAt.formatted(date: .omitted, time: .shortened))",
-                fraction: 1
-            )
-        } else if let block = claude.activeBlock {
-            UsageRow(
-                label: "5-hour window",
-                value: "\(TokenFormatting.compact(block.tokens.total)) · resets \(block.end.formatted(date: .omitted, time: .shortened))",
-                fraction: block.elapsedFraction(at: now)
-            )
-        } else {
-            UsageRow(label: "5-hour window", value: "Not started", fraction: 0)
-        }
-
-        UsageRow(
-            label: "Today",
-            value: "\(TokenFormatting.compact(claude.today.total)) · \(claude.todayRequests) requests",
-            fraction: nil
-        )
-
-        if let context = claude.contextTokens {
-            UsageRow(
-                label: "Context",
-                value: "\(TokenFormatting.compact(context)) of \(TokenFormatting.compact(claude.contextWindow))",
-                fraction: Double(context) / Double(claude.contextWindow)
-            )
-        }
-    }
-
-    @ViewBuilder
-    private func codexRows(_ codex: CodexUsageSummary) -> some View {
-        if let primary = codex.primary {
-            limitRow(primary)
-        }
-        if let secondary = codex.secondary {
-            limitRow(secondary)
-        }
-        if codex.primary == nil, codex.secondary == nil {
-            UsageRow(label: "Limits", value: "Not reported yet", fraction: nil)
-        }
-
-        UsageRow(label: "Today", value: TokenFormatting.compact(codex.todayTokens), fraction: nil)
-
-        if let context = codex.contextTokens, let window = codex.contextWindow, window > 0 {
-            UsageRow(
-                label: "Context",
-                value: "\(TokenFormatting.compact(context)) of \(TokenFormatting.compact(window))",
-                fraction: Double(context) / Double(window)
-            )
-        }
-    }
-
-    private func limitRow(_ window: CodexRateLimitWindow) -> some View {
-        let used = "\(Int(window.usedPercent.rounded()))% used"
-        let reset = window.resetsAt.map { " · resets \(resetText($0))" } ?? ""
-        return UsageRow(label: window.title, value: used + reset, fraction: window.usedPercent / 100)
-    }
-
-    /// A time today, or a weekday and time for later resets.
-    private func resetText(_ date: Date) -> String {
-        Calendar.current.isDateInToday(date)
-            ? date.formatted(date: .omitted, time: .shortened)
-            : date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
-    }
 }
 
-private struct UsageCard<Content: View>: View {
-    let title: String
-    let subtitle: String?
-    private let content: Content
-
-    init(title: String, subtitle: String?, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.subtitle = subtitle
-        self.content = content()
-    }
+private struct UsageCard: View {
+    let dailyTokens: [Date: Int64]?
+    let now: Date
+    let isHistoryReady: Bool
+    let emptyMessage: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.xSmall) {
-                Text(title)
-                    .font(Tokens.Typography.footnote(.semibold))
-                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
-                    .accessibilityAddTraits(.isHeader)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(Tokens.Typography.caption())
-                        .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
+        Group {
+            if let dailyTokens {
+                UsageActivityGrid(dailyTokens: dailyTokens, now: now)
+            } else {
+                Text(isHistoryReady ? emptyMessage : "Loading activity…")
+                    .font(Tokens.Typography.caption(.medium))
+                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
-
-            content
-
-            Spacer(minLength: 0)
         }
-        .padding(Tokens.Spacing.medium)
+        .padding(Tokens.Spacing.xLarge)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(IslandTileBackground())
     }
 }
 
-private struct UsageRow: View {
-    let label: String
-    let value: String
-    /// Draws a meter when set.
-    let fraction: Double?
+private struct UsageActivityGrid: View {
+    let dailyTokens: [Date: Int64]
+    let now: Date
+
+    private let gap: CGFloat = 2
+    private let weekdayLabelWidth: CGFloat = 22
+    private let activityColors: [Color] = [
+        .white.opacity(Tokens.Opacity.quietSurface),
+        .white.opacity(Tokens.Opacity.hoverSurface),
+        .white.opacity(Tokens.Opacity.subtle),
+        .white.opacity(Tokens.Opacity.secondary),
+        .white
+    ]
+
+    private var calendar: Calendar {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+        return calendar
+    }
+
+    private var weeks: [Date] {
+        let currentWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? calendar.startOfDay(for: now)
+        let start = calendar.date(byAdding: .weekOfYear, value: 1 - AIUsageScanner.historyWeekCount, to: currentWeek) ?? currentWeek
+        return (0..<AIUsageScanner.historyWeekCount).compactMap { week in
+            calendar.date(byAdding: .weekOfYear, value: week, to: start)
+        }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.xxxSmall + 1) {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.xSmall) {
-                Text(label)
-                    .font(Tokens.Typography.caption(.medium))
-                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
-                    .lineLimit(1)
-                Spacer(minLength: Tokens.Spacing.xxSmall)
-                Text(value)
-                    .font(Tokens.Typography.caption(.semibold).monospacedDigit())
-                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            if let fraction {
-                IslandMeter(fraction: fraction)
+        let maximum = dailyTokens.values.max() ?? 0
+
+        GeometryReader { geometry in
+            let capacity = max(1, Int((geometry.size.width - weekdayLabelWidth + gap) / (8 + gap)))
+            let visibleWeeks = Array(weeks.suffix(capacity))
+            let cell = max(4, min(9, floor((geometry.size.width - weekdayLabelWidth - CGFloat(visibleWeeks.count - 1) * gap) / CGFloat(visibleWeeks.count))))
+
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
+                HStack(alignment: .top, spacing: gap) {
+                    Color.clear.frame(width: weekdayLabelWidth, height: 12)
+                    ForEach(visibleWeeks, id: \.self) { week in
+                        Text(monthLabel(for: week))
+                            .font(Tokens.Typography.micro(.medium))
+                            .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                            .fixedSize()
+                            .frame(width: cell, height: 12, alignment: .leading)
+                    }
+                }
+
+                HStack(alignment: .top, spacing: gap) {
+                    VStack(spacing: gap) {
+                        ForEach(0..<7, id: \.self) { row in
+                            Text([0: "Mon", 2: "Wed", 4: "Fri"][row] ?? "")
+                                .font(Tokens.Typography.micro())
+                                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
+                                .frame(width: weekdayLabelWidth, height: cell, alignment: .leading)
+                        }
+                    }
+                    ForEach(visibleWeeks, id: \.self) { week in
+                        VStack(spacing: gap) {
+                            ForEach(0..<7, id: \.self) { row in
+                                if let day = calendar.date(byAdding: .day, value: row, to: week) {
+                                    let tokens = dailyTokens[day] ?? 0
+                                    RoundedRectangle(cornerRadius: 1)
+                                        .fill(day > now ? .clear : color(for: tokens, maximum: maximum))
+                                        .frame(width: cell, height: cell)
+                                        .help("\(day.formatted(date: .abbreviated, time: .omitted)): \(tokens.formatted()) tokens")
+                                        .accessibilityLabel("\(day.formatted(date: .abbreviated, time: .omitted)), \(tokens) tokens")
+                                        .accessibilityHidden(day > now)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HStack(spacing: Tokens.Spacing.xxSmall) {
+                    Text("Daily tokens · \(visibleWeeks.count) weeks")
+                    Spacer(minLength: 0)
+                    Text("Less")
+                    ForEach(activityColors.indices, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(activityColors[index])
+                            .frame(width: 7, height: 7)
+                    }
+                    Text("More")
+                }
+                .font(Tokens.Typography.micro())
+                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Daily token activity by week")
     }
-}
 
-private struct UsageCardMessage: View {
-    let text: String
+    private func monthLabel(for week: Date) -> String {
+        let firstOfMonth = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: week) }
+            .first { calendar.component(.day, from: $0) == 1 }
+        guard let firstOfMonth else { return "" }
+        return firstOfMonth.formatted(.dateTime.month(.abbreviated))
+    }
 
-    var body: some View {
-        Text(text)
-            .font(Tokens.Typography.caption(.medium))
-            .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
-            .fixedSize(horizontal: false, vertical: true)
+    private func color(for tokens: Int64, maximum: Int64) -> Color {
+        guard tokens > 0, maximum > 0 else { return activityColors[0] }
+        let fraction = Double(tokens) / Double(maximum)
+        switch fraction {
+        case ..<0.25: return activityColors[1]
+        case ..<0.5: return activityColors[2]
+        case ..<0.75: return activityColors[3]
+        default: return activityColors[4]
+        }
     }
 }

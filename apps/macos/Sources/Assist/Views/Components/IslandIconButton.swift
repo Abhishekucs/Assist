@@ -1,12 +1,13 @@
 import SwiftUI
 
 /// An icon-only button on the island's black surface. It stays transparent
-/// until hovered and shows its tooltip as a small capsule below the icon.
+/// until hovered and shows its label within the island.
 struct IslandIconButton: View {
     let icon: HugeIconKind
     let tooltip: String
     var isEnabled = true
     var size: CGFloat = AssistDesignTokens.Control.iconButton
+    var tooltipAlignment: Alignment = .bottom
     let action: () -> Void
 
     @State private var isHovered = false
@@ -37,32 +38,14 @@ struct IslandIconButton: View {
         .disabled(!isEnabled)
         .accessibilityLabel(tooltip)
         .pointingHandCursor(isEnabled: isEnabled)
-        .overlay(alignment: .bottomTrailing) {
-            if isHovered {
-                IslandTooltip(text: tooltip)
-                    .offset(y: AssistDesignTokens.Spacing.xxxLarge + AssistDesignTokens.Spacing.xxxSmall)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
+        .overlay(alignment: tooltipAlignment) {
+            if isHovered && isEnabled {
+                IslandHoverTooltip(title: tooltip)
+                    .offset(y: 28)
             }
         }
-        .zIndex(isHovered ? 20 : 0)
+        .zIndex(isHovered ? 2 : 0)
         .onHover { isHovered = $0 }
         .animation(AssistDesignTokens.Motion.quick, value: isHovered)
-    }
-}
-
-/// The island's tooltip: dark text on a white capsule.
-struct IslandTooltip: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(AssistDesignTokens.Palette.ink)
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, AssistDesignTokens.Spacing.small)
-            .frame(height: AssistDesignTokens.Control.tooltipHeight)
-            .background(AssistDesignTokens.Palette.paper, in: Capsule())
-            .allowsHitTesting(false)
     }
 }

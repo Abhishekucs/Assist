@@ -39,7 +39,6 @@ enum HugeIconKind: String {
     case stats
     case hourglass
     case convert
-    case pin
     case pause
     case next
     case previous

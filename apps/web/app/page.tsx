@@ -3,12 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 import FeatureVideo from "./FeatureVideo";
-import HeroVideo from "./HeroVideo";
 import JsonLd from "./JsonLd";
 import LocalizedPrice from "./LocalizedPrice";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
-import { heroVideo } from "./marketingMedia";
+import { MODULE_WALKTHROUGH } from "./moduleContent";
 import {
   HOME_DESCRIPTION,
   HOME_TITLE,
@@ -41,7 +40,7 @@ const structuredData = {
       operatingSystem: "macOS 14 or later",
       applicationCategory: "UtilitiesApplication",
       description:
-        "Assist is a native, local-first Mac app for full-screen screenshot capture and editing, voice-powered screen annotation, and clipboard history from the notch.",
+        "Assist is a native Mac app for screenshot capture and editing, voice-powered screen annotation, clipboard history, and configurable notch modules.",
       url: SITE_URL,
       image: `${SITE_URL}/og-image.png`,
       publisher: { "@id": `${SITE_URL}/#organization` },
@@ -52,9 +51,11 @@ const structuredData = {
         "Quick screenshot editing with crop, blur, and backdrops",
         "Voice-powered screen annotation",
         "Local Whisper transcription on Apple silicon",
-        "Local clipboard text history",
-        "Screenshot, annotation, transcript, and copied-text history",
+        "Local clipboard history for text, links, and images",
+        "Screenshot, annotation, transcript, and copied-item history",
         "Copy and drag from the Mac notch",
+        "Notch modules for notes, timers, calendar, media, system stats, screen time, and image conversion",
+        "Optional revenue summaries and local Claude Code and Codex token activity",
         "Local-first storage"
       ]
     },
@@ -92,7 +93,6 @@ const structuredData = {
 export default function Home() {
   const screenshots = PRODUCT_FEATURES[0];
   const voiceAnnotation = PRODUCT_FEATURES[1];
-  const clipboard = PRODUCT_FEATURES[2];
 
   return (
     <main id="top">
@@ -102,13 +102,12 @@ export default function Home() {
       <section className="hero">
         <div className="hero-content">
           <h1 className="hero-title">
-            <span>Capture it.</span>
-            <span>Say what matters.</span>
+            <span>One notch.</span>
+            <span>Everyday tools.</span>
           </h1>
           <p className="hero-copy">
-            Assist brings screenshot capture and editing, local voice annotation,
-            and clipboard history to your Mac notch. Your captures and copied text
-            stay on your Mac until you choose where they go.
+            Clipboard, files, notes, focus timers, and more—right where you need
+            them. Assist keeps your tools close and your flow uninterrupted.
           </p>
           <div className="hero-actions">
             <a className="hero-download-button" href={CHECKOUT_HREF}>
@@ -133,7 +132,6 @@ export default function Home() {
             />
           </a>
         </div>
-        <HeroVideo src={heroVideo} />
       </section>
 
       <section className="capability-section">
@@ -152,7 +150,61 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="features" className="feature-showcase" aria-label="Assist features">
+      <section id="features" className="module-walkthrough" aria-labelledby="modules-title">
+        <div className="module-walkthrough-intro">
+          <h2 id="modules-title">Make the notch yours.</h2>
+          <p>Eleven modules, one place to find them. Enable the ones that fit your day.</p>
+        </div>
+        <div className="module-walkthrough-list">
+          {MODULE_WALKTHROUGH.map((module, index) => (
+            <article
+              id={module.id}
+              key={module.id}
+              className={`workflow-section workflow-split${index % 2 === 1 ? " workflow-split-reverse" : ""}`}
+            >
+              <div className="workflow-copy">
+                <h2>{module.heading}</h2>
+                <p className="workflow-description">{module.description}</p>
+                {"path" in module ? (
+                  <Link className="workflow-link" href={module.path}>
+                    Explore {module.name} <span aria-hidden="true">→</span>
+                  </Link>
+                ) : null}
+                {"alertScreenshot" in module ? (
+                  <a className="workflow-link" href={`/modules/${module.alertScreenshot}`} target="_blank" rel="noopener noreferrer">
+                    See the hydration alert <span aria-hidden="true">↗</span>
+                  </a>
+                ) : null}
+              </div>
+              <a
+                className="module-screenshot-link"
+                href={`/modules/${module.screenshot}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${module.name} screenshot at full size`}
+                title={`Open ${module.name} screenshot at full size`}
+              >
+                <span className="workflow-media module-screenshot-frame">
+                  <Image
+                    src={`/modules/${module.screenshot}`}
+                    alt={module.alt}
+                    width={1332}
+                    height={468}
+                    sizes="(max-width: 900px) 100vw, 570px"
+                  />
+                </span>
+                <span className="module-screenshot-caption">View full-size screenshot ↗</span>
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="feature-showcase capture-showcase" aria-label="Capture and annotation">
+        <div className="module-walkthrough-intro">
+          <h2>Capture the moment, too.</h2>
+          <p>Screenshots and voice annotations live beside your clipboard history.</p>
+        </div>
         <article id={screenshots.id} className="workflow-section workflow-split">
           <div className="workflow-copy">
             <h2>Capture. Edit.</h2>
@@ -186,23 +238,6 @@ export default function Home() {
             <FeatureVideo src={voiceAnnotation.video} />
           </div>
         </article>
-
-        <article id={clipboard.id} className="workflow-section workflow-split">
-          <div className="workflow-copy">
-            <h2>Copy once. Reuse anytime.</h2>
-            <p className="workflow-description">
-              Assist keeps copied text beside your screenshots in one local shelf.
-              Open the notch, narrow the view to All, Text, or Images, and put an
-              item back into your workflow in a click.
-            </p>
-            <Link className="workflow-link" href={clipboard.path}>
-              Explore {clipboard.name} <span aria-hidden="true">→</span>
-            </Link>
-          </div>
-          <div className="workflow-media workflow-media-video" role="img" aria-label={clipboard.videoLabel}>
-            <FeatureVideo src={clipboard.video} />
-          </div>
-        </article>
       </section>
 
       <section id="pricing" className="pricing-section">
@@ -220,6 +255,7 @@ export default function Home() {
             <li>Quick crop, blur, and backdrop editing</li>
             <li>Voice-powered screen annotation</li>
             <li>Local clipboard history</li>
+            <li>Configurable notch modules</li>
             <li>Recent screenshots and copied text</li>
             <li>Native, local-first macOS app</li>
           </ul>
@@ -233,7 +269,7 @@ export default function Home() {
         <div className="faq-intro">
           <h2>Frequently asked questions</h2>
           <p>
-            Screenshots, voice annotation, clipboard history, privacy, Mac
+            Screenshots, voice annotation, notch modules, privacy, Mac
             requirements, and licensing.
           </p>
         </div>

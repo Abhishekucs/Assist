@@ -1,44 +1,46 @@
 import SwiftUI
 
-/// Settings → Modules: which modules appear on the notch island.
 struct ModulesSettingsPane: View {
-    @ObservedObject var settings: ModuleSettings
-    let screenTime: ScreenTimeTracker
-    @ObservedObject var revenue: RevenueService
+    let module: AssistModule
+    @ObservedObject var viewModel: PillViewModel
+    let modules: ModuleServices
     @State private var isConfirmingScreenTimeReset = false
+    @State private var isFileDropTargeted = false
+    @State private var isDraggingFromPreview = false
 
     var body: some View {
         SettingsDetailPage(
-            title: "Modules",
-            subtitle: "Choose what the notch island shows. Module data stays on this Mac; Revenue contacts only the providers you connect."
+            title: module.title,
+            subtitle: module.detail
         ) {
-            SettingsSection("Island modules") {
-                ForEach(Array(AssistModule.allCases.enumerated()), id: \.element.id) { index, module in
-                    if index > 0 {
-                        RowDivider()
+            livePreview
+
+            SettingsSection("Notch island") {
+                ModuleToggleRow(module: module, settings: modules.settings)
+            }
+
+            if module == .revenue {
+                SettingsSection("Revenue keys") {
+                    ForEach(Array(RevenueProvider.allCases.enumerated()), id: \.element.id) { index, provider in
+                        if index > 0 {
+                            RowDivider()
+                        }
+                        RevenueKeyRow(provider: provider, revenue: modules.revenue)
                     }
-                    ModuleToggleRow(module: module, settings: settings)
                 }
             }
 
-            SettingsSection("Revenue keys") {
-                ForEach(Array(RevenueProvider.allCases.enumerated()), id: \.element.id) { index, provider in
-                    if index > 0 {
-                        RowDivider()
+            if module == .screenTime {
+                SettingsSection("Screen Time") {
+                    SettingsRow(
+                        "Clear screen time history",
+                        detail: "Removes the recorded time for every app. Tracking continues while the module is on."
+                    ) {
+                        Button("Clear…") {
+                            isConfirmingScreenTimeReset = true
+                        }
+                        .buttonStyle(AssistButtonStyle())
                     }
-                    RevenueKeyRow(provider: provider, revenue: revenue)
-                }
-            }
-
-            SettingsSection("Screen Time") {
-                SettingsRow(
-                    "Clear screen time history",
-                    detail: "Removes the recorded time for every app. Tracking continues while the module is on."
-                ) {
-                    Button("Clear…") {
-                        isConfirmingScreenTimeReset = true
-                    }
-                    .buttonStyle(AssistButtonStyle())
                 }
             }
         }
@@ -47,10 +49,49 @@ struct ModulesSettingsPane: View {
             isPresented: $isConfirmingScreenTimeReset
         ) {
             Button("Clear History", role: .destructive) {
-                screenTime.reset()
+                modules.screenTime.reset()
             }
         } message: {
             Text("This cannot be undone.")
+        }
+        .onChange(of: module) { _, _ in
+            isFileDropTargeted = false
+            isDraggingFromPreview = false
+        }
+    }
+
+    @ViewBuilder
+    private var livePreview: some View {
+        let content = ModuleContentView(
+            module: module,
+            viewModel: viewModel,
+            modules: modules,
+            isFileDropTargeted: isFileDropTargeted,
+            onDragChanged: { isDraggingFromPreview = $0 }
+        )
+        .frame(height: AssistDesignTokens.ModuleIsland.contentHeight, alignment: .top)
+        .frame(maxWidth: .infinity)
+        .foregroundStyle(AssistDesignTokens.Mono.ink)
+        .padding(Tokens.Spacing.xxLarge)
+        .background(Tokens.Palette.ink, in: RoundedRectangle(cornerRadius: Tokens.Radius.large))
+        .id(module)
+
+        if module.acceptsFileDrops {
+            content
+                .dropDestination(for: URL.self) { urls, _ in
+                    let files = urls.filter(\.isFileURL)
+                    guard !isDraggingFromPreview, !files.isEmpty else { return false }
+                    if module == .shelf {
+                        modules.shelf.add(files)
+                    } else {
+                        modules.converter.convert(files)
+                    }
+                    return true
+                } isTargeted: { targeted in
+                    isFileDropTargeted = targeted && !isDraggingFromPreview
+                }
+        } else {
+            content
         }
     }
 }

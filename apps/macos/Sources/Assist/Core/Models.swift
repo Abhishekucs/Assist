@@ -43,6 +43,14 @@ struct TextClipItem: Codable, Identifiable, Equatable {
     var colorCode: ClipboardColorCode? {
         ClipboardColorCode(text)
     }
+
+    var linkURL: URL? {
+        guard let components = URLComponents(string: text),
+              let scheme = components.scheme?.lowercased(),
+              (scheme == "https" || scheme == "http"),
+              let host = components.host, !host.isEmpty else { return nil }
+        return components.url
+    }
 }
 
 struct RGBColorComponents: Equatable, Sendable {

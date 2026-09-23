@@ -215,6 +215,12 @@ final class WindowManager {
         ])
     }
 
+    func presentTimerAlert() {
+        currentPillScreenID = screenForCurrentPill()?.displayID
+        setPillFrame(display: true)
+        pillPanel.orderFrontRegardless()
+    }
+
     private func configurePillPanel() {
         pillPanel.isOpaque = false
         pillPanel.backgroundColor = .clear
@@ -244,9 +250,14 @@ final class WindowManager {
         hostingView.visibleChromeRectProvider = { [weak self, weak hostingView] in
             guard let self, let hostingView else { return .zero }
 
-            let chromeSize = self.pillViewModel.isExpanded
-                ? self.expandedChromeSize()
-                : PillChromeMetrics.collapsedSize(settings: self.settings)
+            let chromeSize: CGSize
+            if self.pillViewModel.isExpanded {
+                chromeSize = self.expandedChromeSize()
+            } else if self.pillViewModel.timerAlert != nil {
+                chromeSize = PillChromeMetrics.timerAlertSize(settings: self.settings)
+            } else {
+                chromeSize = PillChromeMetrics.collapsedSize(settings: self.settings)
+            }
             let bounds = hostingView.bounds
 
             return CGRect(
@@ -488,10 +499,9 @@ final class WindowManager {
             }
     }
 
-    /// The island stays expanded while pinned, and while a module's text
-    /// field is being edited in the key island panel.
+    /// Text editing keeps the island open until the panel loses key focus.
     private var keepsIslandOpen: Bool {
-        pillViewModel.isIslandPinned || (pillViewModel.isEditingText && pillPanel.isKeyWindow)
+        pillViewModel.isEditingText && pillPanel.isKeyWindow
     }
 
     private func expandedChromeSize() -> CGSize {
@@ -502,18 +512,6 @@ final class WindowManager {
     }
 
     private func observeIslandState() {
-        pillViewModel.$isIslandPinned
-            .dropFirst()
-            .removeDuplicates()
-            .sink { [weak self] isPinned in
-                guard !isPinned else { return }
-                // Published before the value is stored, so re-check once it is.
-                Task { @MainActor [weak self] in
-                    self?.collapseIfPointerIsOutside()
-                }
-            }
-            .store(in: &islandStateCancellables)
-
         NotificationCenter.default
             .publisher(for: NSWindow.didResignKeyNotification, object: pillPanel)
             .sink { [weak self] _ in
