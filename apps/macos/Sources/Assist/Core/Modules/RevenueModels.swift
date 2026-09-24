@@ -169,7 +169,7 @@ enum RevenueParsing {
     struct StripeChargesPage: Decodable, Sendable {
         struct Charge: Decodable, Sendable {
             let id: String
-            let amount: Int64
+            let amountCaptured: Int64
             let amountRefunded: Int64
             let currency: String
             let created: Int64
@@ -181,11 +181,12 @@ enum RevenueParsing {
         let hasMore: Bool
     }
 
-    /// Succeeded, paid charges, less anything refunded.
+    /// Captured funds less refunds. A successful authorization can be paid
+    /// without any funds having been captured yet.
     static func transactions(from page: StripeChargesPage) -> [RevenueTransaction] {
         page.data.compactMap { charge in
             guard charge.paid, charge.status == "succeeded" else { return nil }
-            let amount = charge.amount - charge.amountRefunded
+            let amount = charge.amountCaptured - charge.amountRefunded
             guard amount > 0 else { return nil }
             return RevenueTransaction(
                 provider: .stripe,
@@ -207,7 +208,6 @@ enum RevenueParsing {
             /// After discounts, before tax.
             let netAmount: Int64
             let refundedAmount: Int64
-            let refundedTaxAmount: Int64?
             let currency: String
         }
 
@@ -225,8 +225,8 @@ enum RevenueParsing {
         let timestamps = TimestampParser()
         return page.items.compactMap { order in
             guard order.paid, let createdAt = timestamps.date(from: order.createdAt) else { return nil }
-            let refundedNet = max(order.refundedAmount - (order.refundedTaxAmount ?? 0), 0)
-            let amount = order.netAmount - refundedNet
+            // Polar reports refunded sales tax separately; refundedAmount is net.
+            let amount = order.netAmount - order.refundedAmount
             guard amount > 0 else { return nil }
             return RevenueTransaction(
                 provider: .polar,

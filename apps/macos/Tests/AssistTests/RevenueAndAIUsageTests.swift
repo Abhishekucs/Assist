@@ -6,9 +6,9 @@ final class RevenueParsingTests: XCTestCase {
     func testStripeKeepsSucceededChargesLessRefunds() throws {
         let json = """
         {"object":"list","url":"/v1/charges","has_more":false,"data":[
-          {"id":"ch_1","amount":2000,"amount_refunded":500,"currency":"usd","created":1790157600,"paid":true,"status":"succeeded"},
-          {"id":"ch_2","amount":1000,"amount_refunded":0,"currency":"usd","created":1790157600,"paid":false,"status":"failed"},
-          {"id":"ch_3","amount":3000,"amount_refunded":3000,"currency":"eur","created":1790157600,"paid":true,"status":"succeeded"}
+          {"id":"ch_1","amount":2000,"amount_captured":2000,"amount_refunded":500,"currency":"usd","created":1790157600,"paid":true,"status":"succeeded"},
+          {"id":"ch_2","amount":1000,"amount_captured":0,"amount_refunded":0,"currency":"usd","created":1790157600,"paid":false,"status":"failed"},
+          {"id":"ch_3","amount":3000,"amount_captured":3000,"amount_refunded":3000,"currency":"eur","created":1790157600,"paid":true,"status":"succeeded"}
         ]}
         """
         let page = try RevenueParsing.decoder().decode(RevenueParsing.StripeChargesPage.self, from: Data(json.utf8))
@@ -19,6 +19,21 @@ final class RevenueParsingTests: XCTestCase {
         XCTAssertEqual(transactions.first?.amountMinor, 1500)
         XCTAssertEqual(transactions.first?.currency, "USD")
         XCTAssertEqual(transactions.first?.createdAt, Date(timeIntervalSince1970: 1_790_157_600))
+    }
+
+    func testStripeExcludesAuthorizationsAndUsesPartialCapturesLessRefunds() throws {
+        let json = """
+        {"has_more":false,"data":[
+          {"id":"authorized","amount":10000,"amount_captured":0,"amount_refunded":0,"currency":"usd","created":1790157600,"paid":true,"status":"succeeded","captured":false},
+          {"id":"partial","amount":10000,"amount_captured":6000,"amount_refunded":0,"currency":"usd","created":1790157600,"paid":true,"status":"succeeded","captured":true},
+          {"id":"partial_refund","amount":10000,"amount_captured":6000,"amount_refunded":1500,"currency":"usd","created":1790157600,"paid":true,"status":"succeeded","captured":true},
+          {"id":"full_refund","amount":10000,"amount_captured":6000,"amount_refunded":6000,"currency":"usd","created":1790157600,"paid":true,"status":"succeeded","captured":true}
+        ]}
+        """
+        let page = try RevenueParsing.decoder().decode(RevenueParsing.StripeChargesPage.self, from: Data(json.utf8))
+        let transactions = RevenueParsing.transactions(from: page)
+        XCTAssertEqual(transactions.map(\.id), ["partial", "partial_refund"])
+        XCTAssertEqual(transactions.map(\.amountMinor), [6000, 4500])
     }
 
     func testPolarCountsPaidOrdersNetOfRefundsBeforeTax() throws {
@@ -34,8 +49,19 @@ final class RevenueParsingTests: XCTestCase {
 
         XCTAssertEqual(page.pagination.maxPage, 1)
         XCTAssertEqual(transactions.map(\.id), ["o1", "o2"])
-        XCTAssertEqual(transactions.map(\.amountMinor), [1000, 500])
+        XCTAssertEqual(transactions.map(\.amountMinor), [1000, 400])
         XCTAssertNotNil(transactions.first?.createdAt)
+    }
+
+    func testPolarFullRefundWithTaxContributesNoRevenue() throws {
+        let json = """
+        {"items":[
+          {"id":"taxed","created_at":"2026-09-23T10:00:00Z","paid":true,"status":"refunded","net_amount":1000,"total_amount":1200,"refunded_amount":1000,"refunded_tax_amount":200,"currency":"usd"},
+          {"id":"untaxed","created_at":"2026-09-23T10:00:00Z","paid":true,"status":"refunded","net_amount":1000,"refunded_amount":1000,"refunded_tax_amount":0,"currency":"usd"}
+        ],"pagination":{"total_count":2,"max_page":1}}
+        """
+        let page = try RevenueParsing.decoder().decode(RevenueParsing.PolarOrdersPage.self, from: Data(json.utf8))
+        XCTAssertTrue(RevenueParsing.transactions(from: page).isEmpty)
     }
 
     func testDodoCountsSucceededPaymentsThatWereNotFullyRefunded() throws {

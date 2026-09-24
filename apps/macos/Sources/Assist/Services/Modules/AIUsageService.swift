@@ -4,7 +4,7 @@ import Foundation
 /// Nothing is installed into either tool, and nothing is sent anywhere. Logs
 /// are read on a background task, only while the AI Usage module is visible.
 @MainActor
-final class AIUsageService: ObservableObject {
+final class AIUsageService: ObservableObject, VisibleModuleService {
     static let refreshInterval: TimeInterval = 30
 
     @Published private(set) var claude: ClaudeUsageSummary?

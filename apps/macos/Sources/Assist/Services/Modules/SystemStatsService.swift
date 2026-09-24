@@ -6,7 +6,7 @@ import IOKit.ps
 /// Samples CPU, memory, disk, network, and battery every two seconds, and only
 /// while the System module is on screen.
 @MainActor
-final class SystemStatsService: ObservableObject {
+final class SystemStatsService: ObservableObject, VisibleModuleService {
     static let sampleInterval: TimeInterval = 2
 
     @Published private(set) var snapshot = SystemStatsSnapshot.empty

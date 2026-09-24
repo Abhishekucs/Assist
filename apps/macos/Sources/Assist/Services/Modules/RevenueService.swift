@@ -18,7 +18,7 @@ enum RevenueError: LocalizedError, Equatable {
 /// the Keychain and are sent only to their own provider over HTTPS. Sampling
 /// happens only while the Revenue module is on screen.
 @MainActor
-final class RevenueService: ObservableObject {
+final class RevenueService: ObservableObject, VisibleModuleService {
     static let refreshInterval: TimeInterval = 5 * 60
 
     @Published private(set) var connectedProviders: [RevenueProvider] = []
@@ -150,6 +150,9 @@ struct RevenueClient: Sendable {
     /// Keeps a busy account from paging without end; 20 pages × 100 sales.
     static let maxPages = 20
     static let pageSize = 100
+    // This contract excludes released authorizations from amount_refunded.
+    // Pin it rather than inheriting each account's default API version.
+    static let stripeAPIVersion = "2025-03-31.basil"
 
     var session: URLSession = .shared
 
@@ -175,7 +178,12 @@ struct RevenueClient: Sendable {
                 URLQueryItem(name: "created[gte]", value: "\(Int(since.timeIntervalSince1970))")
             ] + (startingAfter.map { [URLQueryItem(name: "starting_after", value: $0)] } ?? [])
 
-            let page = try await get(RevenueParsing.StripeChargesPage.self, from: components, key: key)
+            let page = try await get(
+                RevenueParsing.StripeChargesPage.self,
+                from: components,
+                key: key,
+                headers: ["Stripe-Version": Self.stripeAPIVersion]
+            )
             transactions += RevenueParsing.transactions(from: page)
             guard page.hasMore, let last = page.data.last else { break }
             startingAfter = last.id
@@ -230,12 +238,16 @@ struct RevenueClient: Sendable {
     private func get<Response: Decodable>(
         _ type: Response.Type,
         from components: URLComponents,
-        key: String
+        key: String,
+        headers: [String: String] = [:]
     ) async throws -> Response {
         guard let url = components.url else { throw RevenueError.unexpectedResponse }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        for (name, value) in headers {
+            request.setValue(value, forHTTPHeaderField: name)
+        }
         request.timeoutInterval = 20
 
         let (data, response) = try await session.data(for: request)

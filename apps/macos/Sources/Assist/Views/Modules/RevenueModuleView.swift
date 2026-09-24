@@ -68,11 +68,9 @@ struct RevenueModuleView: View {
             }
             .frame(height: ModuleTokens.bodyHeight)
         }
-        .onAppear {
-            service.start()
-        }
-        .onDisappear {
-            service.stop()
+        .background {
+            ModuleVisibilityObserver(service: service)
+                .accessibilityHidden(true)
         }
     }
 
