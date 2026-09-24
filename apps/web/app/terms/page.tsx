@@ -57,8 +57,8 @@ export default function TermsPage() {
         <h2>2. What Assist does</h2>
         <p>
           Assist is a macOS utility for capturing screenshots, adding visual and voice
-          annotations, and keeping recent copied text available for reuse from the Mac notch
-          and a local library.
+          annotations, keeping copied content available for reuse, and running optional modules
+          from the Mac notch and a local library.
         </p>
         <div className="legal-fact-grid" aria-label="Current purchase details">
           <div>

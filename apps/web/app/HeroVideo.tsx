@@ -5,11 +5,13 @@ import { useRef, useState } from "react";
 
 type HeroVideoProps = {
   src: string;
+  poster: string;
 };
 
-export default function HeroVideo({ src }: HeroVideoProps) {
+export default function HeroVideo({ src, poster }: HeroVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const playbackLabel = `${isPlaying ? "Pause" : "Play"} Assist demo`;
 
   const togglePlayback = async () => {
     const video = videoRef.current;
@@ -21,10 +23,9 @@ export default function HeroVideo({ src }: HeroVideoProps) {
     }
 
     try {
-      video.muted = false;
       await video.play();
     } catch {
-      setIsPlaying(false);
+      setIsPlaying(!video.paused);
     }
   };
 
@@ -32,19 +33,26 @@ export default function HeroVideo({ src }: HeroVideoProps) {
     <div className={`hero-video-frame${isPlaying ? " is-playing" : ""}`}>
       <video
         ref={videoRef}
+        id="hero-demo-video"
         className="hero-video"
         src={src}
-        aria-label="Assist for Mac workflow demonstration"
-        loop
+        poster={poster}
+        aria-label="Assist notch modules product walkthrough"
+        aria-describedby="hero-video-description"
         playsInline
         preload="metadata"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-      />
+        onEnded={() => setIsPlaying(false)}
+      >
+        Your browser does not support video playback.
+      </video>
       <button
         className="hero-video-play-button"
         type="button"
-        aria-label={`${isPlaying ? "Pause" : "Play"} Assist demo`}
+        aria-label={playbackLabel}
+        aria-controls="hero-demo-video"
+        title={playbackLabel}
         onClick={() => void togglePlayback()}
       >
         <Image

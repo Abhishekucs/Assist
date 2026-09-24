@@ -7,13 +7,20 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
     private let settings: PillSettings
     private let pillViewModel: PillViewModel
     private let keyboardSounds: KeyboardSoundController
+    private let modules: ModuleServices
     private var window: NSWindow?
     private var appearanceSubscription: AnyCancellable?
 
-    init(settings: PillSettings, pillViewModel: PillViewModel, keyboardSounds: KeyboardSoundController) {
+    init(
+        settings: PillSettings,
+        pillViewModel: PillViewModel,
+        keyboardSounds: KeyboardSoundController,
+        modules: ModuleServices
+    ) {
         self.settings = settings
         self.pillViewModel = pillViewModel
         self.keyboardSounds = keyboardSounds
+        self.modules = modules
     }
 
     func showWindow() {
@@ -39,7 +46,12 @@ final class ControlPanelWindowController: NSObject, NSWindowDelegate {
 
         let hostingView = NSHostingView(
             rootView: window.withTitleBarInset(
-                ControlPanelView(settings: settings, viewModel: pillViewModel, keyboardSounds: keyboardSounds)
+                ControlPanelView(
+                    settings: settings,
+                    viewModel: pillViewModel,
+                    keyboardSounds: keyboardSounds,
+                    modules: modules
+                )
             )
         )
         // Without a safe area, the hosting view turns ControlPanelView's minimum

@@ -42,5 +42,13 @@
 	<string>Assist captures your screen only when you use its Option or Control + Option shortcuts so it can save screenshots.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Assist records speech only while you hold Option during an annotation so it can transcribe your request locally.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Assist shows your next seven days of events in the notch Calendar module. Events stay on this Mac.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Assist shows your next seven days of events in the notch Calendar module. Events stay on this Mac.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Assist lists your open reminders in the notch Calendar module so you can tick them off in place.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Assist lists your open reminders in the notch Calendar module so you can tick them off in place.</string>
 </dict>
 </plist>

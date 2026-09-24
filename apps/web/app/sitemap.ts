@@ -1,23 +1,26 @@
 import type { MetadataRoute } from "next";
 
-import { heroVideo } from "./marketingMedia";
+import { MODULE_WALKTHROUGH } from "./moduleContent";
 import { PRODUCT_FEATURES, SITE_URL } from "./productContent";
+import { MODULES_SOCIAL_IMAGE } from "./siteMetadata";
 
-const productLastModified = "2026-09-21";
-const legalLastModified = "2026-08-27";
+const moduleLastModified = "2026-09-24";
+const legalLastModified = "2026-09-23";
 const absoluteUrl = (path: string) => new URL(path, SITE_URL).href;
+const featureLastModified = {
+  "/screenshots": "2026-09-23",
+  "/voice-annotation": "2026-09-23",
+  "/clipboard": "2026-09-24"
+} as const;
 
 const featurePages: MetadataRoute.Sitemap = PRODUCT_FEATURES.map((feature) => ({
   url: absoluteUrl(feature.path),
-  lastModified: productLastModified,
-  changeFrequency: "monthly",
-  priority: 0.9,
-  images: [`${SITE_URL}/og-image.png`],
+  lastModified: featureLastModified[feature.path],
   videos: [
     {
       title: `${feature.name} in Assist for Mac`,
       description: feature.metadataDescription,
-      thumbnail_loc: `${SITE_URL}/og-image.png`,
+      thumbnail_loc: absoluteUrl(feature.path === "/clipboard" ? MODULES_SOCIAL_IMAGE.url : "/og-image.png"),
       content_loc: absoluteUrl(feature.video),
       family_friendly: "yes"
     }
@@ -28,42 +31,37 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: `${SITE_URL}/`,
-      lastModified: productLastModified,
-      changeFrequency: "monthly",
-      priority: 1,
+      lastModified: moduleLastModified,
       images: [
-        `${SITE_URL}/og-image.png`,
-        `${SITE_URL}/assist-icon.png`
+        `${SITE_URL}/assist-icon.png`,
+        ...MODULE_WALKTHROUGH.map((module) => absoluteUrl(`/modules/${module.screenshot}`))
       ],
       videos: [
         {
-          title: "Assist for Mac workflow demonstration",
-          description:
-            "An overview of Assist screenshot capture, voice annotation, and clipboard history workflows in the Mac notch.",
-          thumbnail_loc: `${SITE_URL}/og-image.png`,
-          content_loc: absoluteUrl(heroVideo),
+          title: "Assist notch modules walkthrough",
+          description: "A complete walkthrough of Assist's clipboard, files, notes, timers, calendar, media, statistics, conversion, revenue, and AI usage modules.",
+          thumbnail_loc: absoluteUrl("/videos/notch-modules-poster.jpg"),
+          content_loc: absoluteUrl("/videos/notch-modules-demo.mp4"),
           family_friendly: "yes"
         }
       ]
     },
     ...featurePages,
     {
+      url: `${SITE_URL}/modules`,
+      lastModified: moduleLastModified
+    },
+    {
       url: `${SITE_URL}/keyboard-sound-tester`,
-      lastModified: productLastModified,
-      changeFrequency: "monthly",
-      priority: 0.5
+      lastModified: "2026-09-22"
     },
     {
       url: `${SITE_URL}/privacy`,
-      lastModified: legalLastModified,
-      changeFrequency: "yearly",
-      priority: 0.3
+      lastModified: legalLastModified
     },
     {
       url: `${SITE_URL}/terms`,
-      lastModified: legalLastModified,
-      changeFrequency: "yearly",
-      priority: 0.3
+      lastModified: legalLastModified
     }
   ];
 }

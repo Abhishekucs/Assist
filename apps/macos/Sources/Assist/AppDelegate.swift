@@ -12,12 +12,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyboardSoundController: KeyboardSoundController?
     private var keyboardVisualizerController: KeyboardVisualizerWindowController?
     private var keyboardFeedbackMenuController: KeyboardFeedbackMenuController?
+    private var moduleServices: ModuleServices?
     private var settingsCancellable: AnyCancellable?
     private let settings = PillSettings()
     private let licenseActivationStore = LicenseActivationStore()
     private let licenseValidationService = LicenseValidationService()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        configureEditingMenu()
         DebugLogger.log("app.launch", [
             "bundle": Bundle.main.bundleIdentifier ?? "unknown",
             "version": appVersion,
@@ -51,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         DebugLogger.log("app.terminate")
         coordinator?.stop()
+        moduleServices?.stop()
         keyboardSoundController?.stop()
         keyboardVisualizerController?.stop()
     }
@@ -125,13 +128,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: settings,
             voiceContextService: voiceContextService
         )
+        let moduleServices = ModuleServices(
+            settings: ModuleSettings(),
+            directory: ModuleStorage.defaultDirectory
+        )
         let windowManager = WindowManager(
             pillViewModel: pillViewModel,
             screenshotEditorViewModel: screenshotEditorViewModel,
-            settings: settings
+            settings: settings,
+            modules: moduleServices
         )
+        moduleServices.timers.onAlert = { [weak pillViewModel, weak windowManager] badge, detail in
+            pillViewModel?.showTimerAlert(badge: badge, detail: detail)
+            windowManager?.presentTimerAlert()
+        }
         let controlPanelController = ControlPanelWindowController(
-            settings: settings, pillViewModel: pillViewModel, keyboardSounds: keyboardSoundController
+            settings: settings,
+            pillViewModel: pillViewModel,
+            keyboardSounds: keyboardSoundController,
+            modules: moduleServices
         )
         let coordinator = AppCoordinator(
             windowManager: windowManager,
@@ -148,12 +163,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         self.pillViewModel = pillViewModel
+        self.moduleServices = moduleServices
         self.controlPanelController = controlPanelController
         self.coordinator = coordinator
         self.keyboardSoundController = keyboardSoundController
         self.keyboardVisualizerController = KeyboardVisualizerWindowController(controller: keyboardSoundController, settings: settings)
         configureStatusItem(settings: settings)
         keyboardSoundController.start(voiceContext: voiceContextService)
+        moduleServices.start()
         coordinator.start()
         controlPanelController.showWindow()
     }
@@ -184,6 +201,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for fontURL in fontURLs where ["ttf", "otf"].contains(fontURL.pathExtension.lowercased()) {
             CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, nil)
         }
+    }
+
+    private func configureEditingMenu() {
+        let mainMenu = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: AppIdentity.name)
+        let quitItem = NSMenuItem(title: "Quit \(AppIdentity.name)", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        appMenu.addItem(quitItem)
+        appItem.submenu = appMenu
+        mainMenu.addItem(appItem)
+
+        let editMenu = NSMenu(title: "Edit")
+        for (title, action, key) in [
+            ("Cut", #selector(NSText.cut(_:)), "x"),
+            ("Copy", #selector(NSText.copy(_:)), "c"),
+            ("Paste", #selector(NSText.paste(_:)), "v"),
+            ("Select All", #selector(NSText.selectAll(_:)), "a")
+        ] {
+            editMenu.addItem(NSMenuItem(title: title, action: action, keyEquivalent: key))
+        }
+        let editItem = NSMenuItem()
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+        NSApp.mainMenu = mainMenu
     }
 
     private func configureStatusItem(settings: PillSettings) {

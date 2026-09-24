@@ -29,6 +29,33 @@ enum HugeIconKind: String {
     case aspectRatio = "aspect-ratio"
     case expand = "arrow-expand-diagonal-02"
     case collapse = "arrow-shrink-01"
+    // Notch modules and their controls.
+    case clipboard
+    case shelf
+    case notes
+    case timer
+    case calendar
+    case music
+    case stats
+    case hourglass
+    case convert
+    case pause
+    case next
+    case previous
+    case add
+    case minus
+    case droplet
+    case cpu
+    case memory
+    case disk
+    case network
+    case battery
+    case batteryCharging = "battery-charging"
+    case file
+    case drop
+    case revenue
+    case aiUsage = "ai-usage"
+    case key
 
     var assetName: String { rawValue }
 }

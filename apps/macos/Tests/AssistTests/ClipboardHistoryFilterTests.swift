@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Assist
 
@@ -28,6 +29,116 @@ final class ClipboardHistoryFilterTests: XCTestCase {
         XCTAssertTrue(ClipboardHistoryFilter.text.includes(text))
         XCTAssertFalse(ClipboardHistoryFilter.text.includes(screenshot))
     }
+
+    func testLibraryFiltersSeparateLinksFromTextWithoutChangingTheOriginalClip() {
+        let text = TextClipItem(id: UUID(), createdAt: Date(), text: "  Keep the spaces  ")
+        let link = TextClipItem(id: UUID(), createdAt: Date(), text: "https://example.com/path?q=1")
+        let invalid = TextClipItem(id: UUID(), createdAt: Date(), text: "https://")
+        let screenshot = ClipboardHistoryItem.screenshot(
+            CaptureItem(id: UUID(), createdAt: Date(), imagePath: "image.png", thumbnailPath: "thumb.png", context: .saved)
+        )
+
+        XCTAssertNil(text.linkURL)
+        XCTAssertNil(invalid.linkURL)
+        XCTAssertEqual(link.linkURL?.absoluteString, link.text)
+        XCTAssertEqual(text.text, "  Keep the spaces  ")
+        XCTAssertEqual(LibraryContentFilter.allCases, [.all, .text, .images, .links])
+        XCTAssertTrue(LibraryContentFilter.text.includes(.text(text)))
+        XCTAssertTrue(LibraryContentFilter.text.includes(.text(invalid)))
+        XCTAssertFalse(LibraryContentFilter.text.includes(.text(link)))
+        XCTAssertTrue(LibraryContentFilter.links.includes(.text(link)))
+        XCTAssertFalse(LibraryContentFilter.links.includes(.text(text)))
+        XCTAssertTrue(LibraryContentFilter.images.includes(screenshot))
+        XCTAssertFalse(LibraryContentFilter.links.includes(screenshot))
+        XCTAssertTrue(LibraryContentFilter.all.includes(screenshot))
+        XCTAssertTrue(LibraryContentFilter.all.includes(.text(link)))
+    }
+}
+
+@MainActor
+final class ClipboardContentMonitorTests: XCTestCase {
+    func testURLOnlyPasteboardAndLongTextAreCapturedWithoutTruncation() {
+        let pasteboard = NSPasteboard(name: .init("AssistTests.\(UUID().uuidString)"))
+        let monitor = ClipboardTextMonitor(pasteboard: pasteboard)
+        let delegate = ContentSpy()
+        monitor.delegate = delegate
+        monitor.start()
+        defer { monitor.stop() }
+
+        let link = NSPasteboardItem()
+        link.setString("https://example.com/path", forType: .URL)
+        let initialChangeCount = pasteboard.changeCount
+        pasteboard.clearContents()
+        XCTAssertTrue(pasteboard.writeObjects([link]))
+        XCTAssertNotEqual(pasteboard.changeCount, initialChangeCount)
+        XCTAssertEqual(pasteboard.string(forType: .URL), "https://example.com/path")
+        monitor.pollPasteboard()
+        XCTAssertEqual(delegate.texts, ["https://example.com/path"])
+
+        let original = "  " + String(repeating: "x", count: 50_001) + "  "
+        pasteboard.clearContents()
+        XCTAssertTrue(pasteboard.setString(original, forType: .string))
+        monitor.pollPasteboard()
+
+        XCTAssertEqual(delegate.texts, ["https://example.com/path", original])
+    }
+
+    func testImagePasteboardIsCapturedAndOwnImageWriteIsIgnored() throws {
+        let pasteboard = NSPasteboard(name: .init("AssistTests.\(UUID().uuidString)"))
+        let monitor = ClipboardTextMonitor(pasteboard: pasteboard)
+        let delegate = ContentSpy()
+        monitor.delegate = delegate
+        monitor.start()
+        defer { monitor.stop() }
+        let image = try makeImage()
+
+        let initialChangeCount = pasteboard.changeCount
+        pasteboard.clearContents()
+        XCTAssertTrue(pasteboard.writeObjects([image]))
+        XCTAssertNotEqual(pasteboard.changeCount, initialChangeCount)
+        XCTAssertNotNil(NSImage(pasteboard: pasteboard))
+        XCTAssertTrue(pasteboard.canReadObject(forClasses: [NSImage.self], options: nil))
+        monitor.pollPasteboard()
+        XCTAssertEqual(delegate.images.count, 1)
+        XCTAssertEqual(delegate.images.first?.size, image.size)
+
+        monitor.ignoreNextPasteboardWrite()
+        pasteboard.clearContents()
+        XCTAssertTrue(pasteboard.writeObjects([image]))
+        monitor.pollPasteboard()
+        XCTAssertEqual(delegate.images.count, 1)
+        XCTAssertTrue(delegate.texts.isEmpty)
+    }
+
+    private func makeImage() throws -> NSImage {
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0
+        ))
+        for y in 0..<2 {
+            for x in 0..<2 {
+                bitmap.setColor(NSColor(calibratedRed: 1, green: 0, blue: 0, alpha: 1), atX: x, y: y)
+            }
+        }
+        let image = NSImage(size: NSSize(width: 2, height: 2))
+        image.addRepresentation(bitmap)
+        return image
+    }
+
+    private final class ContentSpy: ClipboardTextMonitorDelegate {
+        var texts: [String] = []
+        var images: [NSImage] = []
+
+        func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String) {
+            texts.append(text)
+        }
+
+        func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy image: NSImage) {
+            images.append(image)
+        }
+    }
 }
 
 final class PillViewModelHistoryTests: XCTestCase {
@@ -40,6 +151,31 @@ final class PillViewModelHistoryTests: XCTestCase {
             try? FileManager.default.removeItem(at: captureRoot)
         }
         super.tearDown()
+    }
+
+    @MainActor
+    func testCopyLinkWritesOriginalTextAndURLFlavor() throws {
+        let viewModel = try makeViewModel()
+        let pasteboard = NSPasteboard(name: .init("AssistTests.\(UUID().uuidString)"))
+        let link = TextClipItem(id: UUID(), createdAt: Date(), text: "https://example.com/path?q=1")
+
+        viewModel.copyTextItem(link, to: pasteboard)
+
+        XCTAssertEqual(pasteboard.string(forType: .string), link.text)
+        XCTAssertEqual(pasteboard.string(forType: .URL), link.text)
+        XCTAssertEqual(viewModel.statusText, "Copied link")
+    }
+
+    @MainActor
+    func testCopyPlainTextDoesNotAdvertiseAURL() throws {
+        let viewModel = try makeViewModel()
+        let pasteboard = NSPasteboard(name: .init("AssistTests.\(UUID().uuidString)"))
+        let text = TextClipItem(id: UUID(), createdAt: Date(), text: "  Plain text  ")
+
+        viewModel.copyTextItem(text, to: pasteboard)
+
+        XCTAssertEqual(pasteboard.string(forType: .string), text.text)
+        XCTAssertNil(pasteboard.string(forType: .URL))
     }
 
     @MainActor

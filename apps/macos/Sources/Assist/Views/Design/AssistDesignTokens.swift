@@ -97,6 +97,40 @@ enum AssistDesignTokens {
         static let primaryForeground = Palette.onDarkPurple
     }
 
+    /// The island's black-and-white module surfaces: white ink on the notch's
+    /// black, with selection shown as an inverted white fill and black ink.
+    enum Mono {
+        static let ink = Palette.paper
+        static let selectedFill = Palette.paper
+        static let selectedForeground = Palette.ink
+        /// Resting tiles, fields, and drop zones.
+        static let surface = Palette.paper.opacity(Opacity.quietSurface)
+        static let hoverSurface = Palette.paper.opacity(Opacity.hoverSurface)
+        /// The empty part of a meter and the outline of a drop zone.
+        static let track = Palette.paper.opacity(Opacity.hoverSurface)
+        static let meter = Palette.paper.opacity(Opacity.primary)
+        static let dropOutline = Palette.paper.opacity(Opacity.subtle)
+        static let dropTargetOutline = Palette.paper.opacity(Opacity.primary)
+    }
+
+    /// Geometry shared by every module on the island.
+    enum ModuleIsland {
+        /// Module content below the tab row: a toolbar, a gap, and a
+        /// capture-card-tall body. `PillChromeMetrics.moduleExpandedHeight`
+        /// adds the tab row and insets around it.
+        static let toolbarHeight = Control.compactHeight
+        static let toolbarSpacing = Spacing.small
+        static let bodyHeight = HistoryShelf.cardSize
+        static let contentHeight = toolbarHeight + toolbarSpacing + bodyHeight
+        static let tabRowHeight = Control.regularHeight
+        static let tabIcon = Icon.regular
+        static let tileRadius = Radius.medium
+        static let shelfTileWidth: CGFloat = 92
+        static let meterHeight: CGFloat = 4
+        static let dropOutlineWidth: CGFloat = 1
+        static let dropOutlineDash: [CGFloat] = [4, 4]
+    }
+
     /// Library window layout.
     enum AppLayout {
         static let sidebarWidth: CGFloat = 196
@@ -135,7 +169,6 @@ enum AssistDesignTokens {
         static let heroHeight: CGFloat = 42
         static let iconButton: CGFloat = 30
         static let largeIconButton: CGFloat = 34
-        static let tooltipHeight: CGFloat = 22
         static let borderWidth: CGFloat = 1
         static let focusRingWidth: CGFloat = 2
     }

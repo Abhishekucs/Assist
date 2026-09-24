@@ -2,7 +2,7 @@ import LegalDocument from "../LegalDocument";
 import { createLegalMetadata } from "../legalMetadata";
 
 const description =
-  "How Assist handles screenshots, voice annotations, copied text, licenses, purchases, website analytics, and support information.";
+  "How Assist handles local captures and module data, provider connections, licenses, purchases, website analytics, and support information.";
 
 export const metadata = createLegalMetadata("Privacy Policy", description, "/privacy");
 
@@ -27,17 +27,17 @@ export default function PrivacyPage() {
     <LegalDocument
       title="Privacy Policy"
       description={description}
-      lastUpdated="August 27, 2026"
+      lastUpdated="September 23, 2026"
       sections={sections}
     >
       <section id="overview">
         <h2>1. Overview</h2>
         <p>
           Assist is a macOS utility for capturing screenshots, adding visual and voice
-          annotations, and reusing copied text.
+          annotations, reusing copied content, and running optional notch modules.
           The desktop app is designed so that your captures and copied content stay on your Mac. Assist
           does not upload your screenshots, annotations, voice transcripts, or copied
-          text to Assist&apos;s servers unless you deliberately send that material through
+          content to Assist&apos;s servers unless you deliberately send that material through
           another service yourself.
         </p>
         <div className="legal-callout">
@@ -73,10 +73,20 @@ export default function PrivacyPage() {
               <tr>
                 <td>Captured content</td>
                 <td>
-                  Screenshots, annotations, thumbnails, copied text, optional local voice
-                  transcripts, and capture metadata
+                  Screenshots, annotations, thumbnails, copied text, links and images,
+                  optional local voice transcripts, and capture metadata
                 </td>
                 <td>Stored locally in your Mac&apos;s Assist application-support folder</td>
+              </tr>
+              <tr>
+                <td>Module data</td>
+                <td>Notes, file references, timer state, screen time by app, and local Claude Code or Codex token activity</td>
+                <td>Kept or read locally on your Mac; the AI Usage module reads your local tool logs</td>
+              </tr>
+              <tr>
+                <td>Optional revenue connection</td>
+                <td>Provider API keys and sales data from Stripe, Polar, or Dodo Payments</td>
+                <td>Keys are stored in your Mac Keychain and sent only to the provider you connect; sales summaries are shown in the app</td>
               </tr>
               <tr>
                 <td>Temporary voice audio</td>
@@ -125,8 +135,8 @@ export default function PrivacyPage() {
           related transaction obligations under its own privacy policy.
         </p>
         <p>
-          The app also keeps preferences in macOS user defaults, activation information in the
-          macOS Keychain, and a local diagnostic log. The diagnostic log is intended to contain
+          The app also keeps preferences in macOS user defaults, activation and optional revenue
+          keys in the macOS Keychain, and a local diagnostic log. The diagnostic log is intended to contain
           operational events and errors, not the contents of your clipboard or screenshots.
         </p>
       </section>
@@ -150,12 +160,15 @@ export default function PrivacyPage() {
             it is never saved to disk or uploaded by Assist.
           </li>
           <li>
-            <strong>Clipboard access</strong>{" "}to keep recent copied text available for reuse.
+            <strong>Clipboard access</strong>{" "}to keep recent copied text, links, and images available for reuse.
+          </li>
+          <li>
+            <strong>Calendars and Reminders</strong>{" "}to show your agenda and complete reminders when you enable the Calendar module.
           </li>
           <li>
             <strong>Network access</strong>{" "}to validate a license, check or download updates from
             GitHub, download the optional pinned Whisper model from Hugging Face during explicit
-            setup, and open the purchase or support experience.
+            setup, connect to revenue providers you configure, and open the purchase or support experience.
           </li>
         </ul>
         <p>

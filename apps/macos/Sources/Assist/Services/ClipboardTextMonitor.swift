@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 protocol ClipboardTextMonitorDelegate: AnyObject {
     func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String)
+    func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy image: NSImage)
 }
 
 @MainActor
@@ -24,7 +25,7 @@ final class ClipboardTextMonitor {
 
     func start() {
         lastChangeCount = pasteboard.changeCount
-        lastSeenText = normalizedText(from: pasteboard)
+        lastSeenText = text(from: pasteboard)
         lastDeliveredText = nil
         lastDeliveredAt = nil
 
@@ -52,14 +53,21 @@ final class ClipboardTextMonitor {
         guard changeCount != lastChangeCount else { return }
         lastChangeCount = changeCount
 
-        guard let text = normalizedText(from: pasteboard) else {
+        if shouldIgnoreNextTextChange {
             shouldIgnoreNextTextChange = false
+            lastSeenText = text(from: pasteboard)
             return
         }
 
-        if shouldIgnoreNextTextChange {
-            shouldIgnoreNextTextChange = false
-            lastSeenText = text
+        if pasteboard.canReadObject(forClasses: [NSImage.self], options: nil),
+           let image = NSImage(pasteboard: pasteboard) {
+            lastSeenText = nil
+            delegate?.clipboardTextMonitor(self, didCopy: image)
+            return
+        }
+
+        guard let text = text(from: pasteboard) else {
+            lastSeenText = nil
             return
         }
 
@@ -80,12 +88,13 @@ final class ClipboardTextMonitor {
         delegate?.clipboardTextMonitor(self, didCopy: text)
     }
 
-    private func normalizedText(from pasteboard: NSPasteboard) -> String? {
-        guard let text = pasteboard.string(forType: .string) else { return nil }
+    private func text(from pasteboard: NSPasteboard) -> String? {
+        guard let text = pasteboard.string(forType: .string)
+                ?? pasteboard.string(forType: .URL) else { return nil }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        return String(trimmed.prefix(50_000))
+        return text
     }
 
     private func shouldIgnoreIncidentalText(_ text: String) -> Bool {

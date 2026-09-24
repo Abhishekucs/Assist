@@ -1,13 +1,14 @@
 import ProductFeaturePage from "../ProductFeaturePage";
 import { getProductFeature } from "../productContent";
-import { createPageMetadata } from "../siteMetadata";
+import { createPageMetadata, MODULES_SOCIAL_IMAGE } from "../siteMetadata";
 
 const feature = getProductFeature("/clipboard");
 
 export const metadata = createPageMetadata({
   title: feature.metadataTitle,
   description: feature.metadataDescription,
-  path: feature.path
+  path: feature.path,
+  image: MODULES_SOCIAL_IMAGE
 });
 
 export default function ClipboardPage() {

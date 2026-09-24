@@ -1,6 +1,6 @@
 # Assist
 
-> Assist is a native, local-first Mac app with three primary workflows: full-screen screenshot capture and editing, voice-powered screen annotation, and clipboard history from the Mac notch.
+> Assist is a native Mac app for screenshot capture and editing, voice-powered screen annotation, clipboard history, and configurable notch modules.
 
 Canonical product facts:
 
@@ -9,7 +9,10 @@ Canonical product facts:
 - Screenshot editing: crop freely or to a fixed ratio, blur with three brush sizes, and add padding, rounded corners, a shadow, or a backdrop.
 - Voice annotation: hold Option to draw over the screen and optionally speak; release Option to save the annotated screenshot.
 - Voice privacy: optional WhisperKit transcription runs locally on Apple silicon after a one-time model download. Raw audio is held in memory only while transcription finishes and is never saved by Assist.
-- Clipboard: Assist keeps recently copied text locally and shows it beside screenshots and annotations in a combined history.
+- Clipboard: Assist keeps recently copied text, links, and images locally beside screenshots and annotations.
+- Modules: Clipboard is always available; Shelf, Notes, Timers, Calendar, Media, System, Screen Time, Convert, Revenue, and AI Usage can be enabled in the app.
+- AI Usage: daily Claude Code and Codex token activity is read from local logs. Account quotas and reset times are not shown.
+- Revenue: optional sales summaries from Stripe, Polar, or Dodo Payments require user-provided provider keys stored in the Mac Keychain.
 - Reuse: copy or drag a saved item into another app, or delete it from Assist history.
 - Storage: screenshots, annotations, copied text, and optional transcripts stay on the Mac unless the user deliberately sends them elsewhere.
 - Pricing: one-time purchase for one Mac, with the available regional price shown on the website and at checkout. There is no recurring subscription.
@@ -19,6 +22,7 @@ Canonical product facts:
 - [Screenshots](https://assistapp.dev/screenshots): capture the full display, then optionally crop, blur, or frame the locally saved screenshot.
 - [Voice annotation](https://assistapp.dev/voice-annotation): draw over the Mac screen, speak, and save the annotation with an optional local transcript.
 - [Clipboard](https://assistapp.dev/clipboard): keep copied text beside screenshots in local history for filtering, copying, dragging, or deletion.
+- [Modules](https://assistapp.dev/modules): choose notch tools for files, notes, timers, calendar, media, system stats, screen time, conversion, revenue, and local AI activity.
 
 ## Product and support
 

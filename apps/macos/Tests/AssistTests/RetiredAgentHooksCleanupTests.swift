@@ -233,7 +233,7 @@ final class RetiredAgentHooksCleanupTests: XCTestCase {
     @MainActor
     func testCaptureOnlyGeometryKeepsCollapsedWidthStableAndCompactShelf() {
         let settings = PillSettings(defaults: defaults)
-        XCTAssertEqual(PillChromeMetrics.expandedSize(settings: settings).height, 210)
+        XCTAssertEqual(PillChromeMetrics.expandedSize(settings: settings).height, PillChromeMetrics.moduleExpandedHeight)
         XCTAssertEqual(PillChromeMetrics.collapsedSize(settings: settings), settings.collapsedSize)
         settings.collapsedWidth = 360
         settings.expandedWidth = 440

@@ -556,8 +556,13 @@ private enum VoiceRecorderTestError: LocalizedError {
 @MainActor
 private final class ClipboardDelegateSpy: ClipboardTextMonitorDelegate {
     private(set) var receivedTexts: [String] = []
+    private(set) var receivedImages: [NSImage] = []
 
     func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy text: String) {
         receivedTexts.append(text)
+    }
+
+    func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy image: NSImage) {
+        receivedImages.append(image)
     }
 }

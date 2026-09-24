@@ -148,8 +148,8 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
         do {
             let item = try store.save(text: text)
             pillViewModel.insertTextItem(item)
-            pillViewModel.statusText = "Copied text"
-            pillViewModel.diagnosticMessage = "Captured copied text"
+            pillViewModel.statusText = item.linkURL == nil ? "Copied text" : "Copied link"
+            pillViewModel.diagnosticMessage = "Captured clipboard text"
             pillViewModel.showCopyFeedback(badge: "Copied", preview: item.preview)
             DebugLogger.log("clipboard.text.saved", [
                 "id": item.id.uuidString,
@@ -157,6 +157,19 @@ final class AppCoordinator: ControlGestureMonitorDelegate, ClipboardTextMonitorD
             ])
         } catch {
             DebugLogger.log("clipboard.text.save.error", errorFields(error))
+        }
+    }
+
+    func clipboardTextMonitor(_ monitor: ClipboardTextMonitor, didCopy image: NSImage) {
+        do {
+            let item = try store.save(image: image, context: .saved)
+            pillViewModel.replaceScreenshot(item)
+            pillViewModel.statusText = "Copied image"
+            pillViewModel.diagnosticMessage = "Captured clipboard image"
+            pillViewModel.showCopyFeedback(badge: "Copied", preview: "Clipboard image")
+            DebugLogger.log("clipboard.image.saved", ["id": item.id.uuidString])
+        } catch {
+            DebugLogger.log("clipboard.image.save.error", errorFields(error))
         }
     }
 

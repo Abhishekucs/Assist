@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct LibrarySidebar: View {
-    @Binding var selectedFilter: ClipboardHistoryFilter
-    let counts: [ClipboardHistoryFilter: Int]
+    @Binding var selectedModule: AssistModule?
     let openSettings: () -> Void
     @Environment(\.assistTheme) private var theme
 
@@ -18,30 +17,37 @@ struct LibrarySidebar: View {
             .padding(.bottom, 28)
             .accessibilityElement(children: .combine)
 
-            Text("Library")
-                .font(Tokens.Typography.section)
-                .foregroundStyle(theme.muted)
-                .padding(.horizontal, Tokens.AppLayout.sidebarInset)
-                .padding(.bottom, Tokens.Spacing.small)
-                .accessibilityAddTraits(.isHeader)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xLarge) {
+                    VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
+                        VStack(spacing: Tokens.Spacing.xxSmall) {
+                            AssistNavigationRow(
+                                title: "Library",
+                                icon: .grid,
+                                isSelected: selectedModule == nil
+                            ) {
+                                selectedModule = nil
+                            }
+                        }
+                    }
 
-            VStack(spacing: Tokens.Spacing.xxSmall) {
-                ForEach(ClipboardHistoryFilter.allCases) { filter in
-                    AssistNavigationRow(
-                        title: filter.navigationTitle,
-                        icon: filter.icon,
-                        isSelected: selectedFilter == filter,
-                        count: counts[filter, default: 0]
-                    ) {
-                        selectedFilter = filter
+                    VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
+                        sectionHeader("Modules")
+                        VStack(spacing: Tokens.Spacing.xxSmall) {
+                            ForEach(AssistModule.allCases.filter { $0 != .clipboard }) { module in
+                                AssistNavigationRow(
+                                    title: module.title,
+                                    icon: module.icon,
+                                    isSelected: selectedModule == module
+                                ) {
+                                    selectedModule = module
+                                }
+                            }
+                        }
                     }
                 }
+                .padding(.bottom, Tokens.Spacing.medium)
             }
-
-            Spacer()
-
-            privacyNote
-                .padding(.bottom, 16)
 
             AssistNavigationRow(title: "Settings", icon: .settings, action: openSettings)
         }
@@ -51,21 +57,12 @@ struct LibrarySidebar: View {
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    private var privacyNote: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.xSmall) {
-            Text("Right here on your Mac")
-                .font(Tokens.Typography.small(.medium))
-                .foregroundStyle(theme.foreground)
-            Text("Your captures and clipboard history stay local.")
-                .font(Tokens.Typography.caption())
-                .foregroundStyle(theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(3)
-        }
-        .padding(Tokens.Spacing.xLarge)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.accentSurface, in: RoundedRectangle(cornerRadius: Tokens.Radius.large))
-        .accessibilityElement(children: .combine)
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(Tokens.Typography.section)
+            .foregroundStyle(theme.muted)
+            .padding(.horizontal, Tokens.AppLayout.sidebarInset)
+            .accessibilityAddTraits(.isHeader)
     }
 
 }

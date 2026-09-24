@@ -58,10 +58,18 @@ final class AssistWindowTests: XCTestCase {
         let (settings, defaults, cleanUp) = try makeSettings()
         defer { cleanUp() }
         let voice = VoiceContextService(modelStateOverride: .notInstalled, microphoneAccessStateOverride: .notDetermined)
+        let modulesDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AssistWindowTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: modulesDirectory) }
         let controller = ControlPanelWindowController(
             settings: settings,
             pillViewModel: PillViewModel(settings: settings, voiceContextService: voice),
-            keyboardSounds: KeyboardSoundController(settings: KeyboardSoundSettings(defaults: defaults))
+            keyboardSounds: KeyboardSoundController(settings: KeyboardSoundSettings(defaults: defaults)),
+            modules: ModuleServices(
+                settings: ModuleSettings(defaults: defaults),
+                directory: modulesDirectory,
+                defaults: defaults
+            )
         )
         let window = controller.preparedWindow()
         let contentView = try XCTUnwrap(window.contentView)

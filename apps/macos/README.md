@@ -12,11 +12,60 @@ The first version is intentionally small:
 - Hover the top-center pill to preview the latest capture.
 - Copy a deterministic Markdown context plus the original annotated image from the pill.
 - Screenshot metadata is stored in a local SQLite database.
-- Keep recent copied text in a local library alongside screenshots.
+- Keep recent copied text, links, and images in a local library alongside screenshots.
 - Copy or drag saved items into other apps. Assist performs no OCR.
 - Built-in diagnostic actions help isolate overlay and capture issues.
 - Optional keyboard sounds with four Assist presets and ten recorded switch packs, previews, volume, and stereo positioning.
 - Optional floating keyboard visualizer that lights up keys as you type.
+- Black-and-white notch modules: Shelf, Notes, Timers, Calendar, Media, System stats, Screen Time, an image converter, Revenue (Stripe, Polar, Dodo Payments), and AI Usage (Claude Code, Codex), alongside the clipboard shelf. See [Notch modules](#notch-modules).
+
+## Notch modules
+
+Hovering the notch opens a black-and-white island with one tab per module.
+Tabs sit on both sides of the camera housing; when more modules are turned
+on than fit beside it, the island widens. Choose a module in the Assist app's
+sidebar to see its live view and enable or disable it on the notch.
+Clipboard is always on; the rest start with Shelf, Notes, Timers, and System
+enabled. Revenue and AI Usage are off until you turn them on.
+
+| Module | What it does |
+| --- | --- |
+| Clipboard | The capture shelf for screenshots, copied images, text, and links. The app library filters by content and copies each item back to the pasteboard. |
+| Shelf | Drop files on the notch, then drag them into any app. Only references are kept; files are never copied, moved, or deleted. Trashed or deleted files leave the shelf. |
+| Notes | A scratchpad saved to disk on every edit. While it has focus the island stays open until you click elsewhere. |
+| Timers | Pomodoro (25/5, a 15-minute break every fourth session), countdown presets, a stopwatch, and a hydration reminder. Each mode keeps its clock when you switch tabs or restart Assist; all started clocks appear on the collapsed notch. |
+| Calendar | The next seven days of events and open reminders through EventKit. Add a reminder to the default Reminders list or click an existing one to complete it. |
+| Media | Now playing from Music or Spotify through their public playback notifications, with previous, play/pause, and next sent as system media keys. |
+| System | CPU, memory, disk, network (Wi-Fi/Ethernet), and battery charge, health, and cycles. Samples every two seconds, only while visible. |
+| Screen Time | Time per frontmost app today. Counting pauses while the display or Mac sleeps, the session is switched away, or there is no input for five minutes. Seven days are kept. |
+| Convert | Drop images to convert to JPEG, PNG, HEIC, or PDF, optionally shrinking the longest side. JPEG and HEIC also accept a maximum output size in KB; if compression cannot meet it without shrinking below 128 px, no output is written. Results are written beside the originals and never replace a file. |
+| Revenue | Today, 7-day, and 30-day sales plus a 30-day daily line chart from Stripe (charges), Polar (orders, net of tax and refunds), and Dodo Payments (payments), per currency with no conversion. Refreshes every five minutes, only while visible. |
+| AI Usage | Switch between Claude Code and Codex to see a monochrome daily token activity grid (up to 52 weeks, adapted to available width). No account quota or reset information is shown. Refreshes every 30 seconds, only while visible. |
+
+Drop files on the notch to open the island on the module that takes them:
+Convert when it is selected, otherwise Shelf. The island stays open while you
+edit a note and closes when the pointer leaves after editing ends.
+
+Module data lives in `~/Library/Application Support/Assist/Modules/`
+(`shelf.json`, `scratchpad.md`, `screen-time.json`). An unreadable file is left
+untouched rather than overwritten. Calendar asks for Calendars and Reminders
+access the first time it is used; Media controls use the Accessibility access
+already granted for capture shortcuts. Apart from Revenue, nothing from these
+modules is sent off the Mac.
+
+Revenue keys are entered in Assist → Revenue and stored only in the login
+Keychain (service `<bundle id>.revenue`), never in preferences or logs. Each key
+is sent only to its own provider over HTTPS: `api.stripe.com/v1/charges`,
+`api.polar.sh/v1/orders/`, and `live.dodopayments.com/payments`. Use the
+narrowest key each provider offers: a Stripe restricted key with Charges read
+access, a Polar organization token with `orders:read`, or a Dodo live-mode key.
+Up to 2,000 sales per provider are read for the 30-day window.
+
+AI Usage only reads files. Claude Code transcripts come from
+`~/.claude/projects` and `~/.config/claude/projects`; Codex logs come from
+`~/.codex/sessions`. The 52-week activity grid fills after the archive scan,
+which can take about a minute for a large local history. Parsed usage records
+are cached between refreshes. Assist installs nothing into either tool.
 
 ## Keyboard sounds
 
@@ -262,7 +311,9 @@ active sockets and unrelated files are left alone.
 Old hook command-line arguments only exit without starting the app or making an
 approval or answer decision. This protects upgrades where a provider invokes an
 old saved command before the first normal launch. There is no hook listener,
-installer, activity monitoring, usage polling, or agent UI.
+installer, or activity monitoring. The optional AI Usage notch module reads
+Claude Code and Codex session logs; it installs no hooks and never changes their
+configuration.
 
 ## License Activation
 
@@ -293,7 +344,9 @@ Sources/Assist
 ├── AppDelegate.swift
 ├── Core
 │   ├── AppCoordinator.swift
-│   └── Models.swift
+│   ├── Models.swift
+│   └── Modules/            module registry, settings, tab layout, pure models
+
 ├── Services
 │   ├── CaptureService.swift
 │   ├── CaptureStore.swift
@@ -302,11 +355,15 @@ Sources/Assist
 │   ├── ContextPasteboardWriter.swift
 │   ├── DebugLogger.swift
 │   ├── VoiceContextService.swift
-│   └── WindowManager.swift
+│   ├── WindowManager.swift
+│   └── Modules/            one service per module, owned by ModuleServices
+
 └── Views
     ├── AnnotationOverlayView.swift
     ├── PillView.swift
-    └── PillViewModel.swift
+    ├── PillViewModel.swift
+    └── Modules/            the tabbed island and one view per module
+
 ```
 
 The main flow is:

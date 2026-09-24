@@ -24,16 +24,26 @@ final class PillViewModel: ObservableObject {
     @Published var captureIssue: CaptureIssue?
     @Published var copyFeedback: CopyFeedback?
     @Published var isCopyFeedbackVisible = false
+    @Published private(set) var timerAlert: TimerAlert?
     @Published var isCheckingForUpdates = false
     @Published var updateStatusText: String?
+    /// A module's text field has focus, so the island stays open while its
+    /// panel is key and closes once the user clicks elsewhere.
+    @Published var isEditingText = false
+    /// Files are being dragged over the island.
+    @Published var isFileDropTargeted = false
+    /// A card is being dragged out of the island, so the island ignores it as a drop.
+    var isDraggingFromIsland = false
 
     private var copyFeedbackDismissWorkItem: DispatchWorkItem?
     private var copyFeedbackClearWorkItem: DispatchWorkItem?
+    private var timerAlertDismissWorkItem: DispatchWorkItem?
     private let updateService = AppUpdateService()
 
     private static let copyFeedbackClearDelay: TimeInterval = 0.22
     private static let previewCacheLimit = 40
     private static let copyFeedbackDisplayDuration: TimeInterval = 1.6
+    private static let timerAlertDisplayDuration: TimeInterval = 5
 
     var onTestScreenshot: (() -> Void)?
     var onTestOverlay: (() -> Void)?
@@ -81,6 +91,22 @@ final class PillViewModel: ObservableObject {
         copyFeedbackDismissWorkItem = dismissWorkItem
         DispatchQueue.main.asyncAfter(
             deadline: .now() + Self.copyFeedbackDisplayDuration,
+            execute: dismissWorkItem
+        )
+    }
+
+    func showTimerAlert(badge: String, detail: String) {
+        timerAlertDismissWorkItem?.cancel()
+        let alert = TimerAlert(id: UUID(), badge: badge, detail: detail)
+        timerAlert = alert
+
+        let dismissWorkItem = DispatchWorkItem { [weak self] in
+            guard let self, self.timerAlert?.id == alert.id else { return }
+            self.timerAlert = nil
+        }
+        timerAlertDismissWorkItem = dismissWorkItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.timerAlertDisplayDuration,
             execute: dismissWorkItem
         )
     }
@@ -355,7 +381,7 @@ final class PillViewModel: ObservableObject {
     }
 
     @discardableResult
-    func copyImageItem(_ item: CaptureItem) -> Bool {
+    func copyImageItem(_ item: CaptureItem, to pasteboard: NSPasteboard = .general) -> Bool {
         selectedHistoryItem = .screenshot(item)
         latestItem = item
 
@@ -366,8 +392,8 @@ final class PillViewModel: ObservableObject {
         }
 
         onWillWritePasteboard?()
-        NSPasteboard.general.clearContents()
-        let didCopy = NSPasteboard.general.writeObjects([image])
+        pasteboard.clearContents()
+        let didCopy = pasteboard.writeObjects([image])
 
         if didCopy {
             statusText = "Copied image"
@@ -386,15 +412,20 @@ final class PillViewModel: ObservableObject {
         return didCopy
     }
 
-    func copyTextItem(_ item: TextClipItem) {
+    func copyTextItem(_ item: TextClipItem, to pasteboard: NSPasteboard = .general) {
         select(.text(item))
         onWillWritePasteboard?()
-        NSPasteboard.general.clearContents()
-        let didCopy = NSPasteboard.general.setString(item.text, forType: .string)
+        pasteboard.clearContents()
+        let pasteboardItem = NSPasteboardItem()
+        pasteboardItem.setString(item.text, forType: .string)
+        if let linkURL = item.linkURL {
+            pasteboardItem.setString(linkURL.absoluteString, forType: .URL)
+        }
+        let didCopy = pasteboard.writeObjects([pasteboardItem])
 
         if didCopy {
-            statusText = "Copied text"
-            diagnosticMessage = "Copied previous text"
+            statusText = item.linkURL == nil ? "Copied text" : "Copied link"
+            diagnosticMessage = "Copied previous clipboard content"
             showCopyFeedback(badge: "Copied", preview: item.preview)
         } else {
             statusText = "Copy failed"

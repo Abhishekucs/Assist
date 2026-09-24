@@ -41,6 +41,7 @@ final class WindowManager {
     private let pillViewModel: PillViewModel
     private let screenshotEditorViewModel: ScreenshotEditorViewModel
     private let settings: PillSettings
+    private let modules: ModuleServices
     private let pillPanel: NSPanel
     private let overlayPanel: NSPanel
     private let screenshotEditorPanel: NSPanel
@@ -57,20 +58,27 @@ final class WindowManager {
     private var isPointerHoveringPillChrome = false
     private var isDraggingFromPill = false
     private var settingsCancellable: AnyCancellable?
+    private var moduleSettingsCancellable: AnyCancellable?
     private var activeSpaceCancellable: AnyCancellable?
+    private var islandStateCancellables: Set<AnyCancellable> = []
 
     init(
         pillViewModel: PillViewModel,
         screenshotEditorViewModel: ScreenshotEditorViewModel,
-        settings: PillSettings
+        settings: PillSettings,
+        modules: ModuleServices
     ) {
         self.pillViewModel = pillViewModel
         self.screenshotEditorViewModel = screenshotEditorViewModel
         self.settings = settings
+        self.modules = modules
 
         pillPanel = PillPanel(
             contentRect: Self.topCenterFrame(
-                windowSize: PillChromeMetrics.expandedSize(settings: settings),
+                windowSize: PillChromeMetrics.expandedSize(
+                    settings: settings,
+                    enabledModuleCount: modules.settings.enabledModules.count
+                ),
                 on: Self.screenContainingMouse()
             ),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -95,6 +103,7 @@ final class WindowManager {
         configureScreenshotEditorPanel()
         observeSettings()
         observeActiveSpace()
+        observeIslandState()
         startPointerScreenTracking()
     }
 
@@ -206,6 +215,12 @@ final class WindowManager {
         ])
     }
 
+    func presentTimerAlert() {
+        currentPillScreenID = screenForCurrentPill()?.displayID
+        setPillFrame(display: true)
+        pillPanel.orderFrontRegardless()
+    }
+
     private func configurePillPanel() {
         pillPanel.isOpaque = false
         pillPanel.backgroundColor = .clear
@@ -222,6 +237,8 @@ final class WindowManager {
             rootView: PillView(
                 viewModel: pillViewModel,
                 settings: settings,
+                moduleSettings: modules.settings,
+                modules: modules,
                 onHoverChanged: { [weak self] hovering in
                     self?.setPillHovering(hovering)
                 },
@@ -233,9 +250,14 @@ final class WindowManager {
         hostingView.visibleChromeRectProvider = { [weak self, weak hostingView] in
             guard let self, let hostingView else { return .zero }
 
-            let chromeSize = self.pillViewModel.isExpanded
-                ? PillChromeMetrics.expandedSize(settings: self.settings)
-                : PillChromeMetrics.collapsedSize(settings: self.settings)
+            let chromeSize: CGSize
+            if self.pillViewModel.isExpanded {
+                chromeSize = self.expandedChromeSize()
+            } else if self.pillViewModel.timerAlert != nil {
+                chromeSize = PillChromeMetrics.timerAlertSize(settings: self.settings)
+            } else {
+                chromeSize = PillChromeMetrics.collapsedSize(settings: self.settings)
+            }
             let bounds = hostingView.bounds
 
             return CGRect(
@@ -310,7 +332,7 @@ final class WindowManager {
 
     private func setPillFrame(display: Bool) {
         let frame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(settings: settings),
+            windowSize: expandedChromeSize(),
             on: screenForCurrentPill()
         )
 
@@ -319,7 +341,7 @@ final class WindowManager {
 
     private func pinPillToTopCenter() {
         let expectedFrame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(settings: settings),
+            windowSize: expandedChromeSize(),
             on: screenForCurrentPill()
         )
 
@@ -331,7 +353,7 @@ final class WindowManager {
             guard let self, !self.pillViewModel.isExpanded else { return }
             self.pillPanel.setFrame(
                 Self.topCenterFrame(
-                    windowSize: PillChromeMetrics.expandedSize(settings: self.settings),
+                    windowSize: self.expandedChromeSize(),
                     on: self.screenForCurrentPill()
                 ),
                 display: true,
@@ -380,13 +402,13 @@ final class WindowManager {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
 
-            if !self.isPointerHoveringPillChrome {
+            if !self.isPointerHoveringPillChrome, !self.keepsIslandOpen {
                 self.pillViewModel.isExpandedContentVisible = false
 
                 let collapseFrameWorkItem = DispatchWorkItem { [weak self] in
                     guard let self, self.pillViewModel.isExpanded else { return }
 
-                    guard !self.isPointerHoveringPillChrome else {
+                    guard !self.isPointerHoveringPillChrome, !self.keepsIslandOpen else {
                         self.pillViewModel.isExpandedContentVisible = true
                         return
                     }
@@ -465,6 +487,56 @@ final class WindowManager {
                 self?.applyPillSettings()
             }
         }
+        // More module tabs can widen the island, so its window follows.
+        moduleSettingsCancellable = modules.settings.$enabledModules
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.applyPillSettings()
+                }
+            }
+    }
+
+    /// Text editing keeps the island open until the panel loses key focus.
+    private var keepsIslandOpen: Bool {
+        pillViewModel.isEditingText && pillPanel.isKeyWindow
+    }
+
+    private func expandedChromeSize() -> CGSize {
+        PillChromeMetrics.expandedSize(
+            settings: settings,
+            enabledModuleCount: modules.settings.enabledModules.count
+        )
+    }
+
+    private func observeIslandState() {
+        NotificationCenter.default
+            .publisher(for: NSWindow.didResignKeyNotification, object: pillPanel)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.pillPanelDidResignKey()
+                }
+            }
+            .store(in: &islandStateCancellables)
+    }
+
+    /// Clicking outside the island ends text editing there, and the island
+    /// closes if the pointer has already left it.
+    private func pillPanelDidResignKey() {
+        pillPanel.makeFirstResponder(nil)
+        pillViewModel.isEditingText = false
+        collapseIfPointerIsOutside()
+    }
+
+    private func collapseIfPointerIsOutside() {
+        guard pillViewModel.isExpanded,
+              !keepsIslandOpen,
+              !isDraggingFromPill,
+              !screenshotEditorPanel.isVisible,
+              !isMouseInsideVisiblePillChrome() else { return }
+        setPillHovering(false)
     }
 
     private func observeActiveSpace() {
@@ -502,6 +574,7 @@ final class WindowManager {
         guard settings.followPointerDisplay else { return }
         guard !screenshotEditorPanel.isVisible else { return }
         guard !isDraggingFromPill else { return }
+        guard !keepsIslandOpen else { return }
         guard let pointerScreen = Self.screenContainingMouse() else { return }
         let pointerScreenID = pointerScreen.displayID
 
@@ -516,7 +589,7 @@ final class WindowManager {
         pillViewModel.isExpanded = false
 
         let targetFrame = Self.topCenterFrame(
-            windowSize: PillChromeMetrics.expandedSize(settings: settings),
+            windowSize: expandedChromeSize(),
             on: pointerScreen
         )
         pillPanel.setFrame(targetFrame, display: true, animate: false)
