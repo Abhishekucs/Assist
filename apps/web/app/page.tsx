@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import FeatureVideo from "./FeatureVideo";
+import HeroVideo from "./HeroVideo";
 import JsonLd from "./JsonLd";
 import LocalizedPrice from "./LocalizedPrice";
 import SiteFooter from "./SiteFooter";
@@ -143,18 +144,10 @@ export default function Home() {
             />
           </a>
         </div>
-        <video
-          className="hero-video"
-          controls
-          playsInline
-          preload="metadata"
+        <HeroVideo
+          src="/videos/notch-modules-demo.mp4"
           poster="/videos/notch-modules-poster.jpg"
-          aria-label="Assist notch modules product walkthrough"
-          aria-describedby="hero-video-description"
-        >
-          <source src="/videos/notch-modules-demo.mp4" type="video/mp4" />
-          Your browser does not support video playback.
-        </video>
+        />
         <p id="hero-video-description" className="sr-only">
           The recording browses clipboard history and the file Shelf, writes a note,
           runs focus timers and hydration reminders, manages calendar events and

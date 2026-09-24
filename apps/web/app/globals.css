@@ -386,13 +386,82 @@ input:disabled {
   text-align: center;
 }
 
-.hero-video {
-  display: block;
+.hero-video-frame {
+  position: relative;
   width: min(1040px, 100%);
-  aspect-ratio: 16 / 9;
   margin: 44px auto 0;
   border-radius: 14px;
+}
+
+.hero-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: inherit;
   background: #10131a;
+}
+
+.hero-video-play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 88px;
+  height: 88px;
+  padding: 0;
+  color: #ffffff;
+  background: #050505;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+  cursor: pointer;
+  opacity: 1;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.hero-video-frame.is-playing .hero-video-play-button {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.hero-video-frame.is-playing:hover .hero-video-play-button,
+.hero-video-frame.is-playing:focus-within .hero-video-play-button {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.hero-video-play-button:hover {
+  background: #171717;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+.hero-video-play-button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 4px;
+}
+
+.hero-video-play-icon {
+  display: block;
+  filter: brightness(0) invert(1);
+  transform: translateX(2px);
+}
+
+.hero-video-play-icon.is-pause {
+  transform: none;
+}
+
+@media (hover: none) {
+  .hero-video-frame.is-playing .hero-video-play-button {
+    pointer-events: auto;
+    opacity: 1;
+  }
 }
 
 h1,
@@ -1971,7 +2040,7 @@ p {
     font-size: 17px;
   }
 
-  .hero-video {
+  .hero-video-frame {
     margin-top: 36px;
   }
 
@@ -2191,9 +2260,19 @@ p {
     font-size: 15px;
   }
 
-  .hero-video {
+  .hero-video-frame {
     margin-top: 32px;
     border-radius: 8px;
+  }
+
+  .hero-video-play-button {
+    width: 64px;
+    height: 64px;
+  }
+
+  .hero-video-play-icon {
+    width: 28px;
+    height: 28px;
   }
 
   .hero-actions {
