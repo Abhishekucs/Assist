@@ -395,24 +395,6 @@ input:disabled {
   background: #10131a;
 }
 
-.hero-video-description {
-  width: min(760px, 100%);
-  margin: 14px auto 0;
-  color: rgba(0, 0, 0, 0.6);
-  font-size: 13px;
-}
-
-.hero-video-description summary {
-  width: fit-content;
-  margin: auto;
-  cursor: pointer;
-}
-
-.hero-video-description ol {
-  margin: 12px 0 0;
-  padding-left: 24px;
-}
-
 h1,
 p {
   margin-top: 0;

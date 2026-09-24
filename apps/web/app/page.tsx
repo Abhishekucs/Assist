@@ -150,21 +150,17 @@ export default function Home() {
           preload="metadata"
           poster="/videos/notch-modules-poster.jpg"
           aria-label="Assist notch modules product walkthrough"
+          aria-describedby="hero-video-description"
         >
           <source src="/videos/notch-modules-demo.mp4" type="video/mp4" />
           Your browser does not support video playback.
         </video>
-        <details className="hero-video-description">
-          <summary>Read the video walkthrough</summary>
-          <ol>
-            <li>0:00–0:14 — Browse clipboard history, place files on the Shelf, and write a note.</li>
-            <li>0:15–0:31 — Start a focus timer and stopwatch, with hydration reminders alongside them.</li>
-            <li>0:32–0:51 — View upcoming calendar events and manage reminders.</li>
-            <li>0:52–1:06 — Control music playback and see live system statistics.</li>
-            <li>1:07–1:23 — Switch between Screen Time, image conversion, revenue, and AI usage.</li>
-            <li>1:24–1:55 — Explore module settings, Screen Time history, and keyboard sounds.</li>
-          </ol>
-        </details>
+        <p id="hero-video-description" className="sr-only">
+          The recording browses clipboard history and the file Shelf, writes a note,
+          runs focus timers and hydration reminders, manages calendar events and
+          reminders, controls music, then shows system statistics, Screen Time,
+          image conversion, revenue, AI usage, module settings, and keyboard sounds.
+        </p>
       </section>
 
       <section className="capability-section">
