@@ -344,6 +344,37 @@ final class ImageConversionTests: XCTestCase {
         XCTAssertNotNil(ImageConverter.convert(notImage, options: options).errorMessage)
     }
 
+    func testConcurrentConversionsKeepExistingFileAndCreateDistinctResults() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AssistImageConversionTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("Sample.png")
+        try writeSamplePNG(to: source, width: 400, height: 200)
+        let existing = directory.appendingPathComponent("Sample.jpg")
+        let original = Data("Existing file".utf8)
+        try original.write(to: existing)
+
+        let options = ImageConversionOptions()
+        let results = await withTaskGroup(of: ImageConversionResult.self) { group in
+            for _ in 0..<8 {
+                group.addTask { ImageConverter.convert(source, options: options) }
+            }
+            var results: [ImageConversionResult] = []
+            for await result in group {
+                results.append(result)
+            }
+            return results
+        }
+
+        XCTAssertEqual(results.count, 8)
+        XCTAssertTrue(results.allSatisfy { $0.errorMessage == nil })
+        XCTAssertEqual(Set(results.compactMap { $0.outputURL?.path }).count, 8)
+        XCTAssertEqual(try Data(contentsOf: existing), original)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .contains { $0.hasPrefix(".assist-conversion-") })
+    }
+
     func testExistingConversionOptionsKeepTheirSettingsWithoutAFileSizeTarget() throws {
         let stored = Data(#"{"format":"heic","maxDimension":1600,"quality":"medium"}"#.utf8)
         let options = try JSONDecoder().decode(ImageConversionOptions.self, from: stored)

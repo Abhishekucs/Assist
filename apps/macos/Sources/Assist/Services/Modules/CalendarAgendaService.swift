@@ -48,9 +48,8 @@ final class CalendarAgendaService: ObservableObject {
         eventAccess != .granted || reminderAccess != .granted
     }
 
-    /// Asks for calendar and reminder access the first time; after a denial,
-    /// opens the privacy pane where access can be turned on.
-    func requestAccess() {
+    /// Asks only for the access the person selected, or opens that privacy pane after a denial.
+    func requestEventAccess() {
         if eventAccess == .notDetermined {
             store.requestFullAccessToEvents { @Sendable [weak self] _, _ in
                 Task { @MainActor [weak self] in
@@ -60,14 +59,16 @@ final class CalendarAgendaService: ObservableObject {
         } else if eventAccess == .denied {
             openPrivacyPane("Privacy_Calendars")
         }
+    }
 
+    func requestReminderAccess() {
         if reminderAccess == .notDetermined {
             store.requestFullAccessToReminders { @Sendable [weak self] _, _ in
                 Task { @MainActor [weak self] in
                     self?.accessChanged()
                 }
             }
-        } else if reminderAccess == .denied, eventAccess != .denied {
+        } else if reminderAccess == .denied {
             openPrivacyPane("Privacy_Reminders")
         }
     }

@@ -154,6 +154,17 @@ export default function Home() {
           <source src="/videos/notch-modules-demo.mp4" type="video/mp4" />
           Your browser does not support video playback.
         </video>
+        <details className="hero-video-description">
+          <summary>Read the video walkthrough</summary>
+          <ol>
+            <li>0:00–0:14 — Browse clipboard history, place files on the Shelf, and write a note.</li>
+            <li>0:15–0:31 — Start a focus timer and stopwatch, with hydration reminders alongside them.</li>
+            <li>0:32–0:51 — View upcoming calendar events and manage reminders.</li>
+            <li>0:52–1:06 — Control music playback and see live system statistics.</li>
+            <li>1:07–1:23 — Switch between Screen Time, image conversion, revenue, and AI usage.</li>
+            <li>1:24–1:55 — Explore module settings, Screen Time history, and keyboard sounds.</li>
+          </ol>
+        </details>
       </section>
 
       <section className="capability-section">

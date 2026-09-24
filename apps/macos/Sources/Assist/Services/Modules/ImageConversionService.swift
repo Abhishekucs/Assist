@@ -94,9 +94,9 @@ enum ImageConverter {
             return failure("Could not read this image")
         }
 
-        let outputURL = ImageConversionNaming.outputURL(for: source, format: options.format) { url in
-            FileManager.default.fileExists(atPath: url.path)
-        }
+        let stagedURL = source.deletingLastPathComponent()
+            .appendingPathComponent(".assist-conversion-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: stagedURL) }
 
         if let maxFileSizeKB = options.maxFileSizeKB, options.format.usesQuality {
             guard ImageConversionOptions.fileSizeRange.contains(maxFileSizeKB) else {
@@ -113,34 +113,39 @@ enum ImageConverter {
                 return failure("Could not fit within \(maxFileSizeKB) KB")
             }
             do {
-                try data.write(to: outputURL, options: .atomic)
+                try data.write(to: stagedURL, options: .atomic)
             } catch {
                 return failure("Could not write \(options.format.title)")
             }
-            return ImageConversionResult(
-                id: UUID(),
-                sourceName: sourceName,
-                outputURL: outputURL,
-                originalBytes: originalBytes,
-                outputBytes: Int64(data.count),
-                errorMessage: nil
-            )
+        } else {
+            let didWrite: Bool
+            switch options.format {
+            case .pdf:
+                didWrite = writePDF(image, to: stagedURL)
+            case .jpeg:
+                didWrite = writeRaster(flattenedOnWhite(image) ?? image, to: stagedURL, options: options)
+            case .png, .heic:
+                didWrite = writeRaster(image, to: stagedURL, options: options)
+            }
+            guard didWrite else { return failure("Could not write \(options.format.title)") }
         }
 
-        let didWrite: Bool
-        switch options.format {
-        case .pdf:
-            didWrite = writePDF(image, to: outputURL)
-        case .jpeg:
-            // JPEG has no transparency; flatten onto white so clear areas do not turn black.
-            didWrite = writeRaster(flattenedOnWhite(image) ?? image, to: outputURL, options: options)
-        case .png, .heic:
-            didWrite = writeRaster(image, to: outputURL, options: options)
+        let fileManager = FileManager.default
+        var outputURL = ImageConversionNaming.outputURL(for: source, format: options.format) { url in
+            fileManager.fileExists(atPath: url.path)
         }
-
-        guard didWrite else {
-            try? FileManager.default.removeItem(at: outputURL)
-            return failure("Could not write \(options.format.title)")
+        while true {
+            do {
+                try fileManager.linkItem(at: stagedURL, to: outputURL)
+                break
+            } catch {
+                guard fileManager.fileExists(atPath: outputURL.path) else {
+                    return failure("Could not write \(options.format.title)")
+                }
+                outputURL = ImageConversionNaming.outputURL(for: source, format: options.format) { url in
+                    fileManager.fileExists(atPath: url.path)
+                }
+            }
         }
 
         return ImageConversionResult(

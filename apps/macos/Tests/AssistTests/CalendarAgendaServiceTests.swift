@@ -72,6 +72,36 @@ final class CalendarAgendaServiceTests: XCTestCase {
             try png.write(to: URL(fileURLWithPath: path))
         }
     }
+
+    @MainActor
+    func testCalendarModuleRendersSeparateAccessChoicesWhenBothDenied() throws {
+        let suite = "Assist.CalendarAgendaServiceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let viewModel = PillViewModel(
+            settings: PillSettings(defaults: defaults),
+            voiceContextService: VoiceContextService(
+                modelStateOverride: .notInstalled,
+                microphoneAccessStateOverride: .notDetermined
+            )
+        )
+        let service = CalendarAgendaService(store: TestReminderStore(), accessProvider: { _ in .denied })
+        let view = CalendarModuleView(service: service, viewModel: viewModel)
+            .frame(width: 500, height: AssistDesignTokens.ModuleIsland.contentHeight)
+            .preferredColorScheme(.dark)
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.frame = CGRect(x: 0, y: 0, width: 500, height: AssistDesignTokens.ModuleIsland.contentHeight)
+        hostingView.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds))
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        XCTAssertGreaterThan(png.count, 1_000)
+
+        if let path = ProcessInfo.processInfo.environment["ASSIST_CALENDAR_DENIED_PREVIEW"] {
+            try png.write(to: URL(fileURLWithPath: path))
+        }
+    }
 }
 
 private final class TestReminderStore: EKEventStore {

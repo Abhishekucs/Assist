@@ -66,7 +66,7 @@ struct CalendarModuleView: View {
     @ViewBuilder
     private var agenda: some View {
         if service.eventAccess != .granted {
-            compactAccessRequest("Allow Calendar access to see events.")
+            compactAccessRequest("Allow Calendar access to see events.", action: service.requestEventAccess)
         } else if service.days.isEmpty {
             IslandEmptyState(icon: .calendar, title: "Nothing scheduled", message: "Your next seven days are clear.")
         } else {
@@ -139,7 +139,7 @@ struct CalendarModuleView: View {
             }
 
             if service.reminderAccess != .granted {
-                compactAccessRequest("Allow Reminders access to add and complete them here.")
+                compactAccessRequest("Allow Reminders access to add and complete them here.", action: service.requestReminderAccess)
             } else if service.reminders.isEmpty {
                 Text("All done.")
                     .font(Tokens.Typography.footnote(.medium))
@@ -180,21 +180,20 @@ struct CalendarModuleView: View {
 
     private func accessRequest(title: String, message: String) -> some View {
         IslandEmptyState(icon: .calendar, title: title, message: message) {
-            IslandTextButton(title: "Allow access", isProminent: true) {
-                service.requestAccess()
+            HStack(spacing: Tokens.Spacing.small) {
+                IslandTextButton(title: "Allow Calendar", isProminent: true, action: service.requestEventAccess)
+                IslandTextButton(title: "Allow Reminders", isProminent: true, action: service.requestReminderAccess)
             }
         }
     }
 
-    private func compactAccessRequest(_ message: String) -> some View {
+    private func compactAccessRequest(_ message: String, action: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.small) {
             Text(message)
                 .font(Tokens.Typography.caption(.medium))
                 .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
                 .fixedSize(horizontal: false, vertical: true)
-            IslandTextButton(title: "Allow access") {
-                service.requestAccess()
-            }
+            IslandTextButton(title: "Allow access", action: action)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

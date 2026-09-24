@@ -53,15 +53,16 @@ final class RevenueService: ObservableObject {
         connectedProviders = RevenueProvider.allCases.filter { $0 == provider || connectedProviders.contains($0) }
         errors[provider] = nil
         DebugLogger.log("modules.revenue.key.saved", ["provider": provider.rawValue])
-        refresh(force: true)
+        restartRefresh()
     }
 
     func removeKey(for provider: RevenueProvider) {
         keys.removeSecret(for: provider.rawValue)
         connectedProviders.removeAll { $0 == provider }
         errors[provider] = nil
+        summary = nil
         DebugLogger.log("modules.revenue.key.removed", ["provider": provider.rawValue])
-        refresh(force: true)
+        restartRefresh()
     }
 
     /// Starts refreshing for a view that shows revenue. Balanced by `stop()`.
@@ -84,6 +85,13 @@ final class RevenueService: ObservableObject {
         guard viewerCount == 0 else { return }
         timer?.invalidate()
         timer = nil
+    }
+
+    private func restartRefresh() {
+        refreshTask?.cancel()
+        refreshTask = nil
+        isRefreshing = false
+        refresh(force: true)
     }
 
     /// Fetches again unless a refresh is running or, without `force`, the
@@ -112,9 +120,11 @@ final class RevenueService: ObservableObject {
             var transactions: [RevenueTransaction] = []
             var failures: [RevenueProvider: String] = [:]
             for (provider, key) in credentials {
+                guard !Task.isCancelled else { return }
                 do {
                     transactions += try await client.transactions(from: provider, key: key, since: since)
                 } catch {
+                    guard !Task.isCancelled else { return }
                     failures[provider] = error.localizedDescription
                     DebugLogger.log("modules.revenue.fetch.error", [
                         "provider": provider.rawValue,
@@ -123,6 +133,7 @@ final class RevenueService: ObservableObject {
                 }
             }
 
+            guard !Task.isCancelled else { return }
             let completedAt = Date()
             self.summary = RevenueSummary.make(from: transactions, now: completedAt, calendar: .current)
             self.errors = failures

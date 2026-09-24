@@ -24,6 +24,7 @@ final class ScreenTimeTracker: ObservableObject {
     private var canPersist = true
     private var segment: Segment?
     private var isPaused = false
+    private var wasIdle = false
     private var commitTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
     private var iconCache: [String: NSImage] = [:]
@@ -44,6 +45,7 @@ final class ScreenTimeTracker: ObservableObject {
         guard !isTracking else { return }
         isTracking = true
         isPaused = false
+        wasIdle = false
         observeWorkspace()
         beginSegment(for: NSWorkspace.shared.frontmostApplication, at: Date())
 
@@ -63,6 +65,7 @@ final class ScreenTimeTracker: ObservableObject {
         commit()
         isTracking = false
         segment = nil
+        wasIdle = false
         commitTimer?.invalidate()
         commitTimer = nil
         cancellables.removeAll()
@@ -154,7 +157,10 @@ final class ScreenTimeTracker: ObservableObject {
     private func applicationActivated(_ application: NSRunningApplication?) {
         guard isTracking, !isPaused else { return }
         let now = Date()
-        commit(until: now)
+        if !wasIdle {
+            commit()
+        }
+        wasIdle = false
         beginSegment(for: application, at: now)
     }
 
@@ -163,11 +169,13 @@ final class ScreenTimeTracker: ObservableObject {
         commit()
         isPaused = true
         segment = nil
+        wasIdle = false
     }
 
     private func resume() {
         guard isTracking, isPaused else { return }
         isPaused = false
+        wasIdle = false
         beginSegment(for: NSWorkspace.shared.frontmostApplication, at: Date())
     }
 
@@ -191,9 +199,14 @@ final class ScreenTimeTracker: ObservableObject {
             .combinedSessionState,
             eventType: CGEventType(rawValue: ~0)!
         )
-        let activeUntil = idle >= Self.idleThreshold ? now.addingTimeInterval(-idle) : now
+        let isIdle = idle >= Self.idleThreshold
+        if wasIdle && !isIdle, let segment {
+            self.segment?.since = max(segment.since, now.addingTimeInterval(-idle))
+        }
+        let activeUntil = isIdle ? now.addingTimeInterval(-idle) : now
         commit(until: activeUntil)
         segment?.since = now
+        wasIdle = isIdle
     }
 
     private func commit(until end: Date) {

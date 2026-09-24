@@ -121,6 +121,7 @@ struct ConverterModuleView: View {
                     maxKBInput = String(ImageConversionOptions.fileSizeRange.upperBound)
                 } else if size < ImageConversionOptions.fileSizeRange.lowerBound {
                     maxKBInput = ""
+                    service.options.maxFileSizeKB = nil
                 } else {
                     service.options.maxFileSizeKB = size
                 }

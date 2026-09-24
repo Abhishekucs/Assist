@@ -35,6 +35,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       images: [
         `${SITE_URL}/assist-icon.png`,
         ...MODULE_WALKTHROUGH.map((module) => absoluteUrl(`/modules/${module.screenshot}`))
+      ],
+      videos: [
+        {
+          title: "Assist notch modules walkthrough",
+          description: "A complete walkthrough of Assist's clipboard, files, notes, timers, calendar, media, statistics, conversion, revenue, and AI usage modules.",
+          thumbnail_loc: absoluteUrl("/videos/notch-modules-poster.jpg"),
+          content_loc: absoluteUrl("/videos/notch-modules-demo.mp4"),
+          family_friendly: "yes"
+        }
       ]
     },
     ...featurePages,

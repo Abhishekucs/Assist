@@ -29,6 +29,8 @@ test("sitemap links the module images actually shown on the homepage", () => {
     `${SITE_URL}/assist-icon.png`,
     ...MODULE_WALKTHROUGH.map((module) => `${SITE_URL}/modules/${module.screenshot}`)
   ]);
+  assert.equal(entries[0].videos?.[0]?.content_loc, `${SITE_URL}/videos/notch-modules-demo.mp4`);
+  assert.equal(entries[0].videos?.[0]?.thumbnail_loc, `${SITE_URL}/videos/notch-modules-poster.jpg`);
 
   for (const feature of PRODUCT_FEATURES) {
     const entry = entries.find((item) => item.url === `${SITE_URL}${feature.path}`);
