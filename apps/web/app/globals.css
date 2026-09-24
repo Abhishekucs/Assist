@@ -386,6 +386,15 @@ input:disabled {
   text-align: center;
 }
 
+.hero-video {
+  display: block;
+  width: min(1040px, 100%);
+  aspect-ratio: 16 / 9;
+  margin: 44px auto 0;
+  border-radius: 14px;
+  background: #10131a;
+}
+
 h1,
 p {
   margin-top: 0;
@@ -1962,6 +1971,10 @@ p {
     font-size: 17px;
   }
 
+  .hero-video {
+    margin-top: 36px;
+  }
+
   .capability-section {
     padding-top: 32px;
   }
@@ -2176,6 +2189,11 @@ p {
   .hero-copy {
     margin-bottom: 24px;
     font-size: 15px;
+  }
+
+  .hero-video {
+    margin-top: 32px;
+    border-radius: 8px;
   }
 
   .hero-actions {

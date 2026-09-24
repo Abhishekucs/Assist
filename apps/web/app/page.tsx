@@ -143,6 +143,17 @@ export default function Home() {
             />
           </a>
         </div>
+        <video
+          className="hero-video"
+          controls
+          playsInline
+          preload="metadata"
+          poster="/videos/notch-modules-poster.jpg"
+          aria-label="Assist notch modules product walkthrough"
+        >
+          <source src="/videos/notch-modules-demo.mp4" type="video/mp4" />
+          Your browser does not support video playback.
+        </video>
       </section>
 
       <section className="capability-section">
