@@ -188,21 +188,19 @@ export default function Home() {
                 ) : null}
               </div>
               <a
-                className="workflow-media module-notch-preview"
+                className="workflow-media module-preview"
                 href={`/modules/${module.screenshot}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`Open the ${module.name} notch preview at full size`}
+                aria-label={`Open the ${module.name} image at full size`}
               >
-                <span className="module-notch-preview-island">
-                  <Image
-                    src={`/modules/${module.screenshot}`}
-                    alt={module.alt}
-                    width={1332}
-                    height={468}
-                    sizes="(max-width: 900px) 100vw, 570px"
-                  />
-                </span>
+                <Image
+                  src={`/modules/${module.screenshot}`}
+                  alt={module.alt}
+                  width={1332}
+                  height={468}
+                  sizes="(max-width: 900px) 100vw, 570px"
+                />
               </a>
             </article>
           ))}
