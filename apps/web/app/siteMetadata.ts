@@ -6,7 +6,14 @@ const socialImage = {
   url: "/og-image.png",
   width: 1200,
   height: 630,
-  alt: "Assist for Mac with screenshots, voice annotation, and clipboard history"
+  alt: "Assist Mac screenshot and annotation workflow"
+};
+
+export const MODULES_SOCIAL_IMAGE = {
+  url: "/modules-og-image.png",
+  width: 1200,
+  height: 630,
+  alt: "Assist for Mac showing Clipboard in the notch beside its everyday tools headline"
 };
 
 type PageMetadataOptions = {
@@ -14,13 +21,15 @@ type PageMetadataOptions = {
   description: string;
   path: "/" | "/screenshots" | "/voice-annotation" | "/clipboard" | "/modules";
   absoluteTitle?: boolean;
+  image?: typeof socialImage;
 };
 
 export function createPageMetadata({
   title,
   description,
   path,
-  absoluteTitle = false
+  absoluteTitle = false,
+  image = socialImage
 }: PageMetadataOptions): Metadata {
   const url = `${SITE_URL}${path === "/" ? "" : path}`;
   const socialTitle = absoluteTitle ? title : `${title} | ${SITE_NAME}`;
@@ -36,13 +45,13 @@ export function createPageMetadata({
       siteName: SITE_NAME,
       locale: "en_US",
       type: "website",
-      images: [socialImage]
+      images: [image]
     },
     twitter: {
       card: "summary_large_image",
       title: socialTitle,
       description,
-      images: [socialImage]
+      images: [image]
     }
   };
 }

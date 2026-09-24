@@ -589,35 +589,6 @@ p {
   margin-top: 110px;
 }
 
-.module-screenshot-link {
-  display: block;
-  min-width: 0;
-}
-
-.module-screenshot-frame {
-  display: block;
-  border-radius: 18px;
-}
-
-.module-screenshot-frame img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.module-screenshot-caption {
-  display: block;
-  margin-top: 10px;
-  color: rgba(0, 0, 0, 0.56);
-  font-size: 12px;
-  text-align: right;
-}
-
-.module-screenshot-link:focus-visible {
-  outline: 2px solid #050505;
-  outline-offset: 4px;
-}
-
 .capture-showcase {
   gap: 112px;
   padding: 112px 24px;
@@ -705,6 +676,52 @@ p {
   background: #09090b;
   border-radius: 22px;
   box-shadow: 0 28px 80px rgba(9, 9, 11, 0.16);
+}
+
+.module-notch-preview {
+  display: block;
+  padding: 20px 10px 10px;
+  background: #f5f5f5;
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.module-notch-preview::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(33%, 160px);
+  height: 30px;
+  background: #050505;
+  border-radius: 0 0 11px 11px;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.module-notch-preview-island {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: #050505;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(9, 9, 11, 0.12);
+  transition: transform 180ms ease;
+}
+
+.module-notch-preview-island img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.module-notch-preview:hover .module-notch-preview-island,
+.module-notch-preview:focus-visible .module-notch-preview-island {
+  transform: translateY(4px);
+}
+
+.module-notch-preview:focus-visible {
+  outline: 2px solid #050505;
+  outline-offset: 4px;
 }
 
 .workflow-media-video {
@@ -996,6 +1013,16 @@ p {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+.modules-grid h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.modules-grid h3 a:focus-visible {
+  outline: 2px solid #050505;
+  outline-offset: 4px;
 }
 
 .modules-grid p {
@@ -1994,11 +2021,6 @@ p {
   .workflow-split .workflow-copy,
   .workflow-split .workflow-media {
     grid-column: 1;
-  }
-
-  .workflow-split .module-screenshot-link {
-    grid-column: 1;
-    grid-row: 2;
   }
 
   .workflow-split .workflow-copy {

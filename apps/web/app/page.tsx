@@ -16,7 +16,7 @@ import {
   SITE_URL
 } from "./productContent";
 import { CHECKOUT_HREF } from "./siteNavigation";
-import { createPageMetadata } from "./siteMetadata";
+import { createPageMetadata, MODULES_SOCIAL_IMAGE } from "./siteMetadata";
 
 const productHuntHref =
   "https://www.producthunt.com/products/assist-4?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-assist-4";
@@ -27,7 +27,8 @@ export const metadata: Metadata = createPageMetadata({
   title: HOME_TITLE,
   description: HOME_DESCRIPTION,
   path: "/",
-  absoluteTitle: true
+  absoluteTitle: true,
+  image: MODULES_SOCIAL_IMAGE
 });
 
 const structuredData = {
@@ -73,6 +74,16 @@ const structuredData = {
       name: "Assist",
       url: SITE_URL,
       publisher: { "@id": `${SITE_URL}/#organization` },
+      inLanguage: "en"
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${SITE_URL}/#webpage`,
+      url: `${SITE_URL}/`,
+      name: HOME_TITLE,
+      description: HOME_DESCRIPTION,
+      isPartOf: { "@id": `${SITE_URL}/#website` },
+      mainEntity: { "@id": `${SITE_URL}/#app` },
       inLanguage: "en"
     },
     {
@@ -177,14 +188,13 @@ export default function Home() {
                 ) : null}
               </div>
               <a
-                className="module-screenshot-link"
+                className="workflow-media module-notch-preview"
                 href={`/modules/${module.screenshot}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`Open ${module.name} screenshot at full size`}
-                title={`Open ${module.name} screenshot at full size`}
+                aria-label={`Open the ${module.name} notch preview at full size`}
               >
-                <span className="workflow-media module-screenshot-frame">
+                <span className="module-notch-preview-island">
                   <Image
                     src={`/modules/${module.screenshot}`}
                     alt={module.alt}
@@ -193,7 +203,6 @@ export default function Home() {
                     sizes="(max-width: 900px) 100vw, 570px"
                   />
                 </span>
-                <span className="module-screenshot-caption">View full-size screenshot ↗</span>
               </a>
             </article>
           ))}
