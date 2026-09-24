@@ -3,10 +3,14 @@ import SwiftUI
 private typealias Mono = AssistDesignTokens.Mono
 private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 
-/// The Calendar module: the next seven days of events, and open reminders
-/// that can be ticked off in place.
+/// The Calendar module: the next seven days of events, plus reminders that
+/// can be created and completed in place.
 struct CalendarModuleView: View {
     @ObservedObject var service: CalendarAgendaService
+    @ObservedObject var viewModel: PillViewModel
+    @State private var newReminderTitle = ""
+    @State private var isAddingReminder = false
+    @FocusState private var isReminderFocused: Bool
 
     private static let remindersWidth: CGFloat = 186
 
@@ -46,6 +50,17 @@ struct CalendarModuleView: View {
         .onAppear {
             service.refresh()
         }
+        .onChange(of: isReminderFocused) { _, focused in
+            viewModel.isEditingText = focused
+        }
+        .onChange(of: viewModel.isEditingText) { _, editing in
+            if !editing, isReminderFocused {
+                isReminderFocused = false
+            }
+        }
+        .onDisappear {
+            viewModel.isEditingText = false
+        }
     }
 
     @ViewBuilder
@@ -78,13 +93,53 @@ struct CalendarModuleView: View {
     @ViewBuilder
     private var reminders: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
-            Text("Reminders")
-                .font(Tokens.Typography.caption(.semibold))
-                .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
-                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: Tokens.Spacing.xxSmall) {
+                Text("Reminders")
+                    .font(Tokens.Typography.caption(.semibold))
+                    .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
+                    .accessibilityAddTraits(.isHeader)
+
+                Spacer(minLength: 0)
+
+                if service.reminderAccess == .granted {
+                    IslandIconButton(
+                        icon: isAddingReminder ? .close : .add,
+                        tooltip: isAddingReminder ? "Cancel new reminder" : "Add reminder",
+                        size: Tokens.Control.compactHeight
+                    ) {
+                        if isAddingReminder {
+                            cancelReminder()
+                        } else {
+                            isAddingReminder = true
+                        }
+                    }
+                }
+            }
+
+            if isAddingReminder {
+                HStack(spacing: Tokens.Spacing.xxSmall) {
+                    TextField("New reminder", text: $newReminderTitle)
+                        .font(Tokens.Typography.footnote(.medium))
+                        .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.primary))
+                        .textFieldStyle(.plain)
+                        .focused($isReminderFocused)
+                        .onSubmit(addReminder)
+                        .onExitCommand(perform: cancelReminder)
+                        .onAppear { isReminderFocused = true }
+
+                    IslandIconButton(
+                        icon: .check,
+                        tooltip: "Save reminder",
+                        isEnabled: !newReminderTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                        size: Tokens.Control.compactHeight
+                    ) {
+                        addReminder()
+                    }
+                }
+            }
 
             if service.reminderAccess != .granted {
-                compactAccessRequest("Allow Reminders access to tick them off here.")
+                compactAccessRequest("Allow Reminders access to add and complete them here.")
             } else if service.reminders.isEmpty {
                 Text("All done.")
                     .font(Tokens.Typography.footnote(.medium))
@@ -110,6 +165,17 @@ struct CalendarModuleView: View {
         }
         .padding(Tokens.Spacing.medium)
         .background(IslandTileBackground())
+    }
+
+    private func addReminder() {
+        guard service.createReminder(newReminderTitle) else { return }
+        cancelReminder()
+    }
+
+    private func cancelReminder() {
+        isReminderFocused = false
+        isAddingReminder = false
+        newReminderTitle = ""
     }
 
     private func accessRequest(title: String, message: String) -> some View {

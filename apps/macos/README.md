@@ -34,7 +34,7 @@ enabled. Revenue and AI Usage are off until you turn them on.
 | Shelf | Drop files on the notch, then drag them into any app. Only references are kept; files are never copied, moved, or deleted. Trashed or deleted files leave the shelf. |
 | Notes | A scratchpad saved to disk on every edit. While it has focus the island stays open until you click elsewhere. |
 | Timers | Pomodoro (25/5, a 15-minute break every fourth session), countdown presets, a stopwatch, and a hydration reminder. Each mode keeps its clock when you switch tabs or restart Assist; all started clocks appear on the collapsed notch. |
-| Calendar | The next seven days of events and open reminders through EventKit. Clicking a reminder marks it done. |
+| Calendar | The next seven days of events and open reminders through EventKit. Add a reminder to the default Reminders list or click an existing one to complete it. |
 | Media | Now playing from Music or Spotify through their public playback notifications, with previous, play/pause, and next sent as system media keys. |
 | System | CPU, memory, disk, network (Wi-Fi/Ethernet), and battery charge, health, and cycles. Samples every two seconds, only while visible. |
 | Screen Time | Time per frontmost app today. Counting pauses while the display or Mac sleeps, the session is switched away, or there is no input for five minutes. Seven days are kept. |

@@ -19,7 +19,7 @@ const groups = [
       { name: "Shelf", detail: "Drop files on the notch and drag them into another app. Assist keeps references, not copies." },
       { name: "Notes", detail: "Keep a scratchpad one hover away. Your notes are saved locally as you type." },
       { name: "Timers", detail: "Run Pomodoro sessions, countdowns, a stopwatch, or hydration reminders. Active clocks stay visible on the collapsed notch." },
-      { name: "Calendar", detail: "See the next seven days of events and reminders, and complete reminders in place with calendar access." }
+      { name: "Calendar", detail: "See the next seven days of events and add or complete reminders in place with calendar access." }
     ]
   },
   {

@@ -42,7 +42,7 @@ export const MODULE_WALKTHROUGH = [
     name: "Calendar",
     heading: "Calendar and reminders",
     description:
-      "See seven days of events and complete reminders from the notch after granting macOS access.",
+      "See seven days of events, add reminders, and complete them from the notch after granting macOS access.",
     screenshot: "calendar.png",
     alt: "Assist Calendar module prompting for permission before showing events and reminders"
   },

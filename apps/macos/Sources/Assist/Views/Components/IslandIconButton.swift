@@ -7,7 +7,6 @@ struct IslandIconButton: View {
     let tooltip: String
     var isEnabled = true
     var size: CGFloat = AssistDesignTokens.Control.iconButton
-    var tooltipAlignment: Alignment = .bottom
     let action: () -> Void
 
     @State private var isHovered = false
@@ -38,7 +37,7 @@ struct IslandIconButton: View {
         .disabled(!isEnabled)
         .accessibilityLabel(tooltip)
         .pointingHandCursor(isEnabled: isEnabled)
-        .overlay(alignment: tooltipAlignment) {
+        .overlay(alignment: .bottomTrailing) {
             if isHovered && isEnabled {
                 IslandHoverTooltip(title: tooltip)
                     .offset(y: 28)

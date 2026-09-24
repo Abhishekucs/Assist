@@ -21,13 +21,19 @@ final class CalendarAgendaService: ObservableObject {
     @Published private(set) var reminders: [AgendaReminder] = []
     @Published private(set) var errorMessage: String?
 
-    private let store = EKEventStore()
+    private let store: EKEventStore
+    private let accessProvider: (EKEntityType) -> Access
     private var changeCancellable: AnyCancellable?
     private var reminderFetchID = UUID()
 
-    init() {
-        eventAccess = Self.access(for: .event)
-        reminderAccess = Self.access(for: .reminder)
+    init(
+        store: EKEventStore = EKEventStore(),
+        accessProvider: @escaping (EKEntityType) -> Access = { CalendarAgendaService.access(for: $0) }
+    ) {
+        self.store = store
+        self.accessProvider = accessProvider
+        eventAccess = accessProvider(.event)
+        reminderAccess = accessProvider(.reminder)
         changeCancellable = NotificationCenter.default
             .publisher(for: .EKEventStoreChanged, object: store)
             .receive(on: RunLoop.main)
@@ -67,8 +73,8 @@ final class CalendarAgendaService: ObservableObject {
     }
 
     func refresh() {
-        eventAccess = Self.access(for: .event)
-        reminderAccess = Self.access(for: .reminder)
+        eventAccess = accessProvider(.event)
+        reminderAccess = accessProvider(.reminder)
 
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
@@ -139,6 +145,36 @@ final class CalendarAgendaService: ObservableObject {
         }
     }
 
+    @discardableResult
+    func createReminder(_ title: String) -> Bool {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return false }
+        guard reminderAccess == .granted else {
+            errorMessage = "Allow Reminders access before adding one."
+            return false
+        }
+        guard let calendar = store.defaultCalendarForNewReminders() else {
+            errorMessage = "Choose a default list in Reminders first."
+            return false
+        }
+
+        let reminder = EKReminder(eventStore: store)
+        reminder.title = title
+        reminder.calendar = calendar
+        do {
+            try store.save(reminder, commit: true)
+            errorMessage = nil
+            refresh()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            DebugLogger.log("modules.calendar.reminder.create.error", [
+                "description": error.localizedDescription
+            ])
+            return false
+        }
+    }
+
     func openCalendarApp() {
         openApp(bundleIdentifier: "com.apple.iCal")
     }
@@ -148,8 +184,8 @@ final class CalendarAgendaService: ObservableObject {
     }
 
     private func accessChanged() {
-        eventAccess = Self.access(for: .event)
-        reminderAccess = Self.access(for: .reminder)
+        eventAccess = accessProvider(.event)
+        reminderAccess = accessProvider(.reminder)
         refresh()
     }
 

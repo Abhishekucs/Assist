@@ -46,7 +46,7 @@ enum AssistModule: String, CaseIterable, Identifiable, Codable, Sendable {
         case .timers:
             "Pomodoro focus sessions, countdowns, a stopwatch, and hydration reminders."
         case .calendar:
-            "A seven-day agenda and reminders you can tick off in place."
+            "A seven-day agenda and reminders you can add or complete in place."
         case .media:
             "Now playing from Music or Spotify, with play, pause, and skip."
         case .stats:

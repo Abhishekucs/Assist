@@ -29,8 +29,7 @@ struct ModuleIslandView: View {
                     IslandIconButton(
                         icon: .grid,
                         tooltip: "Open Assist",
-                        size: ModuleTabLayout.tabWidth,
-                        tooltipAlignment: .bottomTrailing
+                        size: ModuleTabLayout.tabWidth
                     ) {
                         viewModel.openControls()
                     }
@@ -91,7 +90,7 @@ struct ModuleContentView: View {
         case .timers:
             TimersModuleView(timers: modules.timers)
         case .calendar:
-            CalendarModuleView(service: modules.calendar)
+            CalendarModuleView(service: modules.calendar, viewModel: viewModel)
         case .media:
             MediaModuleView(service: modules.media)
         case .stats:
