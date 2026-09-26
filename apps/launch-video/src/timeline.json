@@ -1,0 +1,21 @@
+{
+  "bpm": 120,
+  "duration": 66,
+  "scenes": {
+    "hook": { "start": 0, "end": 6 },
+    "brand": { "start": 6, "end": 12 },
+    "context": { "start": 12, "end": 20, "lead": 0.6 },
+    "modules": { "start": 20, "end": 36 },
+    "capture": { "start": 36, "end": 44, "lead": 0.5 },
+    "voice": { "start": 44, "end": 50 },
+    "benefits": { "start": 50, "end": 56, "lead": 0.5 },
+    "trusted": { "start": 56, "end": 59 },
+    "outro": { "start": 59, "end": 66 }
+  },
+  "typing": [
+    { "start": 0.45, "text": "Your Mac has a notch.", "cps": 15 },
+    { "start": 2.55, "text": "Let's put it to work.", "cps": 15 }
+  ],
+  "moduleCarousel": { "start": 22, "step": 1 },
+  "keyPresses": [36.5, 37.0]
+}

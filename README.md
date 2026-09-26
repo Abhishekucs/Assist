@@ -1,12 +1,14 @@
 # Assist Monorepo
 
-This repository contains the Assist product split into two apps.
+This repository contains the Assist product split into two apps, plus the
+launch video.
 
 ## Apps
 
 ```text
-apps/web/     Next.js marketing, pricing, payment, and protected download site
-apps/macos/   Native macOS Assist app built with Swift Package Manager
+apps/web/            Next.js marketing, pricing, payment, and protected download site
+apps/macos/          Native macOS Assist app built with Swift Package Manager
+apps/launch-video/   Remotion source for the Assist launch video (not deployed)
 ```
 
 Vercel deploys only `apps/web/`. The Swift app source in `apps/macos/` is not
