@@ -39,7 +39,7 @@ enabled. Revenue and AI Usage are off until you turn them on.
 | System | CPU, memory, disk, network (Wi-Fi/Ethernet), and battery charge, health, and cycles. Samples every two seconds, only while visible. |
 | Screen Time | Time per frontmost app today. Counting pauses while the display or Mac sleeps, the session is switched away, or there is no input for five minutes. Seven days are kept. |
 | Convert | Drop images to convert to JPEG, PNG, HEIC, or PDF, optionally shrinking the longest side. JPEG and HEIC also accept a maximum output size in KB; if compression cannot meet it without shrinking below 128 px, no output is written. Results are written beside the originals and never replace a file. |
-| Revenue | Today, 7-day, and 30-day sales plus a 30-day daily line chart from Stripe (charges), Polar (orders, net of tax and refunds), and Dodo Payments (payments). Sales from every connected provider and payment currency are combined in the selected display currency using daily ECB reference rates. Refreshes on opening and every minute while visible. Defaults to USD and remembers the selected currency. |
+| Revenue | Today, 7-day, and 30-day sales plus a 30-day daily line chart from Stripe (charges), Polar (orders, net of tax and refunds), and Dodo Payments (payments). Sales from every connected provider and payment currency are combined in the selected display currency using daily Frankfurter exchange rates. Refreshes on opening and every minute while visible. Defaults to USD and remembers the selected currency. |
 | AI Usage | Switch between Claude Code and Codex to see a monochrome daily token activity grid (up to 52 weeks, adapted to available width). No account quota or reset information is shown. Refreshes every 30 seconds, only while visible. |
 
 Drop files on the notch to open the island on the module that takes them:
@@ -60,7 +60,7 @@ is sent only to its own provider over HTTPS: `api.stripe.com/v1/charges`,
 narrowest key each provider offers: a Stripe restricted key with Charges read
 access, a Polar organization token with `orders:read`, or a Dodo live-mode key.
 Up to 2,000 sales per provider are read for the 30-day window.
-For cross-currency sales, Assist requests historical ECB reference rates through
+For cross-currency sales, Assist requests historical exchange rates from
 [Frankfurter](https://frankfurter.dev/) using only currency codes and dates. The
 converted totals are estimates, not provider settlement amounts. If required
 rates are unavailable, Assist shows an error instead of an incomplete total.

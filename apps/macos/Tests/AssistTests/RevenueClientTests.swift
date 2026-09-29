@@ -20,6 +20,21 @@ final class RevenueClientTests: XCTestCase {
 }
 
 final class RevenueServiceRefreshTests: XCTestCase {
+    func testUGXUsesFrankfurterRateOutsideTheECBFeed() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MixedCurrencyRevenueProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+
+        let now = Date()
+        let rates = try await RevenueExchangeRateClient(session: session).rates(
+            for: ["USD", "UGX"], since: now.addingTimeInterval(-86_400), through: now
+        )
+        let sale = RevenueTransaction(provider: .stripe, id: "ugx", amountMinor: 400,
+                                      currency: "UGX", createdAt: now)
+        XCTAssertEqual(try rates.convert(sale, to: "USD").amountMinor, 10)
+    }
+
     @MainActor
     func testDodoSaleInEURAppearsInCombinedUSDTotals() throws {
         let suite = "Assist.RevenueConversionTests.\(UUID().uuidString)"
@@ -114,10 +129,12 @@ private final class MixedCurrencyRevenueProtocol: URLProtocol, @unchecked Sendab
             XCTAssertEqual(request.url?.path, "/v2/rates")
             XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
             let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-            XCTAssertEqual(query.first { $0.name == "providers" }?.value, "ecb")
-            XCTAssertEqual(query.first { $0.name == "quotes" }?.value, "EUR")
+            XCTAssertNil(query.first { $0.name == "providers" })
+            let quote = query.first { $0.name == "quotes" }?.value
+            XCTAssertTrue(quote == "EUR" || quote == "UGX")
             let yesterday = String(ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86_400)).prefix(10))
-            json = "[{\"date\":\"\(yesterday)\",\"base\":\"USD\",\"quote\":\"EUR\",\"rate\":0.9}]"
+            let rate = quote == "UGX" ? "4000" : "0.9"
+            json = "[{\"date\":\"\(yesterday)\",\"base\":\"USD\",\"quote\":\"\(quote ?? "")\",\"rate\":\(rate)}]"
         default:
             XCTFail("Unexpected revenue request: \(request.url?.host ?? "unknown")")
             return

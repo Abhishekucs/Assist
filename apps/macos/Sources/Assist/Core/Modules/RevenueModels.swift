@@ -145,7 +145,7 @@ struct RevenueDailyAmount: Equatable, Sendable {
 }
 
 enum MoneyFormatting {
-    /// Decimal places of a currency's minor unit, as payment APIs count amounts.
+    /// Decimal places of Assist's normalized transaction amounts.
     static func minorUnitDigits(for currency: String) -> Int {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -196,11 +196,15 @@ enum RevenueParsing {
             guard charge.paid, charge.status == "succeeded" else { return nil }
             let amount = charge.amountCaptured - charge.amountRefunded
             guard amount > 0 else { return nil }
+            let currency = charge.currency.uppercased()
+            // Stripe retains two decimal places for ISK and UGX charges even
+            // though both currencies have zero-decimal minor units.
+            let normalizedAmount = (currency == "ISK" || currency == "UGX") ? amount / 100 : amount
             return RevenueTransaction(
                 provider: .stripe,
                 id: charge.id,
-                amountMinor: amount,
-                currency: charge.currency.uppercased(),
+                amountMinor: normalizedAmount,
+                currency: currency,
                 createdAt: Date(timeIntervalSince1970: TimeInterval(charge.created))
             )
         }

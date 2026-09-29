@@ -51,6 +51,29 @@ final class RevenueParsingTests: XCTestCase {
         XCTAssertEqual(transactions.map(\.amountMinor), [6000, 4500])
     }
 
+    func testStripeNormalizesISKAndUGXChargeAmountsBeforeConversion() throws {
+        let json = """
+        {"has_more":false,"data":[
+          {"id":"isk","amount_captured":700,"amount_refunded":200,"currency":"isk","created":1790157600,"paid":true,"status":"succeeded"},
+          {"id":"ugx","amount_captured":50000,"amount_refunded":10000,"currency":"ugx","created":1790157600,"paid":true,"status":"succeeded"},
+          {"id":"jpy","amount_captured":500,"amount_refunded":0,"currency":"jpy","created":1790157600,"paid":true,"status":"succeeded"}
+        ]}
+        """
+        let page = try RevenueParsing.decoder().decode(RevenueParsing.StripeChargesPage.self, from: Data(json.utf8))
+        let transactions = RevenueParsing.transactions(from: page)
+        XCTAssertEqual(transactions.map(\.amountMinor), [5, 400, 500])
+        XCTAssertEqual(transactions.map(\.currency), ["ISK", "UGX", "JPY"])
+
+        let date = try XCTUnwrap(transactions.first.map { RevenueExchangeRates.utcDay($0.createdAt) })
+        let rates = try RevenueExchangeRates(quotes: [
+            .init(date: date, base: "USD", quote: "ISK", rate: 100),
+            .init(date: date, base: "USD", quote: "UGX", rate: 4000),
+            .init(date: date, base: "USD", quote: "JPY", rate: 100)
+        ])
+        let converted = try transactions.map { try rates.convert($0, to: "USD") }
+        XCTAssertEqual(converted.map(\.amountMinor), [5, 10, 500])
+    }
+
     func testPolarCountsPaidOrdersNetOfRefundsBeforeTax() throws {
         let json = """
         {"items":[

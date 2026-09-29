@@ -85,7 +85,7 @@ struct RevenueModuleView: View {
                 Text("Daily revenue\(isEstimated ? " · est. FX" : "")")
                     .font(Tokens.Typography.caption(.semibold))
                     .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
-                    .help("All connected providers and payment currencies are combined using daily ECB reference exchange rates.")
+                    .help("All connected providers and payment currencies are combined using daily exchange rates from Frankfurter.")
                 Spacer(minLength: 0)
                 if availableCurrencies.count > 1 {
                     Menu {

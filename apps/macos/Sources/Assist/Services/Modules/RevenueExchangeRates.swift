@@ -8,7 +8,7 @@ enum RevenueExchangeError: LocalizedError {
     }
 }
 
-/// Daily ECB reference rates, quoted as units of each currency per one USD.
+/// Daily Frankfurter rates, quoted as units of each currency per one USD.
 /// A sale uses the latest published rate on or before its UTC payment date.
 struct RevenueExchangeRates: Sendable {
     struct Quote: Decodable, Sendable {
@@ -81,8 +81,7 @@ struct RevenueExchangeRateClient: Sendable {
             URLQueryItem(name: "from", value: RevenueExchangeRates.utcDay(start)),
             URLQueryItem(name: "to", value: RevenueExchangeRates.utcDay(through)),
             URLQueryItem(name: "base", value: "USD"),
-            URLQueryItem(name: "quotes", value: quotes.sorted().joined(separator: ",")),
-            URLQueryItem(name: "providers", value: "ecb")
+            URLQueryItem(name: "quotes", value: quotes.sorted().joined(separator: ","))
         ]
         guard let url = components.url else { throw RevenueExchangeError.unavailable }
         var request = URLRequest(url: url)
