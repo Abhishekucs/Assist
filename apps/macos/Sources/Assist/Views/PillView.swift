@@ -592,6 +592,8 @@ private struct IslandHistoryEmptyState: View {
             "Copied text will appear here"
         case .images:
             "Captured screenshots will appear here"
+        case .links:
+            "Copied links will appear here"
         }
     }
 

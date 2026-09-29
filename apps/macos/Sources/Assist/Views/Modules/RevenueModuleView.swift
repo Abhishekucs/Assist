@@ -7,7 +7,6 @@ private typealias ModuleTokens = AssistDesignTokens.ModuleIsland
 struct RevenueModuleView: View {
     @ObservedObject var service: RevenueService
     @ObservedObject var viewModel: PillViewModel
-    @State private var preferredCurrency: String?
     @State private var showsProviders = false
 
     var body: some View {
@@ -75,51 +74,46 @@ struct RevenueModuleView: View {
     }
 
     private var availableCurrencies: [String] {
-        (service.summary?.totals[.month]?.amounts.keys ?? Dictionary<String, Int64>().keys).sorted()
+        service.saleCurrencies.union([RevenueService.defaultCurrency, service.selectedCurrency]).sorted()
     }
 
-    private var selectedCurrency: String? {
-        if let preferredCurrency, availableCurrencies.contains(preferredCurrency) {
-            return preferredCurrency
-        }
-        if let local = Locale.current.currency?.identifier, availableCurrencies.contains(local) {
-            return local
-        }
-        return availableCurrencies.first
-    }
+    private var selectedCurrency: String { service.selectedCurrency }
 
     private var trendColumn: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
             HStack(spacing: Tokens.Spacing.xxSmall) {
-                Text("Daily revenue")
+                Text("Daily revenue\(service.summary?.totals[.month]?.containsConvertedSale == true ? " · est. FX" : "")")
                     .font(Tokens.Typography.caption(.semibold))
                     .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
+                    .help("All connected providers and payment currencies are combined using daily exchange rates from Frankfurter.")
                 Spacer(minLength: 0)
-                if let selectedCurrency {
-                    if availableCurrencies.count > 1 {
-                        Menu {
-                            ForEach(availableCurrencies, id: \.self) { currency in
-                                Button(currency) { preferredCurrency = currency }
-                            }
-                        } label: {
-                            Text(selectedCurrency)
-                                .font(Tokens.Typography.caption(.semibold))
+                if availableCurrencies.count > 1 {
+                    Menu {
+                        ForEach(availableCurrencies, id: \.self) { currency in
+                            Button(currency) { service.selectCurrency(currency) }
                         }
-                        .menuStyle(.borderlessButton)
-                        .fixedSize()
-                        .accessibilityLabel("Revenue currency, \(selectedCurrency)")
-                    } else {
+                    } label: {
                         Text(selectedCurrency)
                             .font(Tokens.Typography.caption(.semibold))
                     }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    .accessibilityLabel("Revenue currency, \(selectedCurrency)")
+                } else {
+                    Text(selectedCurrency)
+                        .font(Tokens.Typography.caption(.semibold))
                 }
             }
 
-            if service.summary == nil {
+            if let conversionError = service.conversionError {
+                chartMessage(conversionError)
+            } else if service.summary == nil {
                 chartMessage("Loading revenue…")
             } else if service.errors.count == service.connectedProviders.count {
                 chartMessage("Revenue unavailable")
-            } else if let currency = selectedCurrency, let summary = service.summary {
+            } else if let summary = service.summary,
+                      summary.totals[.month]?.amounts[selectedCurrency] != nil {
+                let currency = selectedCurrency
                 let points = summary.dailyAmounts(for: currency, now: service.lastUpdated ?? Date(), calendar: .current)
                 let divisor = pow(10.0, Double(MoneyFormatting.minorUnitDigits(for: currency)))
                 let values = points.map { Double($0.amountMinor) / divisor }
@@ -148,7 +142,9 @@ struct RevenueModuleView: View {
                 .font(Tokens.Typography.caption())
                 .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.muted))
             } else {
-                chartMessage(service.errors.isEmpty ? "No sales in the last 30 days" : "No sales from available providers")
+                chartMessage(service.errors.isEmpty
+                    ? "No sales in the last 30 days"
+                    : "No sales from available providers")
             }
 
             if !service.errors.isEmpty, service.errors.count < service.connectedProviders.count {
@@ -247,9 +243,11 @@ struct RevenueModuleView: View {
     }
 
     private func amountText(_ totals: RevenueTotals?) -> String {
+        if service.conversionError != nil { return "Unavailable" }
         if service.summary == nil { return "Loading…" }
         if service.errors.count == service.connectedProviders.count { return "Unavailable" }
-        guard let selectedCurrency else { return "No sales" }
-        return MoneyFormatting.format(minor: totals?.amounts[selectedCurrency] ?? 0, currency: selectedCurrency)
+        let amount = totals?.amounts[selectedCurrency] ?? 0
+        let value = MoneyFormatting.format(minor: amount, currency: selectedCurrency)
+        return totals?.containsConvertedSale == true && amount != 0 ? "≈\(value)" : value
     }
 }

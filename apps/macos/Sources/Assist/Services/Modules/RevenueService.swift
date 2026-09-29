@@ -19,27 +19,58 @@ enum RevenueError: LocalizedError, Equatable {
 /// happens only while the Revenue module is on screen.
 @MainActor
 final class RevenueService: ObservableObject, VisibleModuleService {
-    static let refreshInterval: TimeInterval = 5 * 60
+    static let refreshInterval: TimeInterval = 60
+    static let defaultCurrency = "USD"
+    private static let currencyKey = "modules.revenue.currency"
 
     @Published private(set) var connectedProviders: [RevenueProvider] = []
     @Published private(set) var summary: RevenueSummary?
     @Published private(set) var errors: [RevenueProvider: String] = [:]
     @Published private(set) var isRefreshing = false
     @Published private(set) var lastUpdated: Date?
+    @Published private(set) var selectedCurrency: String
+    @Published private(set) var saleCurrencies: Set<String> = []
+    @Published private(set) var conversionError: String?
 
     private let keys: KeychainSecretStore
     private let client: RevenueClient
+    private let exchangeRateClient: RevenueExchangeRateClient
+    private let defaults: UserDefaults
+    private var sourceTransactions: [RevenueTransaction] = []
+    private var exchangeRates: RevenueExchangeRates?
     private var refreshTask: Task<Void, Never>?
     private var timer: Timer?
     private var viewerCount = 0
 
     init(
         keys: KeychainSecretStore = KeychainSecretStore(service: "\(AppIdentity.bundleIdentifier).revenue"),
-        client: RevenueClient = RevenueClient()
+        client: RevenueClient = RevenueClient(),
+        exchangeRateClient: RevenueExchangeRateClient = RevenueExchangeRateClient(),
+        defaults: UserDefaults = .standard
     ) {
         self.keys = keys
         self.client = client
+        self.exchangeRateClient = exchangeRateClient
+        self.defaults = defaults
+        selectedCurrency = defaults.string(forKey: Self.currencyKey) ?? Self.defaultCurrency
         connectedProviders = RevenueProvider.allCases.filter { keys.hasSecret(for: $0.rawValue) }
+    }
+
+    func selectCurrency(_ currency: String) {
+        guard selectedCurrency != currency else { return }
+        selectedCurrency = currency
+        defaults.set(currency, forKey: Self.currencyKey)
+        guard exchangeRates != nil else {
+            if !connectedProviders.isEmpty, refreshTask == nil { refresh(force: true) }
+            return
+        }
+        do {
+            try updateSummary(now: lastUpdated ?? Date())
+        } catch {
+            summary = nil
+            conversionError = error.localizedDescription
+            refresh(force: true)
+        }
     }
 
     func isConnected(_ provider: RevenueProvider) -> Bool {
@@ -60,6 +91,10 @@ final class RevenueService: ObservableObject, VisibleModuleService {
         keys.removeSecret(for: provider.rawValue)
         connectedProviders.removeAll { $0 == provider }
         errors[provider] = nil
+        sourceTransactions = []
+        exchangeRates = nil
+        saleCurrencies = []
+        conversionError = nil
         summary = nil
         DebugLogger.log("modules.revenue.key.removed", ["provider": provider.rawValue])
         restartRefresh()
@@ -69,7 +104,7 @@ final class RevenueService: ObservableObject, VisibleModuleService {
     func start() {
         viewerCount += 1
         guard timer == nil else { return }
-        refresh(force: false)
+        refresh(force: true)
         let timer = Timer(timeInterval: Self.refreshInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.refresh(force: true)
@@ -114,7 +149,9 @@ final class RevenueService: ObservableObject, VisibleModuleService {
         let now = Date()
         let since = RevenueSummary.fetchWindow.start(now: now, calendar: .current)
         let client = client
+        let exchangeRateClient = exchangeRateClient
         isRefreshing = true
+        conversionError = nil
 
         refreshTask = Task {
             var transactions: [RevenueTransaction] = []
@@ -125,7 +162,9 @@ final class RevenueService: ObservableObject, VisibleModuleService {
                     transactions += try await client.transactions(from: provider, key: key, since: since)
                 } catch {
                     guard !Task.isCancelled else { return }
-                    failures[provider] = error.localizedDescription
+                    failures[provider] = error as? RevenueError == .rejectedKey
+                        ? provider.rejectedKeyMessage
+                        : error.localizedDescription
                     DebugLogger.log("modules.revenue.fetch.error", [
                         "provider": provider.rawValue,
                         "description": error.localizedDescription
@@ -135,12 +174,54 @@ final class RevenueService: ObservableObject, VisibleModuleService {
 
             guard !Task.isCancelled else { return }
             let completedAt = Date()
-            self.summary = RevenueSummary.make(from: transactions, now: completedAt, calendar: .current)
+            let currencies = Set(transactions.map(\.currency))
+            do {
+                var rateCurrency = self.selectedCurrency
+                var requiredRates = currencies.allSatisfy { $0 == rateCurrency }
+                    ? Set<String>()
+                    : currencies.union([rateCurrency])
+                var rates = try await exchangeRateClient.rates(
+                    for: requiredRates,
+                    since: since,
+                    through: completedAt
+                )
+                while !Task.isCancelled && self.selectedCurrency != rateCurrency {
+                    rateCurrency = self.selectedCurrency
+                    requiredRates = currencies.allSatisfy { $0 == rateCurrency }
+                        ? Set<String>()
+                        : currencies.union([rateCurrency])
+                    rates = try await exchangeRateClient.rates(
+                        for: requiredRates,
+                        since: since,
+                        through: completedAt
+                    )
+                }
+                guard !Task.isCancelled else { return }
+                self.sourceTransactions = transactions
+                self.exchangeRates = rates
+                self.saleCurrencies = currencies
+                try self.updateSummary(now: completedAt)
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.sourceTransactions = []
+                self.exchangeRates = nil
+                self.saleCurrencies = []
+                self.summary = nil
+                self.conversionError = RevenueExchangeError.unavailable.localizedDescription
+                DebugLogger.log("modules.revenue.exchange.error", ["description": error.localizedDescription])
+            }
             self.errors = failures
             self.lastUpdated = completedAt
             self.isRefreshing = false
             self.refreshTask = nil
         }
+    }
+
+    private func updateSummary(now: Date) throws {
+        guard let exchangeRates else { throw RevenueExchangeError.unavailable }
+        let converted = try sourceTransactions.map { try exchangeRates.convert($0, to: selectedCurrency) }
+        summary = RevenueSummary.make(from: converted, now: now, calendar: .current)
+        conversionError = nil
     }
 }
 

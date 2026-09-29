@@ -31,6 +31,14 @@ enum RevenueProvider: String, CaseIterable, Identifiable, Codable, Sendable {
         case .dodo: "Dodo API key"
         }
     }
+
+    var rejectedKeyMessage: String {
+        switch self {
+        case .stripe: "Stripe rejected this key. Check its Charges read access."
+        case .polar: "Polar rejected this token. Check its orders:read scope."
+        case .dodo: "Dodo's live API rejected this key. Use a valid live-mode key."
+        }
+    }
 }
 
 /// One successful sale, in the currency's smallest unit (cents for USD, yen for JPY).
@@ -41,16 +49,19 @@ struct RevenueTransaction: Equatable, Sendable {
     /// Upper-case ISO 4217 code.
     let currency: String
     let createdAt: Date
+    var wasConverted = false
 }
 
 /// Sales added up per currency, since providers never convert between them.
 struct RevenueTotals: Equatable, Sendable {
     private(set) var amounts: [String: Int64] = [:]
     private(set) var count = 0
+    private(set) var containsConvertedSale = false
 
     mutating func add(_ transaction: RevenueTransaction) {
         amounts[transaction.currency, default: 0] += transaction.amountMinor
         count += 1
+        containsConvertedSale = containsConvertedSale || transaction.wasConverted
     }
 
     /// Currencies with the largest total first.
@@ -137,7 +148,7 @@ struct RevenueDailyAmount: Equatable, Sendable {
 }
 
 enum MoneyFormatting {
-    /// Decimal places of a currency's minor unit, as payment APIs count amounts.
+    /// Decimal places of Assist's normalized transaction amounts.
     static func minorUnitDigits(for currency: String) -> Int {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -188,11 +199,15 @@ enum RevenueParsing {
             guard charge.paid, charge.status == "succeeded" else { return nil }
             let amount = charge.amountCaptured - charge.amountRefunded
             guard amount > 0 else { return nil }
+            let currency = charge.currency.uppercased()
+            // Stripe retains two decimal places for ISK and UGX charges even
+            // though both currencies have zero-decimal minor units.
+            let normalizedAmount = (currency == "ISK" || currency == "UGX") ? amount / 100 : amount
             return RevenueTransaction(
                 provider: .stripe,
                 id: charge.id,
-                amountMinor: amount,
-                currency: charge.currency.uppercased(),
+                amountMinor: normalizedAmount,
+                currency: currency,
                 createdAt: Date(timeIntervalSince1970: TimeInterval(charge.created))
             )
         }

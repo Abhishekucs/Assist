@@ -125,25 +125,33 @@ private struct ModuleToggleRow: View {
     }
 }
 
-/// Adds or removes one provider's API key. A saved key is never shown again;
+/// Adds or replaces one provider's API key. A saved key is never shown again;
 /// it lives only in the Keychain.
 private struct RevenueKeyRow: View {
     let provider: RevenueProvider
     @ObservedObject var revenue: RevenueService
     @State private var key = ""
     @State private var errorMessage: String?
+    @State private var isReplacing = false
     @Environment(\.assistTheme) private var theme
 
     var body: some View {
-        SettingsRow(provider.title, detail: errorMessage ?? provider.keyHint) {
-            if revenue.isConnected(provider) {
+        SettingsRow(provider.title, detail: errorMessage ?? revenue.errors[provider] ?? provider.keyHint) {
+            if revenue.isConnected(provider), !isReplacing {
                 HStack(spacing: Tokens.Spacing.medium) {
                     HStack(spacing: Tokens.Spacing.xxSmall) {
-                        HugeIcon(.check, size: Tokens.Icon.small, color: theme.foreground)
-                        Text("Connected")
+                        if revenue.errors[provider] == nil {
+                            HugeIcon(.check, size: Tokens.Icon.small, color: theme.foreground)
+                        }
+                        Text(revenue.errors[provider] == nil ? "Key saved" : "Needs attention")
                             .font(Tokens.Typography.small(.medium))
                             .foregroundStyle(theme.foreground)
                     }
+                    Button("Replace") {
+                        isReplacing = true
+                    }
+                    .buttonStyle(AssistButtonStyle(height: Tokens.Control.mediumHeight))
+                    .help("Replace the saved \(provider.title) key")
                     Button("Remove") {
                         revenue.removeKey(for: provider)
                     }
@@ -160,6 +168,14 @@ private struct RevenueKeyRow: View {
                     Button("Save", action: save)
                         .buttonStyle(AssistButtonStyle(emphasis: .primary, height: Tokens.Control.mediumHeight))
                         .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if isReplacing {
+                        Button("Cancel") {
+                            key = ""
+                            errorMessage = nil
+                            isReplacing = false
+                        }
+                        .buttonStyle(AssistButtonStyle(height: Tokens.Control.mediumHeight))
+                    }
                 }
             }
         }
@@ -170,6 +186,7 @@ private struct RevenueKeyRow: View {
             try revenue.saveKey(key, for: provider)
             key = ""
             errorMessage = nil
+            isReplacing = false
         } catch {
             errorMessage = error.localizedDescription
         }
