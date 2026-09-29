@@ -4,8 +4,8 @@ import XCTest
 
 final class ClipboardHistoryFilterTests: XCTestCase {
     func testFiltersStayInTheRequestedDisplayOrder() {
-        XCTAssertEqual(ClipboardHistoryFilter.allCases, [.all, .text, .images])
-        XCTAssertEqual(ClipboardHistoryFilter.allCases.map(\.title), ["All", "Text", "Images"])
+        XCTAssertEqual(ClipboardHistoryFilter.allCases, [.all, .text, .images, .links])
+        XCTAssertEqual(ClipboardHistoryFilter.allCases.map(\.title), ["All", "Text", "Images", "Links"])
     }
 
     func testFiltersIncludeOnlyTheirMatchingHistoryType() {
@@ -21,13 +21,21 @@ final class ClipboardHistoryFilterTests: XCTestCase {
         let text = ClipboardHistoryItem.text(
             TextClipItem(id: UUID(), createdAt: Date(), text: "Copied text")
         )
+        let link = ClipboardHistoryItem.text(
+            TextClipItem(id: UUID(), createdAt: Date(), text: "https://example.com")
+        )
 
         XCTAssertTrue(ClipboardHistoryFilter.all.includes(screenshot))
         XCTAssertTrue(ClipboardHistoryFilter.all.includes(text))
+        XCTAssertTrue(ClipboardHistoryFilter.all.includes(link))
         XCTAssertTrue(ClipboardHistoryFilter.images.includes(screenshot))
         XCTAssertFalse(ClipboardHistoryFilter.images.includes(text))
         XCTAssertTrue(ClipboardHistoryFilter.text.includes(text))
         XCTAssertFalse(ClipboardHistoryFilter.text.includes(screenshot))
+        XCTAssertFalse(ClipboardHistoryFilter.text.includes(link))
+        XCTAssertTrue(ClipboardHistoryFilter.links.includes(link))
+        XCTAssertFalse(ClipboardHistoryFilter.links.includes(text))
+        XCTAssertFalse(ClipboardHistoryFilter.links.includes(screenshot))
     }
 
     func testLibraryFiltersSeparateLinksFromTextWithoutChangingTheOriginalClip() {
@@ -267,17 +275,21 @@ final class PillViewModelHistoryTests: XCTestCase {
         XCTAssertEqual(viewModel.historyItems.map(\.id), [screenshot.id, older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .images).map(\.id), [screenshot.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .links), [])
         XCTAssertEqual(viewModel.historyItems(matching: .all), viewModel.historyItems)
 
+        let link = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 25), text: "https://example.com")
+        viewModel.insertTextItem(link)
         let newer = TextClipItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 30), text: "newer")
         viewModel.insertTextItem(newer)
 
-        XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, screenshot.id, older.id])
+        XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, link.id, screenshot.id, older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .text).map(\.id), [newer.id, older.id])
+        XCTAssertEqual(viewModel.historyItems(matching: .links).map(\.id), [link.id])
 
         viewModel.remove(.screenshot(screenshot))
 
-        XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, older.id])
+        XCTAssertEqual(viewModel.historyItems.map(\.id), [newer.id, link.id, older.id])
         XCTAssertEqual(viewModel.historyItems(matching: .images), [])
     }
 

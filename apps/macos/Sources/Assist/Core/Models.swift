@@ -156,6 +156,7 @@ enum ClipboardHistoryFilter: String, CaseIterable, Identifiable {
     case all
     case text
     case images
+    case links
 
     var id: String { rawValue }
 
@@ -167,13 +168,19 @@ enum ClipboardHistoryFilter: String, CaseIterable, Identifiable {
             "Text"
         case .images:
             "Images"
+        case .links:
+            "Links"
         }
     }
 
     func includes(_ item: ClipboardHistoryItem) -> Bool {
         switch (self, item) {
-        case (.all, _), (.text, .text), (.images, .screenshot):
+        case (.all, _), (.images, .screenshot):
             true
+        case let (.text, .text(clip)):
+            clip.linkURL == nil
+        case let (.links, .text(clip)):
+            clip.linkURL != nil
         default:
             false
         }

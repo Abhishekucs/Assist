@@ -31,6 +31,14 @@ enum RevenueProvider: String, CaseIterable, Identifiable, Codable, Sendable {
         case .dodo: "Dodo API key"
         }
     }
+
+    var rejectedKeyMessage: String {
+        switch self {
+        case .stripe: "Stripe rejected this key. Check its Charges read access."
+        case .polar: "Polar rejected this token. Check its orders:read scope."
+        case .dodo: "Dodo's live API rejected this key. Use a valid live-mode key."
+        }
+    }
 }
 
 /// One successful sale, in the currency's smallest unit (cents for USD, yen for JPY).

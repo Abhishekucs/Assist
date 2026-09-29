@@ -12,6 +12,7 @@ extension ClipboardHistoryFilter {
         case .all: .grid
         case .text: .document
         case .images: .image
+        case .links: .file
         }
     }
 
@@ -27,6 +28,7 @@ extension ClipboardHistoryFilter {
         case .all: "No captures yet"
         case .text: "No text yet"
         case .images: "No images yet"
+        case .links: "No links yet"
         }
     }
 }

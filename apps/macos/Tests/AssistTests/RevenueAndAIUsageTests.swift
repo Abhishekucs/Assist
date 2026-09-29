@@ -3,6 +3,21 @@ import XCTest
 @testable import Assist
 
 final class RevenueParsingTests: XCTestCase {
+    @MainActor
+    func testCurrencyDefaultsToUSDAndPersistsAcrossRevenueViews() throws {
+        let suite = "Assist.RevenueCurrencyTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let keys = KeychainSecretStore(service: suite)
+
+        let service = RevenueService(keys: keys, defaults: defaults)
+        XCTAssertEqual(service.selectedCurrency, "USD")
+        service.selectCurrency("CAD")
+
+        let reopenedService = RevenueService(keys: keys, defaults: defaults)
+        XCTAssertEqual(reopenedService.selectedCurrency, "CAD")
+    }
+
     func testStripeKeepsSucceededChargesLessRefunds() throws {
         let json = """
         {"object":"list","url":"/v1/charges","has_more":false,"data":[
@@ -167,6 +182,33 @@ final class RevenueParsingTests: XCTestCase {
         XCTAssertEqual(MoneyFormatting.minorUnitDigits(for: "JPY"), 0)
         XCTAssertEqual(MoneyFormatting.format(minor: 123_456, currency: "USD", locale: locale), "$1,234.56")
         XCTAssertEqual(MoneyFormatting.format(minor: 500, currency: "JPY", locale: locale), "¥500")
+    }
+
+    func testHistoricalRatesConvertEverySaleIntoSelectedCurrency() throws {
+        let rates = try RevenueExchangeRates(quotes: [
+            .init(date: "2026-09-25", base: "USD", quote: "EUR", rate: 0.8),
+            .init(date: "2026-09-28", base: "USD", quote: "EUR", rate: 0.9),
+            .init(date: "2026-09-28", base: "USD", quote: "CAD", rate: 1.2)
+        ])
+        let saleDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-28T10:00:00Z"))
+        let eurSale = RevenueTransaction(provider: .dodo, id: "recent", amountMinor: 500, currency: "EUR", createdAt: saleDate)
+        let usdSale = RevenueTransaction(provider: .stripe, id: "existing", amountMinor: 6000, currency: "USD", createdAt: saleDate)
+
+        let usdTransactions = try [eurSale, usdSale].map { try rates.convert($0, to: "USD") }
+        let usdSummary = RevenueSummary.make(from: usdTransactions, now: saleDate.addingTimeInterval(60), calendar: .current)
+        XCTAssertEqual(usdSummary.totals[.today]?.amounts, ["USD": 6556])
+        XCTAssertEqual(usdSummary.totals[.week]?.amounts, ["USD": 6556])
+        XCTAssertEqual(usdSummary.totals[.month]?.amounts, ["USD": 6556])
+        XCTAssertEqual(usdSummary.providerTotals[.dodo]?.amounts, ["USD": 556])
+
+        let cadTransactions = try [eurSale, usdSale].map { try rates.convert($0, to: "CAD") }
+        let cadSummary = RevenueSummary.make(from: cadTransactions, now: saleDate.addingTimeInterval(60), calendar: .current)
+        XCTAssertEqual(cadSummary.totals[.week]?.amounts, ["CAD": 7867])
+        XCTAssertThrowsError(try rates.convert(
+            RevenueTransaction(provider: .dodo, id: "older", amountMinor: 500, currency: "EUR",
+                               createdAt: saleDate.addingTimeInterval(-5 * 86_400)),
+            to: "USD"
+        ))
     }
 
     func testTimestampsWithAndWithoutFractions() throws {
