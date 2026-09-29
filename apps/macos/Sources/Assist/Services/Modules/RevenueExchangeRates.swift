@@ -50,7 +50,8 @@ struct RevenueExchangeRates: Sendable {
             id: transaction.id,
             amountMinor: number.int64Value,
             currency: currency,
-            createdAt: transaction.createdAt
+            createdAt: transaction.createdAt,
+            wasConverted: true
         )
     }
 
@@ -67,21 +68,86 @@ struct RevenueExchangeRates: Sendable {
     }
 }
 
-struct RevenueExchangeRateClient: Sendable {
-    var session: URLSession = .shared
+actor RevenueExchangeRateClient {
+    private static let recentRefreshInterval: TimeInterval = 15 * 60
+    private let session: URLSession
+    private var cachedQuotes: [String: [String: RevenueExchangeRates.Quote]] = [:]
+    private var fetchedFrom: [String: String] = [:]
+    private var fetchedThrough: [String: Date] = [:]
+    private var lastCheckedAt: [String: Date] = [:]
+
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
 
     func rates(for currencies: Set<String>, since: Date, through: Date) async throws -> RevenueExchangeRates {
         let quotes = currencies.subtracting(["USD"])
         guard !quotes.isEmpty else { return try RevenueExchangeRates(quotes: []) }
 
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         // Include the prior published rate for weekends and market holidays.
-        let start = Calendar(identifier: .gregorian).date(byAdding: .day, value: -10, to: since) ?? since
+        let start = calendar.date(byAdding: .day, value: -10, to: since) ?? since
+        let firstDay = RevenueExchangeRates.utcDay(start)
+        let lastDay = RevenueExchangeRates.utcDay(through)
+        let recentDay = RevenueExchangeRates.utcDay(
+            calendar.date(byAdding: .day, value: -1, to: through) ?? through
+        )
+
+        var currenciesByStart: [String: [String]] = [:]
+        for quote in quotes.sorted() {
+            let requestStart: String
+            if let cachedStart = fetchedFrom[quote], cachedStart <= firstDay,
+               let previousThrough = fetchedThrough[quote] {
+                if RevenueExchangeRates.utcDay(previousThrough) == lastDay,
+                   let checkedAt = lastCheckedAt[quote],
+                   (0..<Self.recentRefreshInterval).contains(through.timeIntervalSince(checkedAt)) {
+                    continue
+                }
+                let nextUnfetched = RevenueExchangeRates.utcDay(
+                    calendar.date(byAdding: .day, value: 1, to: previousThrough) ?? previousThrough
+                )
+                // Recheck only the latest two UTC days for late publications
+                // or revisions; older published quotes stay in memory.
+                requestStart = max(firstDay, min(nextUnfetched, recentDay))
+            } else {
+                requestStart = firstDay
+            }
+            currenciesByStart[requestStart, default: []].append(quote)
+        }
+
+        for requestStart in currenciesByStart.keys.sorted() {
+            guard let requestQuotes = currenciesByStart[requestStart] else { continue }
+            let items = try await fetchQuotes(requestQuotes, from: requestStart, through: lastDay)
+            guard items.allSatisfy({ $0.base == "USD" && $0.rate > 0 && requestQuotes.contains($0.quote) }) else {
+                throw RevenueExchangeError.unavailable
+            }
+            for item in items {
+                cachedQuotes[item.quote, default: [:]][item.date] = item
+            }
+            for quote in requestQuotes {
+                // An empty first response does not establish historical
+                // coverage; retry the full window when rates return.
+                guard cachedQuotes[quote]?.isEmpty == false else { continue }
+                fetchedFrom[quote] = min(fetchedFrom[quote] ?? requestStart, requestStart)
+                fetchedThrough[quote] = max(fetchedThrough[quote] ?? through, through)
+                lastCheckedAt[quote] = through
+            }
+        }
+
+        let available = quotes.sorted().flatMap { quote in
+            Array(cachedQuotes[quote, default: [:]].values)
+        }
+        return try RevenueExchangeRates(quotes: available)
+    }
+
+    private func fetchQuotes(_ quotes: [String], from firstDay: String, through lastDay: String) async throws -> [RevenueExchangeRates.Quote] {
         var components = URLComponents(string: "https://api.frankfurter.dev/v2/rates")!
         components.queryItems = [
-            URLQueryItem(name: "from", value: RevenueExchangeRates.utcDay(start)),
-            URLQueryItem(name: "to", value: RevenueExchangeRates.utcDay(through)),
+            URLQueryItem(name: "from", value: firstDay),
+            URLQueryItem(name: "to", value: lastDay),
             URLQueryItem(name: "base", value: "USD"),
-            URLQueryItem(name: "quotes", value: quotes.sorted().joined(separator: ","))
+            URLQueryItem(name: "quotes", value: quotes.joined(separator: ","))
         ]
         guard let url = components.url else { throw RevenueExchangeError.unavailable }
         var request = URLRequest(url: url)
@@ -91,7 +157,6 @@ struct RevenueExchangeRateClient: Sendable {
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
             throw RevenueExchangeError.unavailable
         }
-        let items = try JSONDecoder().decode([RevenueExchangeRates.Quote].self, from: data)
-        return try RevenueExchangeRates(quotes: items)
+        return try JSONDecoder().decode([RevenueExchangeRates.Quote].self, from: data)
     }
 }

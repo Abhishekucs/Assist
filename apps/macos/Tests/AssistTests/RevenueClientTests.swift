@@ -19,6 +19,77 @@ final class RevenueClientTests: XCTestCase {
     }
 }
 
+final class RevenueExchangeRateClientTests: XCTestCase {
+    func testRefreshFetchesOnlyRecentDaysAndRetainsHistoricalQuotes() async throws {
+        HistoricalRatesProtocol.recorder.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HistoricalRatesProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+
+        let client = RevenueExchangeRateClient(session: session)
+        let formatter = ISO8601DateFormatter()
+        let since = try XCTUnwrap(formatter.date(from: "2026-09-01T12:00:00Z"))
+        let through = try XCTUnwrap(formatter.date(from: "2026-09-29T12:00:00Z"))
+        let earlierSale = RevenueTransaction(provider: .stripe, id: "earlier", amountMinor: 100,
+                                             currency: "EUR", createdAt: try XCTUnwrap(formatter.date(from: "2026-09-05T12:00:00Z")))
+        let recentSale = RevenueTransaction(provider: .dodo, id: "recent", amountMinor: 100,
+                                            currency: "EUR", createdAt: try XCTUnwrap(formatter.date(from: "2026-09-28T12:00:00Z")))
+
+        let initial = try await client.rates(for: ["EUR"], since: since, through: through)
+        XCTAssertEqual(try initial.convert(recentSale, to: "USD").amountMinor, 125)
+
+        let cached = try await client.rates(for: ["EUR"], since: since, through: through.addingTimeInterval(60))
+        XCTAssertEqual(try cached.convert(recentSale, to: "USD").amountMinor, 125)
+
+        let afterRateRefresh = through.addingTimeInterval(20 * 60)
+        let refreshed = try await client.rates(for: ["EUR"], since: since, through: afterRateRefresh)
+        XCTAssertEqual(try refreshed.convert(recentSale, to: "USD").amountMinor, 111)
+        XCTAssertEqual(try refreshed.convert(earlierSale, to: "USD").amountMinor, 133)
+
+        let withNewCurrency = try await client.rates(for: ["EUR", "UGX"], since: since, through: afterRateRefresh)
+        let ugxSale = RevenueTransaction(provider: .stripe, id: "ugx", amountMinor: 400,
+                                         currency: "UGX", createdAt: recentSale.createdAt)
+        XCTAssertEqual(try withNewCurrency.convert(ugxSale, to: "USD").amountMinor, 10)
+        XCTAssertEqual(try withNewCurrency.convert(earlierSale, to: "USD").amountMinor, 133)
+
+        let requests = HistoricalRatesProtocol.recorder.urls
+        XCTAssertEqual(requests.count, 3)
+        let starts = requests.compactMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "from" })?.value }
+        XCTAssertEqual(starts, ["2026-08-22", "2026-09-28", "2026-08-22"])
+        let requestedCurrencies = requests.compactMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "quotes" })?.value }
+        XCTAssertEqual(requestedCurrencies, ["EUR", "EUR", "UGX"])
+    }
+
+    func testEmptyFirstResponseDoesNotHideHistoricalRatesAfterRecovery() async throws {
+        HistoricalRatesProtocol.recorder.reset(emptyFirst: true)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HistoricalRatesProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+
+        let client = RevenueExchangeRateClient(session: session)
+        let formatter = ISO8601DateFormatter()
+        let since = try XCTUnwrap(formatter.date(from: "2026-09-01T12:00:00Z"))
+        let through = try XCTUnwrap(formatter.date(from: "2026-09-29T12:00:00Z"))
+        let sale = RevenueTransaction(provider: .stripe, id: "eur", amountMinor: 100,
+                                      currency: "EUR", createdAt: try XCTUnwrap(formatter.date(from: "2026-09-28T12:00:00Z")))
+
+        let unavailable = try await client.rates(for: ["EUR"], since: since, through: through)
+        XCTAssertThrowsError(try unavailable.convert(sale, to: "USD"))
+        let recovered = try await client.rates(for: ["EUR"], since: since, through: through)
+        XCTAssertEqual(try recovered.convert(sale, to: "USD").amountMinor, 111)
+
+        let starts = HistoricalRatesProtocol.recorder.urls.compactMap {
+            URLComponents(url: $0, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "from" })?.value
+        }
+        XCTAssertEqual(starts, ["2026-08-22", "2026-08-22"])
+    }
+}
+
 final class RevenueServiceRefreshTests: XCTestCase {
     func testUGXUsesFrankfurterRateOutsideTheECBFeed() async throws {
         let configuration = URLSessionConfiguration.ephemeral
@@ -155,6 +226,49 @@ private final class RequestCounter: @unchecked Sendable {
     var value: Int { lock.withLock { count } }
     func reset() { lock.withLock { count = 0 } }
     func next() -> Int { lock.withLock { count += 1; return count } }
+}
+
+private final class RateRequestRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedURLs: [URL] = []
+    private var emptyFirst = false
+
+    var urls: [URL] { lock.withLock { recordedURLs } }
+    var shouldReturnEmptyFirst: Bool { lock.withLock { emptyFirst } }
+    func reset(emptyFirst: Bool = false) { lock.withLock { recordedURLs = []; self.emptyFirst = emptyFirst } }
+    func record(_ url: URL) -> Int { lock.withLock { recordedURLs.append(url); return recordedURLs.count } }
+}
+
+private final class HistoricalRatesProtocol: URLProtocol, @unchecked Sendable {
+    static let recorder = RateRequestRecorder()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let requestNumber = Self.recorder.record(request.url!)
+        let quote = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "quotes" })?.value
+        let json: String
+        if requestNumber == 1 && Self.recorder.shouldReturnEmptyFirst {
+            json = "[]"
+        } else if quote == "UGX" {
+            json = "[{\"date\":\"2026-09-28\",\"base\":\"USD\",\"quote\":\"UGX\",\"rate\":4000}]"
+        } else if requestNumber == 1 {
+            json = """
+            [{"date":"2026-09-05","base":"USD","quote":"EUR","rate":0.75},
+             {"date":"2026-09-28","base":"USD","quote":"EUR","rate":0.8}]
+            """
+        } else {
+            json = "[{\"date\":\"2026-09-28\",\"base\":\"USD\",\"quote\":\"EUR\",\"rate\":0.9}]"
+        }
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(json.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 
 private final class UpdatingStripeRevenueProtocol: URLProtocol, @unchecked Sendable {

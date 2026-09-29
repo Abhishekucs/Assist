@@ -234,6 +234,28 @@ final class RevenueParsingTests: XCTestCase {
         ))
     }
 
+    func testEstimateMarkersFollowTheSalesInEachTotal() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let today = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-29T12:00:00Z"))
+        let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
+        let rates = try RevenueExchangeRates(quotes: [
+            .init(date: "2026-09-28", base: "USD", quote: "EUR", rate: 0.9)
+        ])
+        let usdSale = RevenueTransaction(provider: .stripe, id: "usd", amountMinor: 6000, currency: "USD", createdAt: today)
+        let eurSale = RevenueTransaction(provider: .dodo, id: "eur", amountMinor: 500, currency: "EUR", createdAt: yesterday)
+        let converted = try [usdSale, eurSale].map { try rates.convert($0, to: "USD") }
+        let summary = RevenueSummary.make(from: converted, now: today, calendar: calendar)
+
+        XCTAssertFalse(summary.totals[.today]?.containsConvertedSale == true)
+        XCTAssertTrue(summary.totals[.week]?.containsConvertedSale == true)
+        XCTAssertTrue(summary.totals[.month]?.containsConvertedSale == true)
+        XCTAssertFalse(summary.providerTotals[.stripe]?.containsConvertedSale == true)
+        XCTAssertTrue(summary.providerTotals[.dodo]?.containsConvertedSale == true)
+        XCTAssertFalse(summary.dailyTotals[calendar.startOfDay(for: today)]?.containsConvertedSale == true)
+        XCTAssertTrue(summary.dailyTotals[calendar.startOfDay(for: yesterday)]?.containsConvertedSale == true)
+    }
+
     func testTimestampsWithAndWithoutFractions() throws {
         let parser = TimestampParser()
         let whole = try XCTUnwrap(parser.date(from: "2026-09-22T10:00:00Z"))

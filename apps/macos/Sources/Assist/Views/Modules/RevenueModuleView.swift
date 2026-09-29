@@ -82,7 +82,7 @@ struct RevenueModuleView: View {
     private var trendColumn: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.xxSmall) {
             HStack(spacing: Tokens.Spacing.xxSmall) {
-                Text("Daily revenue\(isEstimated ? " · est. FX" : "")")
+                Text("Daily revenue\(service.summary?.totals[.month]?.containsConvertedSale == true ? " · est. FX" : "")")
                     .font(Tokens.Typography.caption(.semibold))
                     .foregroundStyle(Mono.ink.opacity(Tokens.Opacity.secondary))
                     .help("All connected providers and payment currencies are combined using daily exchange rates from Frankfurter.")
@@ -242,16 +242,12 @@ struct RevenueModuleView: View {
         return "Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))"
     }
 
-    private var isEstimated: Bool {
-        service.saleCurrencies.contains { $0 != selectedCurrency }
-    }
-
     private func amountText(_ totals: RevenueTotals?) -> String {
         if service.conversionError != nil { return "Unavailable" }
         if service.summary == nil { return "Loading…" }
         if service.errors.count == service.connectedProviders.count { return "Unavailable" }
         let amount = totals?.amounts[selectedCurrency] ?? 0
         let value = MoneyFormatting.format(minor: amount, currency: selectedCurrency)
-        return isEstimated && amount != 0 ? "≈\(value)" : value
+        return totals?.containsConvertedSale == true && amount != 0 ? "≈\(value)" : value
     }
 }

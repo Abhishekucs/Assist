@@ -49,16 +49,19 @@ struct RevenueTransaction: Equatable, Sendable {
     /// Upper-case ISO 4217 code.
     let currency: String
     let createdAt: Date
+    var wasConverted = false
 }
 
 /// Sales added up per currency, since providers never convert between them.
 struct RevenueTotals: Equatable, Sendable {
     private(set) var amounts: [String: Int64] = [:]
     private(set) var count = 0
+    private(set) var containsConvertedSale = false
 
     mutating func add(_ transaction: RevenueTransaction) {
         amounts[transaction.currency, default: 0] += transaction.amountMinor
         count += 1
+        containsConvertedSale = containsConvertedSale || transaction.wasConverted
     }
 
     /// Currencies with the largest total first.
