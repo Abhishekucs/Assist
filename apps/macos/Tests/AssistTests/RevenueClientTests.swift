@@ -88,6 +88,36 @@ final class RevenueExchangeRateClientTests: XCTestCase {
         }
         XCTAssertEqual(starts, ["2026-08-22", "2026-08-22"])
     }
+
+    func testPartialFirstResponseRechecksOlderDatesAfterHistoricalRefreshInterval() async throws {
+        HistoricalRatesProtocol.recorder.reset(partialFirst: true)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HistoricalRatesProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+
+        let client = RevenueExchangeRateClient(session: session)
+        let formatter = ISO8601DateFormatter()
+        let since = try XCTUnwrap(formatter.date(from: "2026-09-01T12:00:00Z"))
+        let through = try XCTUnwrap(formatter.date(from: "2026-09-29T12:00:00Z"))
+        let sale = RevenueTransaction(provider: .stripe, id: "earlier", amountMinor: 100,
+                                      currency: "EUR", createdAt: try XCTUnwrap(formatter.date(from: "2026-09-05T12:00:00Z")))
+
+        let partial = try await client.rates(for: ["EUR"], since: since, through: through)
+        XCTAssertThrowsError(try partial.convert(sale, to: "USD"))
+
+        let recentOnly = try await client.rates(for: ["EUR"], since: since, through: through.addingTimeInterval(20 * 60))
+        XCTAssertThrowsError(try recentOnly.convert(sale, to: "USD"))
+
+        let backfilled = try await client.rates(for: ["EUR"], since: since, through: through.addingTimeInterval(61 * 60))
+        XCTAssertEqual(try backfilled.convert(sale, to: "USD").amountMinor, 133)
+
+        let starts = HistoricalRatesProtocol.recorder.urls.compactMap {
+            URLComponents(url: $0, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "from" })?.value
+        }
+        XCTAssertEqual(starts, ["2026-08-22", "2026-09-28", "2026-08-22"])
+    }
 }
 
 final class RevenueServiceRefreshTests: XCTestCase {
@@ -232,10 +262,18 @@ private final class RateRequestRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var recordedURLs: [URL] = []
     private var emptyFirst = false
+    private var partialFirst = false
 
     var urls: [URL] { lock.withLock { recordedURLs } }
     var shouldReturnEmptyFirst: Bool { lock.withLock { emptyFirst } }
-    func reset(emptyFirst: Bool = false) { lock.withLock { recordedURLs = []; self.emptyFirst = emptyFirst } }
+    var shouldReturnPartialFirst: Bool { lock.withLock { partialFirst } }
+    func reset(emptyFirst: Bool = false, partialFirst: Bool = false) {
+        lock.withLock {
+            recordedURLs = []
+            self.emptyFirst = emptyFirst
+            self.partialFirst = partialFirst
+        }
+    }
     func record(_ url: URL) -> Int { lock.withLock { recordedURLs.append(url); return recordedURLs.count } }
 }
 
@@ -252,9 +290,11 @@ private final class HistoricalRatesProtocol: URLProtocol, @unchecked Sendable {
         let json: String
         if requestNumber == 1 && Self.recorder.shouldReturnEmptyFirst {
             json = "[]"
+        } else if requestNumber == 1 && Self.recorder.shouldReturnPartialFirst {
+            json = "[{\"date\":\"2026-09-28\",\"base\":\"USD\",\"quote\":\"EUR\",\"rate\":0.8}]"
         } else if quote == "UGX" {
             json = "[{\"date\":\"2026-09-28\",\"base\":\"USD\",\"quote\":\"UGX\",\"rate\":4000}]"
-        } else if requestNumber == 1 {
+        } else if requestNumber == 1 || Self.recorder.shouldReturnPartialFirst && requestNumber >= 3 {
             json = """
             [{"date":"2026-09-05","base":"USD","quote":"EUR","rate":0.75},
              {"date":"2026-09-28","base":"USD","quote":"EUR","rate":0.8}]

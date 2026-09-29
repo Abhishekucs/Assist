@@ -70,11 +70,13 @@ struct RevenueExchangeRates: Sendable {
 
 actor RevenueExchangeRateClient {
     private static let recentRefreshInterval: TimeInterval = 15 * 60
+    private static let historicalRefreshInterval: TimeInterval = 60 * 60
     private let session: URLSession
     private var cachedQuotes: [String: [String: RevenueExchangeRates.Quote]] = [:]
     private var fetchedFrom: [String: String] = [:]
     private var fetchedThrough: [String: Date] = [:]
     private var lastCheckedAt: [String: Date] = [:]
+    private var lastHistoricalCheckAt: [String: Date] = [:]
 
     init(session: URLSession = .shared) {
         self.session = session
@@ -99,17 +101,22 @@ actor RevenueExchangeRateClient {
             let requestStart: String
             if let cachedStart = fetchedFrom[quote], cachedStart <= firstDay,
                let previousThrough = fetchedThrough[quote] {
-                if RevenueExchangeRates.utcDay(previousThrough) == lastDay,
-                   let checkedAt = lastCheckedAt[quote],
-                   (0..<Self.recentRefreshInterval).contains(through.timeIntervalSince(checkedAt)) {
-                    continue
+                // Rates can arrive late or be revised for dates outside the
+                // recent window, so periodically revalidate the full range.
+                if let historicalCheck = lastHistoricalCheckAt[quote],
+                   (0..<Self.historicalRefreshInterval).contains(through.timeIntervalSince(historicalCheck)) {
+                    if RevenueExchangeRates.utcDay(previousThrough) == lastDay,
+                       let checkedAt = lastCheckedAt[quote],
+                       (0..<Self.recentRefreshInterval).contains(through.timeIntervalSince(checkedAt)) {
+                        continue
+                    }
+                    let nextUnfetched = RevenueExchangeRates.utcDay(
+                        calendar.date(byAdding: .day, value: 1, to: previousThrough) ?? previousThrough
+                    )
+                    requestStart = max(firstDay, min(nextUnfetched, recentDay))
+                } else {
+                    requestStart = firstDay
                 }
-                let nextUnfetched = RevenueExchangeRates.utcDay(
-                    calendar.date(byAdding: .day, value: 1, to: previousThrough) ?? previousThrough
-                )
-                // Recheck only the latest two UTC days for late publications
-                // or revisions; older published quotes stay in memory.
-                requestStart = max(firstDay, min(nextUnfetched, recentDay))
             } else {
                 requestStart = firstDay
             }
@@ -132,6 +139,9 @@ actor RevenueExchangeRateClient {
                 fetchedFrom[quote] = min(fetchedFrom[quote] ?? requestStart, requestStart)
                 fetchedThrough[quote] = max(fetchedThrough[quote] ?? through, through)
                 lastCheckedAt[quote] = through
+                if requestStart == firstDay {
+                    lastHistoricalCheckAt[quote] = through
+                }
             }
         }
 
