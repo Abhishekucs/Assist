@@ -1482,6 +1482,18 @@ p {
   font-weight: 500;
 }
 
+.footer-featured-badge {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 24px;
+}
+
+.footer-featured-badge img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
 .footer-link-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1539,6 +1551,7 @@ p {
 }
 
 .footer-brand:focus-visible,
+.footer-featured-badge:focus-visible,
 .footer-link-grid a:focus-visible,
 .footer-bottom a:focus-visible,
 .footer-cta-button:focus-visible {
