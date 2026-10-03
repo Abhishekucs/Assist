@@ -41,6 +41,19 @@ export default function SiteFooter({ showCallToAction = true }: SiteFooterProps)
           <p>
             Capture, clipboard history, and useful modules in your Mac notch.
           </p>
+          <a
+            className="footer-featured-badge"
+            href="https://www.trymacapps.com"
+            target="_blank"
+            rel="noopener"
+          >
+            <img
+              src="https://www.trymacapps.com/badge.png"
+              alt="Featured on TryMacApps"
+              width={200}
+              height={67}
+            />
+          </a>
         </div>
 
         <nav className="footer-link-grid" aria-label="Footer navigation">
